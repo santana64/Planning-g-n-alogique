@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Environment — never commit secrets
+.env
+.env.*
+!.env.example
+
+# Prisma generated client
+packages/db/generated/
+**/generated/prisma/
+
+# Test & coverage
+coverage/
+.vitest/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.shared.json
+.idea/
+
+# Local data volumes
+infra/docker/volumes/
+/tmp/
+.turbo/
+
+# Benchmarks output
+docs/benchmarks/*.json
+!docs/benchmarks/.gitkeep

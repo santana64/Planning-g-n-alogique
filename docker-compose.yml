@@ -1,0 +1,94 @@
+# Local development infrastructure for Chronolignee.
+# Application code runs on the host through pnpm for fast iteration;
+# only stateful services live in containers.
+#
+#   pnpm infra:up      start
+#   pnpm infra:down    stop (keeps data)
+#   pnpm infra:nuke    stop and DELETE all local data
+
+name: chronolignee
+
+services:
+  postgres:
+    # PostGIS image tracks the PostgreSQL major version. Geography is a
+    # first-class dimension of the product (principle 6), so PostGIS is part
+    # of the baseline rather than an optional add-on.
+    image: postgis/postgis:18-3.6
+    container_name: chronolignee-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: chronolignee
+      POSTGRES_PASSWORD: chronolignee_dev_only
+      POSTGRES_DB: chronolignee
+      # Deterministic collation so name normalisation behaves identically
+      # across developer machines and CI.
+      POSTGRES_INITDB_ARGS: '--locale-provider=icu --icu-locale=fr-FR --encoding=UTF8'
+    ports:
+      - '5434:5432'
+    volumes:
+      # PostgreSQL 18 images changed convention: the mount belongs at
+      # /var/lib/postgresql (data lands in a version subdirectory), which is
+      # what makes `pg_upgrade --link` possible later. Mounting /data directly
+      # makes an 18+ container refuse to start.
+      - postgres_data:/var/lib/postgresql
+      - ./infra/docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U chronolignee -d chronolignee']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  redis:
+    image: redis:8-alpine
+    container_name: chronolignee-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--save', '60', '1']
+    ports:
+      - '6380:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: chronolignee-minio
+    restart: unless-stopped
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: chronolignee
+      MINIO_ROOT_PASSWORD: chronolignee_dev_only
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-shot: creates the archive bucket and keeps it private.
+  minio-init:
+    image: quay.io/minio/mc:latest
+    container_name: chronolignee-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 chronolignee chronolignee_dev_only &&
+      mc mb --ignore-existing local/chronolignee-archives &&
+      mc anonymous set none local/chronolignee-archives &&
+      echo 'MinIO bucket chronolignee-archives ready (private)'
+      "
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
