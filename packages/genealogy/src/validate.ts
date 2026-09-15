@@ -247,7 +247,10 @@ export function checkParentChildPlausibility(
   // --- Parent too old -----------------------------------------------------
   // Only applied to biological parentage: an adoptive parent of 70 is normal.
   if (type === 'PARENT_BIOLOGICAL') {
-    const isMother = parent.id !== child.id && inferMotherhood(parent);
+    // Deliberately conservative: with no recorded sex we fall through to the
+    // wider paternal bound, which warns less. A false warning on every
+    // undocumented parent would train the researcher to ignore warnings.
+    const isMother = parent.recordedSex === 'FEMALE';
     const bound = isMother ? thresholds.maxMotherAgeYears : thresholds.maxFatherAgeYears;
     const code: FindingCode = isMother ? 'MOTHER_TOO_OLD' : 'FATHER_TOO_OLD';
 
@@ -304,18 +307,6 @@ export function checkParentChildPlausibility(
   }
 
   return findings;
-}
-
-/**
- * Whether a parent should be measured against the maternal age bound.
- *
- * Recorded sex is not on the graph projection, so this is deliberately
- * conservative: without the information we use the wider (paternal) bound,
- * which produces fewer false warnings. Callers that know the recorded sex
- * should pass a richer person record.
- */
-function inferMotherhood(parent: GraphPerson & { recordedSex?: string }): boolean {
-  return parent.recordedSex === 'FEMALE';
 }
 
 // --- Audit of existing data -------------------------------------------------

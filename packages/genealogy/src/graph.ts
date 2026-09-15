@@ -50,9 +50,18 @@ export function isBiologicalParentType(type: RelationshipType): boolean {
   return type === 'PARENT_BIOLOGICAL';
 }
 
+/** Recorded sex, as the register wrote it. See RecordedSex in the schema. */
+export type GraphRecordedSex = 'MALE' | 'FEMALE' | 'INTERSEX' | 'UNKNOWN';
+
 export interface GraphPerson {
   readonly id: PersonId;
   readonly displayName: string;
+  /**
+   * Needed by validation to choose between the maternal and paternal age
+   * bounds. Optional because a graph assembled for pure structural work does
+   * not need it, and absent means "use the bound that warns less".
+   */
+  readonly recordedSex?: GraphRecordedSex | undefined;
   readonly birth?: GenealogicalDate | null;
   readonly death?: GenealogicalDate | null;
   readonly lifespan?: JdnInterval | null;
@@ -83,11 +92,18 @@ export interface TraversalResult {
   /** Ids in breadth-first order, so callers can render generation by generation. */
   readonly order: readonly PersonId[];
   /**
-   * People reachable by more than one path — pedigree collapse. In real
-   * genealogies this is common (cousins marrying) and the count matters:
-   * without it, "number of ancestors" is double-counted.
+   * People reachable by more than one line — pedigree collapse. Common in real
+   * genealogies whenever cousins married, and it propagates: everyone above a
+   * doubled ancestor is doubled too.
    */
   readonly implexIds: ReadonlySet<PersonId>;
+  /**
+   * How many distinct lines connect the origin to each person: 1 normally, 2
+   * or more under pedigree collapse. This is what makes "how many ancestors at
+   * generation 10" answerable without double-counting — the distinct count is
+   * `depthById.size`, the slot count is the sum of these.
+   */
+  readonly multiplicity: ReadonlyMap<PersonId, number>;
   /** True when traversal stopped at maxDepth rather than running out of people. */
   readonly truncated: boolean;
 }
@@ -189,7 +205,7 @@ export class GenealogyGraph {
     let truncated = false;
 
     if (!this.people.has(origin)) {
-      return { depthById, order, implexIds, truncated };
+      return { depthById, order, implexIds, multiplicity: new Map(), truncated };
     }
 
     depthById.set(origin, 0);
@@ -209,11 +225,7 @@ export class GenealogyGraph {
       for (const current of frontier) {
         for (const neighbour of step(current, biologicalOnly)) {
           if (!this.people.has(neighbour)) continue;
-          if (depthById.has(neighbour)) {
-            // Reached again by a different path: pedigree collapse.
-            if (neighbour !== origin) implexIds.add(neighbour);
-            continue;
-          }
+          if (depthById.has(neighbour)) continue;
           depthById.set(neighbour, depth);
           order.push(neighbour);
           next.push(neighbour);
@@ -222,7 +234,87 @@ export class GenealogyGraph {
       frontier = next;
     }
 
-    return { depthById, order, implexIds, truncated };
+    const multiplicity = this.countPaths(origin, depthById, step, biologicalOnly);
+    for (const [id, count] of multiplicity) {
+      if (count > 1 && id !== origin) implexIds.add(id);
+    }
+
+    return { depthById, order, implexIds, multiplicity, truncated };
+  }
+
+  /**
+   * How many distinct lines connect the origin to each reachable person.
+   *
+   * Marking collapse at the first shared node is not enough, and getting this
+   * wrong is easy: when two cousins marry, their shared grandparents are
+   * reached twice — but so is every single ancestor above those grandparents,
+   * all the way back. A traversal that stops expanding a node once it has been
+   * visited sees the collapse at the grandparents and nowhere else, which
+   * under-reports the implex by most of the tree.
+   *
+   * So the count is accumulated over a topological order of the reachable
+   * subgraph: multiplicity(origin) = 1, and every person hands their count up
+   * to each of their parents. The result is the number of ancestral *slots*
+   * each person occupies, which is what makes "how many ancestors do I have at
+   * generation 10" answerable honestly.
+   */
+  private countPaths(
+    origin: PersonId,
+    reachable: ReadonlyMap<PersonId, number>,
+    step: (id: PersonId, biologicalOnly: boolean) => PersonId[],
+    biologicalOnly: boolean,
+  ): Map<PersonId, number> {
+    const multiplicity = new Map<PersonId, number>();
+    if (!reachable.has(origin)) return multiplicity;
+
+    // Induced edges and in-degrees, restricted to what the traversal reached
+    // (so a maxDepth cut does not pull in people beyond the horizon).
+    const outgoing = new Map<PersonId, PersonId[]>();
+    const inDegree = new Map<PersonId, number>();
+    for (const id of reachable.keys()) inDegree.set(id, 0);
+
+    for (const id of reachable.keys()) {
+      const neighbours = step(id, biologicalOnly).filter((n) => reachable.has(n));
+      // De-duplicate: two relationship rows between the same pair (biological
+      // and adoptive, say) are one line of descent, not two.
+      const unique = [...new Set(neighbours)];
+      outgoing.set(id, unique);
+      for (const neighbour of unique) {
+        inDegree.set(neighbour, (inDegree.get(neighbour) ?? 0) + 1);
+      }
+    }
+
+    const queue: PersonId[] = [];
+    for (const [id, degree] of inDegree) {
+      if (degree === 0) queue.push(id);
+      multiplicity.set(id, id === origin ? 1 : 0);
+    }
+
+    let processed = 0;
+    while (queue.length > 0) {
+      const current = queue.shift() as PersonId;
+      processed += 1;
+      const count = multiplicity.get(current) ?? 0;
+
+      for (const neighbour of outgoing.get(current) ?? []) {
+        multiplicity.set(neighbour, (multiplicity.get(neighbour) ?? 0) + count);
+        const remaining = (inDegree.get(neighbour) ?? 1) - 1;
+        inDegree.set(neighbour, remaining);
+        if (remaining === 0) queue.push(neighbour);
+      }
+    }
+
+    // A cycle would leave nodes unprocessed. The graph is supposed to be
+    // acyclic and findCycles() reports when it is not, but imported data can
+    // violate that, so fall back to "reached at least once" rather than
+    // returning a zero that would read as "not an ancestor".
+    if (processed < reachable.size) {
+      for (const id of reachable.keys()) {
+        if ((multiplicity.get(id) ?? 0) === 0) multiplicity.set(id, 1);
+      }
+    }
+
+    return multiplicity;
   }
 
   /**

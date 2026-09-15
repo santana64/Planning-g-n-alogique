@@ -465,6 +465,9 @@ importers:
       '@chronolignee/domain':
         specifier: workspace:*
         version: link:../domain
+      '@chronolignee/genealogy':
+        specifier: workspace:*
+        version: link:../genealogy
       '@prisma/adapter-pg':
         specifier: 'catalog:'
         version: 7.10.0

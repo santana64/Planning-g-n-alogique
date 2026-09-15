@@ -84,8 +84,49 @@ describe('pedigree collapse', () => {
     );
     const result = graph.ancestorsOf('child');
     expect(result.implexIds.has('ancestor')).toBe(true);
+    expect(result.multiplicity.get('ancestor')).toBe(2);
     // Counted once, not twice: this is what makes ancestor counts truthful.
     expect(result.order.filter((id) => id === 'ancestor')).toHaveLength(1);
+  });
+
+  it('propagates the doubling to every ancestor above the collapse', () => {
+    // Marking only the first shared node under-reports the implex by most of
+    // the tree: if a couple is doubled, so is everyone behind them.
+    const graph = new GenealogyGraph(
+      ['founder', 'ancestor', 'a', 'b', 'child'].map((id) => person(id)),
+      [
+        parentOf('founder', 'ancestor'),
+        parentOf('ancestor', 'a'),
+        parentOf('ancestor', 'b'),
+        parentOf('a', 'child'),
+        parentOf('b', 'child'),
+      ],
+    );
+    const result = graph.ancestorsOf('child');
+    expect(result.multiplicity.get('ancestor')).toBe(2);
+    expect(result.multiplicity.get('founder')).toBe(2);
+    expect(result.implexIds.has('founder')).toBe(true);
+  });
+
+  it('counts an ordinary ancestor exactly once', () => {
+    const result = chain(5).ancestorsOf('p4');
+    for (const [id, count] of result.multiplicity) {
+      expect(count, `${id} should sit in exactly one ancestral slot`).toBe(1);
+    }
+  });
+
+  it('does not double-count two relationship rows between the same pair', () => {
+    // A child recorded as both biological and adoptive child of the same
+    // person is one line of descent, not two.
+    const graph = new GenealogyGraph(
+      ['parent', 'child'].map((id) => person(id)),
+      [
+        parentOf('parent', 'child', 'PARENT_BIOLOGICAL'),
+        parentOf('parent', 'child', 'PARENT_ADOPTIVE'),
+      ],
+    );
+    expect(graph.ancestorsOf('child').multiplicity.get('parent')).toBe(1);
+    expect(graph.ancestorsOf('child').implexIds.size).toBe(0);
   });
 });
 
@@ -262,6 +303,20 @@ describe('graph invariants hold for arbitrary acyclic graphs', () => {
         }
       }),
       { numRuns: 200 },
+    );
+  });
+
+  it('never reports a multiplicity below one for a reachable person', () => {
+    fc.assert(
+      fc.property(arbitraryGraph, (graph) => {
+        for (const id of graph.people.keys()) {
+          const result = graph.ancestorsOf(id);
+          for (const reachable of result.depthById.keys()) {
+            expect(result.multiplicity.get(reachable) ?? 0).toBeGreaterThanOrEqual(1);
+          }
+        }
+      }),
+      { numRuns: 100 },
     );
   });
 

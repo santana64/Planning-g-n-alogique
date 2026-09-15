@@ -24,7 +24,8 @@
     "@prisma/client": "catalog:",
     "zod": "catalog:",
     "@prisma/adapter-pg": "catalog:",
-    "pg": "catalog:"
+    "pg": "catalog:",
+    "@chronolignee/genealogy": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
