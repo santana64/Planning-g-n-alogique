@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // No rootDir: the package legitimately spans src/ and the Prisma-generated
+    // client. Nothing is emitted (noEmit), so a root is not needed.
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "generated/**/*.ts", "prisma.config.ts"]
+}

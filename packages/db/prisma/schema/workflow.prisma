@@ -1,0 +1,183 @@
+// Research workflow, audit trail and long-running jobs.
+
+enum ResearchTaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  RESOLVED
+  ABANDONED
+}
+
+enum ResearchPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+/// An open question, tracked like work rather than buried in a note field.
+///
+/// Genealogy is a research discipline: the valuable artefact is often
+/// "I checked the 1872 census for Tours and he was not there", which is a
+/// negative result no fact table can hold.
+model ResearchTask {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId String @db.Uuid
+
+  title      String
+  /// The question being asked, stated as a question.
+  hypothesis String?
+
+  personId String? @db.Uuid
+
+  status   ResearchTaskStatus @default(TODO)
+  priority ResearchPriority   @default(NORMAL)
+
+  /// Where to look.
+  repository     String?
+  collection     String?
+  callNumber     String?
+  url            String?
+  searchFromJdn  Int?
+  searchToJdn    Int?
+  placeLabel     String?
+
+  notes String?
+  /// What was found, including "nothing" — which is itself a finding.
+  outcome String?
+
+  assignedToId String?   @db.Uuid
+  dueAt        DateTime?
+  resolvedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdById String? @db.Uuid
+
+  tree       Tree    @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  person     Person? @relation(fields: [personId], references: [id], onDelete: SetNull)
+  assignedTo User?   @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([treeId, status, priority])
+  @@index([personId])
+  @@index([assignedToId])
+  @@map("research_tasks")
+}
+
+// --- Audit ------------------------------------------------------------------
+
+enum RevisionAction {
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+  MERGE
+  IMPORT
+  ACCEPT_CLAIM
+  REJECT_CLAIM
+}
+
+/// Append-only history of meaningful mutations.
+///
+/// `updatedAt` answers "when", which is the least interesting question. This
+/// answers "who changed what, from what, to what, and why" — the questions a
+/// collaborator asks when a date they researched has silently changed.
+model Revision {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId String @db.Uuid
+
+  entityType String
+  entityId   String @db.Uuid
+  action     RevisionAction
+
+  /// Changed fields only, not whole snapshots: full copies of every row on
+  /// every edit would dwarf the data they describe.
+  before Json?
+  after  Json?
+
+  /// Human-readable summary, rendered at write time in the actor's locale.
+  summary String?
+
+  actorId String? @db.Uuid
+  /// Correlation id shared by every revision produced by one request or job,
+  /// so a GEDCOM import shows up as one action rather than 18 000.
+  batchId String? @db.Uuid
+
+  createdAt DateTime @default(now())
+
+  tree  Tree  @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([treeId, createdAt])
+  @@index([entityType, entityId])
+  @@index([batchId])
+  @@map("revisions")
+}
+
+// --- Jobs -------------------------------------------------------------------
+
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ImportKind {
+  GEDCOM
+}
+
+/// A GEDCOM import, from upload to commit.
+///
+/// Progress counters are written by the worker as real work completes. They
+/// are never interpolated toward 100% on a timer: a progress bar that lies is
+/// worse than no progress bar.
+model ImportJob {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId String @db.Uuid
+
+  kind   ImportKind @default(GEDCOM)
+  status JobStatus  @default(QUEUED)
+
+  originalFilename String
+  byteSize         Int
+  storageKey       String
+  /// Detected character encoding, which legacy GEDCOM files rarely declare
+  /// correctly.
+  detectedEncoding String?
+  detectedVersion  String?
+
+  /// Dry-run first: the user sees counts and warnings before anything is
+  /// written to their tree.
+  isDryRun Boolean @default(true)
+
+  peopleCount        Int @default(0)
+  familyCount        Int @default(0)
+  eventCount         Int @default(0)
+  sourceCount        Int @default(0)
+  mediaCount         Int @default(0)
+  warningCount       Int @default(0)
+  duplicateCandidateCount Int @default(0)
+
+  processedRecords Int @default(0)
+  totalRecords     Int @default(0)
+
+  /// Structured warnings, each pointing at a line in the source file.
+  warnings Json?
+  /// Tags the parser did not recognise, kept so export can round-trip them.
+  unknownTags Json?
+  error       String?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  createdById String? @db.Uuid
+
+  tree      Tree  @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([treeId, status])
+  @@map("import_jobs")
+}

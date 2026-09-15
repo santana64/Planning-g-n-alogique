@@ -1,0 +1,291 @@
+// Events and places.
+//
+// Events are first-class and multi-participant. A marriage is one Event with
+// two spouses and possibly witnesses, not two rows on two people. That is what
+// lets the Gantt draw a single line between two lifespans instead of guessing
+// that two "MARRIAGE" facts refer to the same ceremony.
+//
+// Dates are stored as the flattened GenealogicalDate: the structured parts,
+// the source wording, and the derived JDN window. The window is what every
+// temporal query reads; the parts and the wording are what the user sees. A
+// codec in @chronolignee/db keeps the two in step, and they are only ever
+// written together.
+
+enum EventType {
+  BIRTH
+  BAPTISM
+  DEATH
+  BURIAL
+  CREMATION
+  MARRIAGE
+  MARRIAGE_BANN
+  MARRIAGE_CONTRACT
+  CIVIL_UNION
+  DIVORCE
+  RESIDENCE
+  OCCUPATION
+  EDUCATION
+  MILITARY_SERVICE
+  MIGRATION
+  NATURALIZATION
+  CENSUS
+  PROBATE
+  WILL
+  RELIGIOUS_EVENT
+  CUSTOM
+}
+
+enum ParticipantRole {
+  PRINCIPAL
+  SPOUSE
+  PARENT
+  CHILD
+  WITNESS
+  GODPARENT
+  OFFICIANT
+  INFORMANT
+  OTHER
+}
+
+enum DateQualifier {
+  EXACT
+  ABOUT
+  CALCULATED
+  ESTIMATED
+  BEFORE
+  AFTER
+  BETWEEN
+  RANGE
+  UNKNOWN
+}
+
+enum DateCalendar {
+  GREGORIAN
+  JULIAN
+  FRENCH_R
+  HEBREW
+}
+
+enum DatePrecision {
+  DAY
+  MONTH
+  YEAR
+  DECADE
+  CENTURY
+  NONE
+}
+
+model Event {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId String @db.Uuid
+
+  type       EventType
+  /// Free label, required when type is CUSTOM.
+  customType String?
+
+  // --- Flattened GenealogicalDate -----------------------------------------
+  dateQualifier DateQualifier @default(UNKNOWN)
+  dateCalendar  DateCalendar  @default(GREGORIAN)
+  datePrecision DatePrecision @default(NONE)
+
+  dateStartYear  Int?
+  dateStartMonth Int?
+  dateStartDay   Int?
+  dateEndYear    Int?
+  dateEndMonth   Int?
+  dateEndDay     Int?
+
+  /// Exactly what the source said. Survives even when parsing failed.
+  dateOriginalText String  @default("")
+  dateUnparsed     Boolean @default(false)
+
+  /// Derived possible-window. Null means genuinely unbounded on that side.
+  dateEarliestJdn Int?
+  dateLatestJdn   Int?
+  /// Midpoint for ordering. Never rendered as if it were the date.
+  dateSortJdn     Int?
+
+  placeId String? @db.Uuid
+  /// Place exactly as written in the record, before any normalisation.
+  placeOriginalText String?
+
+  description String?
+  notes       String?
+  confidence  Confidence @default(MEDIUM)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdById String? @db.Uuid
+
+  tree  Tree   @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  place Place? @relation(fields: [placeId], references: [id], onDelete: SetNull)
+
+  participants EventParticipant[]
+  claims       Claim[]
+  citations    Citation[]
+  media        EventMedia[]
+
+  @@index([treeId, type])
+  @@index([treeId, dateSortJdn])
+  @@index([treeId, dateEarliestJdn, dateLatestJdn])
+  @@index([placeId])
+  @@map("events")
+}
+
+model EventParticipant {
+  id       String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  eventId  String @db.Uuid
+  personId String @db.Uuid
+  role     ParticipantRole @default(PRINCIPAL)
+  /// Free label for roles the enum does not cover, e.g. "sage-femme".
+  roleLabel String?
+
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, personId, role])
+  @@index([personId])
+  @@map("event_participants")
+}
+
+// --- Places -----------------------------------------------------------------
+
+enum PlaceType {
+  COUNTRY
+  REGION
+  DEPARTMENT
+  COUNTY
+  CITY
+  TOWN
+  VILLAGE
+  HAMLET
+  PARISH
+  CEMETERY
+  BUILDING
+  ADDRESS
+  OTHER
+}
+
+model Place {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId String @db.Uuid
+
+  name           String
+  /// Accent-folded lowercase, for trigram search.
+  normalisedName String @default("")
+  type           PlaceType @default(OTHER)
+
+  parentId String? @db.Uuid
+
+  latitude  Float?
+  longitude Float?
+
+  /// PostGIS geography, maintained alongside lat/lng by a trigger-free
+  /// application write. Prisma cannot select it; spatial queries use raw SQL.
+  /// Kept because "which branches passed through this region" is a spatial
+  /// question, not a bounding-box question.
+  geom Unsupported("geography(Point, 4326)")?
+
+  countryCode String? @db.Char(2)
+
+  /// What this place was called at the time of the record. A commune renamed
+  /// in 1965 must still display its 1830 name on an 1830 act: overwriting it
+  /// with a modern geocoder result would falsify the source.
+  historicalName String?
+  validFromJdn   Int?
+  validToJdn     Int?
+
+  /// Identifiers from outside authorities (GeoNames, INSEE, Wikidata).
+  externalIds Json?
+
+  confidence Confidence @default(MEDIUM)
+  notes      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tree     Tree    @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  parent   Place?  @relation("PlaceHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Place[] @relation("PlaceHierarchy")
+
+  events Event[]
+
+  @@index([treeId, normalisedName])
+  @@index([treeId, type])
+  @@index([parentId])
+  @@map("places")
+}
+
+// --- Historical context -----------------------------------------------------
+
+enum HistoricalEventCategory {
+  WAR
+  POLITICAL
+  EPIDEMIC
+  DISASTER
+  MIGRATION
+  ECONOMIC
+  CULTURAL
+  RELIGIOUS
+  LEGAL
+  OTHER
+}
+
+/// History, kept strictly apart from family facts.
+///
+/// Shared across trees rather than copied into each one: the Second World War
+/// is not a property of anyone's family. Relevance to a given family is
+/// computed from temporal and geographic overlap, never asserted.
+model HistoricalEvent {
+  id String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+
+  title       String
+  summary     String?
+  category    HistoricalEventCategory
+  /// 1-5. Drives whether the event surfaces at a given zoom level.
+  significance Int @default(3)
+
+  startJdn Int
+  endJdn   Int
+
+  /// ISO country codes this event touched. Empty means global.
+  countryCodes String[] @default([])
+  /// Free-text scope for sub-national events ("Touraine", "Bretagne").
+  regionLabels String[] @default([])
+
+  /// Bounding box for cheap spatial filtering, when the event is localised.
+  minLatitude  Float?
+  maxLatitude  Float?
+  minLongitude Float?
+  maxLongitude Float?
+
+  references Json?
+  locale     String @default("fr")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trees TreeHistoricalEvent[]
+
+  @@index([startJdn, endJdn])
+  @@index([category, significance])
+  @@map("historical_events")
+}
+
+/// Opt-in link between a tree and a historical event, plus any note the
+/// researcher attached. Absence of a row does not mean the event is
+/// irrelevant; relevance is computed.
+model TreeHistoricalEvent {
+  id                String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId            String @db.Uuid
+  historicalEventId String @db.Uuid
+  pinned            Boolean @default(false)
+  note              String?
+
+  tree            Tree            @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  historicalEvent HistoricalEvent @relation(fields: [historicalEventId], references: [id], onDelete: Cascade)
+
+  @@unique([treeId, historicalEventId])
+  @@map("tree_historical_events")
+}

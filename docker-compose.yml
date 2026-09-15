@@ -31,7 +31,6 @@ services:
       # what makes `pg_upgrade --link` possible later. Mounting /data directly
       # makes an 18+ container refuse to start.
       - postgres_data:/var/lib/postgresql
-      - ./infra/docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U chronolignee -d chronolignee']
       interval: 5s

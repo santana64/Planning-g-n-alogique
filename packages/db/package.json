@@ -1,0 +1,37 @@
+{
+  "name": "@chronolignee/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./generated/client/client.ts",
+    "./enums": "./generated/client/enums.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:status": "prisma migrate status",
+    "reset": "prisma migrate reset --force",
+    "studio": "prisma studio",
+    "seed": "tsx src/seed/index.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "prisma generate"
+  },
+  "dependencies": {
+    "@chronolignee/domain": "workspace:*",
+    "@prisma/client": "catalog:",
+    "zod": "catalog:",
+    "@prisma/adapter-pg": "catalog:",
+    "pg": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "prisma": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "@types/pg": "catalog:"
+  }
+}

@@ -1,0 +1,180 @@
+// Authentication and collaboration.
+//
+// The User/Session/Account/Verification quartet is the shape Better Auth
+// expects. It is kept deliberately thin: nothing genealogical lives here, so
+// deleting an account never has to cascade into a family's research.
+
+model User {
+  id            String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  email         String    @unique @db.Citext
+  emailVerified Boolean   @default(false)
+  name          String
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // Soft-delete marker. GDPR erasure runs as a job, and the row must survive
+  // long enough to detach authorship from every revision it signed.
+  deletedAt     DateTime?
+
+  displayLocale String @default("fr")
+
+  sessions           Session[]
+  accounts           Account[]
+  memberships        TreeMember[]
+  sentInvitations    TreeInvitation[] @relation("InvitationInviter")
+  revisions          Revision[]
+  createdClaims      Claim[]          @relation("ClaimCreator")
+  reviewedClaims     Claim[]          @relation("ClaimReviewer")
+  assignedTasks      ResearchTask[]   @relation("TaskAssignee")
+  reviewedProposals  AiProposal[]     @relation("ProposalReviewer")
+  importJobs         ImportJob[]
+
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  token     String   @unique
+  userId    String   @db.Uuid
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId                String    @db.Uuid
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  // Only ever a hash. Never a password.
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@index([expiresAt])
+  @@map("verifications")
+}
+
+// --- Collaboration ----------------------------------------------------------
+
+enum TreeRole {
+  OWNER
+  ADMIN
+  EDITOR
+  CONTRIBUTOR
+  VIEWER
+}
+
+enum TreeVisibility {
+  PRIVATE
+  LINK
+  PUBLIC
+}
+
+model Tree {
+  id          String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name        String
+  slug        String         @unique
+  description String?
+  visibility  TreeVisibility @default(PRIVATE)
+
+  // Default privacy posture for people with no explicit setting. Living
+  // people are redacted by default regardless; this governs the rest.
+  redactLivingPeople Boolean @default(true)
+
+  // Bumped on every mutation. The engine caches layouts keyed by this value,
+  // so a stale layout can never be served after an edit.
+  revision Int @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  members         TreeMember[]
+  invitations     TreeInvitation[]
+  people          Person[]
+  relationships   Relationship[]
+  events          Event[]
+  places          Place[]
+  sources         Source[]
+  citations       Citation[]
+  claims          Claim[]
+  media           Media[]
+  documents       Document[]
+  historicalLinks TreeHistoricalEvent[]
+  researchTasks   ResearchTask[]
+  revisions       Revision[]
+  aiProposals     AiProposal[]
+  importJobs      ImportJob[]
+  duplicateLeads  DuplicateCandidate[]
+
+  @@index([deletedAt])
+  @@map("trees")
+}
+
+model TreeMember {
+  id       String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId   String   @db.Uuid
+  userId   String   @db.Uuid
+  role     TreeRole @default(VIEWER)
+  joinedAt DateTime @default(now())
+
+  tree Tree @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([treeId, userId])
+  @@index([userId])
+  @@map("tree_members")
+}
+
+model TreeInvitation {
+  id         String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId     String    @db.Uuid
+  email      String    @db.Citext
+  role       TreeRole  @default(VIEWER)
+  // Stored as a hash: a leaked database must not yield usable invite links.
+  tokenHash  String    @unique
+  invitedById String   @db.Uuid
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  tree      Tree @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  invitedBy User @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([treeId, email])
+  @@index([expiresAt])
+  @@map("tree_invitations")
+}

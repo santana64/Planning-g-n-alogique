@@ -64,6 +64,11 @@ catalog:
   # 8.0.0-rc.x which is release-candidate software. See docs/adr/0002.
   prisma: 7.10.0
   '@prisma/client': 7.10.0
+  # Prisma 7 removed `url` from the datasource block: the client now talks
+  # to the database through a driver adapter. See docs/adr/0002.
+  '@prisma/adapter-pg': 7.10.0
+  pg: 8.23.0
+  '@types/pg': 8.23.1
 
   # --- Auth ---------------------------------------------------------------
   better-auth: 1.7.5

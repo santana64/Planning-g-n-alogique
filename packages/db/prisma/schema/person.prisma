@@ -1,0 +1,250 @@
+// People, their names, and how they are related.
+//
+// Note what is NOT here: there is no `birthDate`, no `fatherId`, no
+// `motherId`. Those shortcuts cannot express a disputed birth year, an
+// adoptive father alongside a biological one, or a source that contradicts
+// another. Birth and death are Events; parentage is a Relationship; the
+// preferred value of any of them is whichever Claim a human accepted.
+
+/// What the record says, not an identity statement. Genealogy transcribes
+/// registers; a parish clerk in 1780 wrote one of these letters and that is
+/// the fact we are preserving. Maps to the GEDCOM 7 SEX enumeration.
+enum RecordedSex {
+  MALE
+  FEMALE
+  INTERSEX
+  UNKNOWN
+}
+
+enum LivingStatus {
+  LIVING
+  DECEASED
+  UNKNOWN
+}
+
+enum PrivacyLevel {
+  /// Follow the tree default.
+  INHERIT
+  /// Visible to anyone who can see the tree.
+  VISIBLE
+  /// Redacted from public and link-shared views.
+  REDACTED
+  /// Visible only to ADMIN and OWNER.
+  RESTRICTED
+}
+
+enum Confidence {
+  VERY_LOW
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
+
+model Person {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId String @db.Uuid
+
+  recordedSex  RecordedSex  @default(UNKNOWN)
+  livingStatus LivingStatus @default(UNKNOWN)
+  privacy      PrivacyLevel @default(INHERIT)
+
+  /// Denormalised from the preferred PersonName. Kept so lists and search do
+  /// not need a join, rebuilt whenever names change. Never authoritative.
+  displayName String @default("")
+  /// Accent-folded, lowercased form of displayName, for trigram search.
+  searchName  String @default("")
+
+  // --- Derived temporal cache ---------------------------------------------
+  // Projected from accepted birth/death claims by the application, never
+  // edited directly. The Gantt needs a lifespan for thousands of people in
+  // one query; resolving that through events and claims per person would
+  // make the signature view unusable. Rebuilt on write, and rebuildable
+  // wholesale from claims at any time.
+  lifespanEarliestJdn Int?
+  lifespanLatestJdn   Int?
+  /// True when lifespanLatestJdn came from the maximum-lifespan rule rather
+  /// than a recorded death. The renderer must fade this end, not draw it.
+  lifespanLatestInferred Boolean @default(false)
+  birthSortJdn           Int?
+  /// Generation depth relative to the tree's reference person, when computed.
+  generationDepth        Int?
+
+  notes String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdById String? @db.Uuid
+  updatedById String? @db.Uuid
+
+  tree Tree @relation(fields: [treeId], references: [id], onDelete: Cascade)
+
+  names             PersonName[]
+  outgoingRelations Relationship[]       @relation("RelationSource")
+  incomingRelations Relationship[]       @relation("RelationTarget")
+  eventRoles        EventParticipant[]
+  claims            Claim[]
+  mediaTags         PersonMediaTag[]
+  researchTasks     ResearchTask[]
+  duplicatesAsLeft  DuplicateCandidate[] @relation("DuplicateLeft")
+  duplicatesAsRight DuplicateCandidate[] @relation("DuplicateRight")
+  aiProposals       AiProposal[]
+
+  @@index([treeId, deletedAt])
+  @@index([treeId, searchName])
+  @@index([treeId, birthSortJdn])
+  // Serves the Gantt and "who was alive on D": both scan a tree by lifespan.
+  @@index([treeId, lifespanEarliestJdn, lifespanLatestJdn])
+  @@index([treeId, livingStatus])
+  @@map("people")
+}
+
+enum NameType {
+  BIRTH
+  MARRIED
+  RELIGIOUS
+  IMMIGRANT
+  AKA
+  NICKNAME
+  PROFESSIONAL
+  OTHER
+}
+
+model PersonName {
+  id       String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId   String @db.Uuid
+  personId String @db.Uuid
+
+  type NameType @default(BIRTH)
+
+  prefix     String?
+  given      String?
+  /// Particles kept separate from the surname so "de La Tour" sorts under T
+  /// or L according to the user's convention, without mangling the name.
+  nickname   String?
+  surname    String?
+  surnamePrefix String?
+  suffix     String?
+
+  /// Maiden or pre-marriage surname, when distinct.
+  birthSurname String?
+
+  /// Rendered form. Computed when absent, but a source may have written the
+  /// name in an order our rules would not reproduce, so it can be overridden.
+  displayForm String?
+
+  /// Accent-folded lowercase surname, for trigram and duplicate matching.
+  normalisedSurname String @default("")
+  normalisedGiven   String @default("")
+
+  /// When this name applied. A married surname is not retroactive.
+  validFromJdn Int?
+  validToJdn   Int?
+
+  isPreferred Boolean    @default(false)
+  confidence  Confidence @default(MEDIUM)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([treeId, normalisedSurname])
+  @@index([treeId, normalisedGiven])
+  @@map("person_names")
+}
+
+/// Relationship vocabulary.
+///
+/// PARENT_BIOLOGICAL and PARENT_ADOPTIVE are separate values rather than one
+/// PARENT with a flag, because a child can have both simultaneously and the
+/// pair must be independently citable and independently disputable.
+enum RelationshipType {
+  PARENT_BIOLOGICAL
+  PARENT_ADOPTIVE
+  PARENT_FOSTER
+  PARENT_STEP
+  PARENT_GUARDIAN
+  PARENT_UNKNOWN
+  SPOUSE
+  PARTNER
+  DIVORCED_PARTNER
+  SIBLING
+  OTHER
+}
+
+model Relationship {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId String @db.Uuid
+
+  /// For parent types, source is the PARENT and target is the CHILD.
+  /// The direction is fixed so ancestor traversal never has to branch.
+  sourceId String @db.Uuid
+  targetId String @db.Uuid
+
+  type RelationshipType
+
+  /// Validity window, for relationships that begin and end (marriage,
+  /// guardianship). Parentage has none.
+  startJdn Int?
+  endJdn   Int?
+
+  confidence Confidence @default(MEDIUM)
+  notes      String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdById String? @db.Uuid
+
+  tree   Tree   @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  source Person @relation("RelationSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  target Person @relation("RelationTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  claims Claim[]
+
+  // One relationship of a given type per ordered pair. Re-asserting the same
+  // link belongs in a second Claim, not a duplicate row.
+  @@unique([sourceId, targetId, type])
+  @@index([treeId, sourceId])
+  @@index([treeId, targetId])
+  @@index([treeId, type])
+  @@map("relationships")
+}
+
+/// Pairs of people that look like the same person. Produced by the
+/// deterministic scorer; never acted on automatically.
+model DuplicateCandidate {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId String @db.Uuid
+
+  leftId  String @db.Uuid
+  rightId String @db.Uuid
+
+  /// 0-1. Comparable only within one scorer version.
+  score         Float
+  scorerVersion String
+  /// Per-signal breakdown, so the UI can explain the score instead of
+  /// presenting a number the user has to trust blindly.
+  explanation   Json
+
+  status     DuplicateStatus @default(OPEN)
+  reviewedAt DateTime?
+  createdAt  DateTime        @default(now())
+
+  tree  Tree   @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  left  Person @relation("DuplicateLeft", fields: [leftId], references: [id], onDelete: Cascade)
+  right Person @relation("DuplicateRight", fields: [rightId], references: [id], onDelete: Cascade)
+
+  @@unique([leftId, rightId])
+  @@index([treeId, status, score])
+  @@map("duplicate_candidates")
+}
+
+enum DuplicateStatus {
+  OPEN
+  MERGED
+  DISMISSED
+}

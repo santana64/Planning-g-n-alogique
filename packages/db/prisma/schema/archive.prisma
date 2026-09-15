@@ -1,0 +1,248 @@
+// Archives: media, documents, and the AI pipeline that reads them.
+//
+// Original uploads are immutable. Every derived artefact (thumbnail, page
+// render, normalised preview) is a separate object, so a bad transform can
+// always be re-run from the original. A scan of an 1877 birth act may be the
+// only copy anyone in the family has.
+
+enum MediaKind {
+  IMAGE
+  AUDIO
+  VIDEO
+}
+
+model Media {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId String @db.Uuid
+
+  kind MediaKind
+
+  /// Name as uploaded, for display only. Never used to address storage.
+  originalFilename String
+  mimeType         String
+  byteSize         Int
+  /// SHA-256 of the original bytes. Detects re-uploads of the same scan and
+  /// proves the stored object was not altered.
+  checksum         String
+
+  /// Random storage key. User filenames are not a security boundary.
+  storageKey          String  @unique
+  thumbnailStorageKey String?
+  previewStorageKey   String?
+
+  width          Int?
+  height         Int?
+  durationSeconds Float?
+
+  title       String?
+  description String?
+
+  /// When the photograph was taken, if known. Stored as a JDN window like
+  /// every other date in the product.
+  capturedEarliestJdn Int?
+  capturedLatestJdn   Int?
+  capturedOriginalText String?
+
+  copyright String?
+  privacy   PrivacyLevel @default(INHERIT)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdById String? @db.Uuid
+
+  tree Tree @relation(fields: [treeId], references: [id], onDelete: Cascade)
+
+  personTags PersonMediaTag[]
+  events     EventMedia[]
+
+  @@index([treeId, kind])
+  @@index([treeId, checksum])
+  @@map("media")
+}
+
+model EventMedia {
+  eventId String @db.Uuid
+  mediaId String @db.Uuid
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, mediaId])
+  @@index([mediaId])
+  @@map("event_media")
+}
+
+/// A person identified inside a photograph.
+///
+/// Regions are normalised 0-1 fractions of the image, so they survive the
+/// image being re-rendered at another size. Tagging is manual by design: no
+/// face recognition runs by default (see docs/PRIVACY.md).
+model PersonMediaTag {
+  id       String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  mediaId  String @db.Uuid
+  personId String @db.Uuid
+
+  x      Float?
+  y      Float?
+  width  Float?
+  height Float?
+
+  confidence Confidence @default(MEDIUM)
+  note       String?
+
+  createdAt DateTime @default(now())
+  createdById String? @db.Uuid
+
+  media  Media  @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([mediaId, personId])
+  @@index([personId])
+  @@map("person_media_tags")
+}
+
+enum DocumentKind {
+  BIRTH_ACT
+  MARRIAGE_ACT
+  DEATH_ACT
+  BAPTISM_ACT
+  BURIAL_ACT
+  CENSUS_PAGE
+  MILITARY_RECORD
+  NOTARIAL_ACT
+  LETTER
+  CERTIFICATE
+  NEWSPAPER_CLIPPING
+  OTHER
+}
+
+model Document {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId String @db.Uuid
+
+  kind  DocumentKind @default(OTHER)
+  title String
+
+  originalFilename String
+  mimeType         String
+  byteSize         Int
+  checksum         String
+  storageKey       String @unique
+
+  pageCount Int @default(1)
+
+  sourceId String? @db.Uuid
+
+  /// Transcription of the whole document, when one exists. May come from a
+  /// human or from an accepted AI extraction; provenance lives on the claims
+  /// that cite it, not here.
+  transcription String?
+
+  privacy PrivacyLevel @default(INHERIT)
+  notes   String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdById String? @db.Uuid
+
+  tree   Tree    @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  source Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  pages       DocumentPage[]
+  citations   Citation[]
+  aiProposals AiProposal[]
+
+  @@index([treeId, kind])
+  @@index([sourceId])
+  @@map("documents")
+}
+
+model DocumentPage {
+  id         String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  documentId String @db.Uuid
+
+  pageNumber Int
+  /// Rendered raster of this page, for the viewer. Derived, re-creatable.
+  imageStorageKey     String?
+  thumbnailStorageKey String?
+  width      Int?
+  height     Int?
+
+  transcription String?
+
+  document  Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  citations Citation[]
+  aiProposals AiProposal[]
+
+  @@unique([documentId, pageNumber])
+  @@map("document_pages")
+}
+
+// --- AI ---------------------------------------------------------------------
+
+enum AiProposalStatus {
+  PENDING
+  ACCEPTED
+  EDITED_AND_ACCEPTED
+  REJECTED
+}
+
+/// Output of an AI extraction, awaiting human judgement.
+///
+/// Nothing here is genealogical truth. A proposal becomes a Claim only when a
+/// person accepts it, and the accepted Claim keeps a pointer back to this row
+/// so machine provenance is auditable for the life of the tree. This model is
+/// the enforcement mechanism for principle 3: AI proposes, humans approve.
+model AiProposal {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId String @db.Uuid
+
+  documentId     String? @db.Uuid
+  documentPageId String? @db.Uuid
+  /// Person the proposal concerns, when the extraction could identify one.
+  personId       String? @db.Uuid
+
+  predicate ClaimPredicate
+  value     Json
+  valueText String @default("")
+
+  /// The model's own stated confidence, 0-1. Displayed, never used to
+  /// auto-accept.
+  modelConfidence Float?
+  /// Verbatim snippet the model says supports the value.
+  evidenceSnippet String?
+  /// Normalised 0-1 region on the page, for the extraction overlay.
+  regionX      Float?
+  regionY      Float?
+  regionWidth  Float?
+  regionHeight Float?
+
+  // --- Provenance ---------------------------------------------------------
+  provider        String
+  model           String
+  promptVersion   String
+  pipelineVersion String
+  executedAt      DateTime @default(now())
+
+  status       AiProposalStatus @default(PENDING)
+  reviewedById String?          @db.Uuid
+  reviewedAt   DateTime?
+  reviewNote   String?
+
+  createdAt DateTime @default(now())
+
+  tree         Tree          @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  document     Document?     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentPage DocumentPage? @relation(fields: [documentPageId], references: [id], onDelete: Cascade)
+  person       Person?       @relation(fields: [personId], references: [id], onDelete: SetNull)
+  reviewedBy   User?         @relation("ProposalReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  claims Claim[]
+
+  @@index([treeId, status])
+  @@index([documentId])
+  @@index([personId])
+  @@map("ai_proposals")
+}
