@@ -1,0 +1,110 @@
+{
+  "common": {
+    "appName": "Chronolignée",
+    "tagline": "Explore your family through time.",
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "search": "Search",
+    "unknown": "Unknown",
+    "skipToContent": "Skip to main content"
+  },
+  "landing": {
+    "title": "Chronolignée",
+    "subtitle": "Explore your family through time.",
+    "lead": "A genealogy is not only a tree. It is lives that overlap, branches that migrate, sources that contradict each other — all of it in time.",
+    "cta": "Explore my history",
+    "ctaSecondary": "See the demo",
+    "skipAnimation": "Skip animation",
+    "signIn": "Sign in",
+    "pillars": {
+      "time": {
+        "title": "Time as a dimension",
+        "body": "Every life is an interval, not a date. The genealogical Gantt shows who was alive at the same time as whom."
+      },
+      "evidence": {
+        "title": "Evidence before assertion",
+        "body": "A birth date is not a field. It is a claim, backed by a source, and you can dispute it."
+      },
+      "uncertainty": {
+        "title": "Uncertainty stays visible",
+        "body": "\"About 1877\" never quietly becomes \"1877\". Soft edges stay soft."
+      }
+    }
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signUp": "Create an account",
+    "signOut": "Sign out",
+    "email": "Email address",
+    "password": "Password",
+    "name": "Name",
+    "forgotPassword": "Forgot your password?",
+    "noAccount": "No account yet?",
+    "hasAccount": "Already have an account?",
+    "signInTitle": "Resume your research",
+    "signUpTitle": "Start your genealogy",
+    "passwordHint": "12 characters minimum",
+    "errors": {
+      "invalidCredentials": "Incorrect email address or password.",
+      "emailTaken": "That address is already in use.",
+      "weakPassword": "Password too short: 12 characters minimum.",
+      "invalidEmail": "Invalid email address.",
+      "nameRequired": "Name is required.",
+      "rateLimited": "Too many attempts. Try again in a few minutes.",
+      "unexpected": "Unable to sign in right now."
+    }
+  },
+  "certainty": {
+    "exact": "Exact date",
+    "approximate": "Approximate date",
+    "inferred": "Inferred bound",
+    "unknown": "Unknown",
+    "inferredExplanation": "No death recorded: this bound comes from the maximum-lifespan rule, not from a source."
+  },
+  "membership": {
+    "certain": "With certainty",
+    "possible": "Possibly",
+    "undated": "Undated"
+  },
+  "findings": {
+    "severity": {
+      "ERROR": "Error",
+      "WARNING": "Warning",
+      "INFO": "Information"
+    },
+    "certainty": {
+      "CERTAIN": "Certain",
+      "POSSIBLE": "Possible"
+    },
+    "SELF_RELATIONSHIP": "A person cannot be related to themselves.",
+    "ANCESTRY_CYCLE": "This relationship would make someone their own ancestor.",
+    "DUPLICATE_RELATIONSHIP": "This relationship already exists.",
+    "DEATH_BEFORE_BIRTH": "Death precedes birth.",
+    "CHILD_BORN_BEFORE_PARENT": "The child would have been born before their parent.",
+    "BIRTH_AFTER_MOTHER_DEATH": "Birth {days} days after the mother's death.",
+    "PARENT_TOO_YOUNG": "Parent aged {age} at the birth (threshold: {threshold}).",
+    "MOTHER_TOO_OLD": "Mother aged {age} at the birth (threshold: {threshold}).",
+    "FATHER_TOO_OLD": "Father aged {age} at the birth (threshold: {threshold}).",
+    "LIFESPAN_IMPLAUSIBLE": "Lifespan of {years} years (threshold: {threshold}).",
+    "POSTHUMOUS_BIRTH": "Posthumous birth, {days} days after the father's death.",
+    "SIBLINGS_BORN_TOO_CLOSE": "Two births only {days} days apart.",
+    "DISCONNECTED_COMPONENT": "{size} people are not connected to any other branch.",
+    "NO_TEMPORAL_EVIDENCE": "No date known for this person.",
+    "CLAIM_WITHOUT_CITATION": "This claim is not supported by any source.",
+    "PEDIGREE_COLLAPSE": "This ancestor appears through several lines.",
+    "MARRIAGE_BEFORE_BIRTH": "Marriage before birth.",
+    "MARRIAGE_AFTER_DEATH": "Marriage after death.",
+    "MARRIED_TOO_YOUNG": "Married at {age}.",
+    "CONTRADICTORY_ACCEPTED_CLAIMS": "Two accepted claims contradict each other.",
+    "DUPLICATE_CANDIDATE": "Possible duplicate of another person.",
+    "EVENT_OUTSIDE_LIFESPAN": "Event falls outside the person's life.",
+    "CUSTOM_EVENT_UNLABELLED": "A custom event must be named."
+  }
+}

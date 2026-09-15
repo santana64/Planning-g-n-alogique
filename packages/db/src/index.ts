@@ -1,3 +1,3 @@
-export * from './client.js';
-export * from './date-codec.js';
-export * from './normalise.js';
+export * from './client';
+export * from './date-codec';
+export * from './normalise';

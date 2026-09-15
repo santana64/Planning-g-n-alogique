@@ -1,0 +1,229 @@
+@import 'tailwindcss';
+@import '@chronolignee/ui/tokens.css';
+
+/**
+ * Tailwind theme bridge.
+ *
+ * `@theme inline` maps the design tokens onto Tailwind's scales, so
+ * `bg-surface-1` resolves to `var(--surface-1)` and follows the active theme.
+ * The tokens stay the single source of truth; Tailwind is only an ergonomic
+ * way to reach them.
+ */
+@theme inline {
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-floating: var(--surface-floating);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-inverse: var(--surface-inverse);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-text-inverse: var(--text-inverse);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  --color-accent: var(--accent-primary);
+  --color-accent-hover: var(--accent-primary-hover);
+  --color-accent-muted: var(--accent-primary-muted);
+  --color-accent-contrast: var(--accent-primary-contrast);
+  --color-history: var(--accent-history);
+  --color-history-muted: var(--accent-history-muted);
+  --color-source: var(--accent-source);
+  --color-source-muted: var(--accent-source-muted);
+  --color-warning: var(--accent-warning);
+  --color-danger: var(--accent-danger);
+  --color-success: var(--accent-success);
+  --color-info: var(--accent-info);
+
+  --color-certain: var(--certainty-exact);
+  --color-approximate: var(--certainty-approximate);
+  --color-inferred: var(--certainty-inferred);
+  --color-uncertain: var(--certainty-unknown);
+
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+  --font-mono: var(--font-mono);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  --ease-out: var(--ease-out);
+  --ease-arrive: var(--ease-arrive);
+}
+
+@layer base {
+  * {
+    border-color: var(--border-subtle);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* The timeline owns horizontal space; the page itself never scrolls
+     * sideways. Wide content scrolls inside its own container. */
+    overflow-x: hidden;
+  }
+
+  body {
+    background-color: var(--surface-0);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /**
+   * Focus.
+   *
+   * Visible, high-contrast and never removed. A research tool is used by
+   * keyboard far more than a marketing site is, and `:focus-visible` keeps it
+   * out of the way of mouse users without costing anyone the indicator.
+   */
+  :focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection {
+    background-color: var(--accent-primary-muted);
+    color: var(--text-primary);
+  }
+
+  /* Names and dates are content; the interface around them is not. The serif
+   * marks that difference rather than decorating it. */
+  .font-editorial {
+    font-family: var(--font-serif);
+    font-feature-settings: 'liga', 'kern';
+    letter-spacing: -0.005em;
+  }
+
+  /* Tabular figures keep a column of years from jittering. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /**
+   * Skip link. Off-screen until focused — the one pattern where hiding an
+   * interactive element is correct, because it exists for the keyboard user
+   * who is about to need it.
+   */
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    z-index: 999;
+    padding: 0.625rem 1rem;
+    background: var(--surface-floating);
+    color: var(--text-primary);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-mid);
+  }
+
+  .skip-link:focus {
+    left: 1rem;
+    top: 1rem;
+  }
+}
+
+/**
+ * Landing animation.
+ *
+ * Life lines draw themselves, then relationships connect them. It is the
+ * product's core idea shown rather than described: a genealogy is intervals
+ * in time, not boxes in a diagram.
+ *
+ * It is CSS and SVG on purpose. The engine is WebGPU, but a first-time visitor
+ * must not wait for a renderer to boot before seeing anything, and marketing
+ * motion must never delay access to the application.
+ */
+/**
+ * Lines are revealed by animating a clip rectangle, NOT by animating
+ * stroke-dashoffset.
+ *
+ * The dash-offset trick needs `stroke-dasharray` to equal the line length,
+ * and that CSS declaration overrides the element's own dasharray attribute —
+ * silently destroying the dash pattern that encodes "approximate date".
+ * Separating reveal from pattern keeps both.
+ */
+@keyframes reveal-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes connect {
+  from {
+    opacity: 0;
+    stroke-dashoffset: 40;
+  }
+  to {
+    opacity: 0.55;
+    stroke-dashoffset: 0;
+  }
+}
+
+.life-reveal {
+  transform: scaleX(0);
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: reveal-x 1.2s var(--ease-out) forwards;
+  animation-delay: var(--delay, 0s);
+}
+
+.life-connector {
+  stroke-dasharray: 40;
+  animation: connect 0.7s var(--ease-out) forwards;
+  animation-delay: var(--delay, 0s);
+  opacity: 0;
+}
+
+.rise {
+  animation: fade-rise 0.7s var(--ease-out) forwards;
+  animation-delay: var(--delay, 0s);
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .life-reveal,
+  .life-connector,
+  .rise {
+    animation: none;
+    opacity: 1;
+    stroke-dashoffset: 0;
+    transform: scaleX(1);
+  }
+
+  .rise {
+    transform: none;
+  }
+
+  .life-connector {
+    opacity: 0.55;
+  }
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
-import { gregorianToJdn } from './calendar.js';
+import { gregorianToJdn } from './calendar';
 import {
   ageAt,
   dateContains,
@@ -9,8 +9,8 @@ import {
   resolveLifespan,
   unknownDate,
   wasAliveOn,
-} from './interval.js';
-import { parseGenealogicalDate } from './parse.js';
+} from './interval';
+import { parseGenealogicalDate } from './parse';
 
 const parse = (s: string) => parseGenealogicalDate(s);
 const day = (y: number, m: number, d: number) => gregorianToJdn(y, m, d);

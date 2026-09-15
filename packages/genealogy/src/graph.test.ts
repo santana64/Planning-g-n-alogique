@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { parseGenealogicalDate } from '@chronolignee/domain';
-import { GenealogyGraph, type GraphEdge, type GraphPerson } from './graph.js';
+import { GenealogyGraph, type GraphEdge, type GraphPerson } from './graph';
 
 function person(id: string, birth?: string, death?: string): GraphPerson {
   return {

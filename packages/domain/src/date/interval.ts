@@ -5,7 +5,7 @@ import {
   wholeYearsBetween,
   type Calendar,
   type CalendarDateParts,
-} from './calendar.js';
+} from './calendar';
 import {
   DEFAULT_ESTIMATION_POLICY,
   MAX_PLAUSIBLE_LIFESPAN_YEARS,
@@ -15,7 +15,7 @@ import {
   type GenealogicalDate,
   type JdnInterval,
   type Trivalent,
-} from './types.js';
+} from './types';
 
 export const UNBOUNDED: JdnInterval = { earliest: null, latest: null };
 

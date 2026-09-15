@@ -13,7 +13,7 @@ import {
   type FindingCode,
   type PlausibilityThresholds,
   type Severity,
-} from './findings.js';
+} from './findings';
 import {
   isParentType,
   type GenealogyGraph,
@@ -21,7 +21,7 @@ import {
   type GraphPerson,
   type PersonId,
   type RelationshipType,
-} from './graph.js';
+} from './graph';
 
 /**
  * Genealogical validation.

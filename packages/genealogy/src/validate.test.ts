@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parseGenealogicalDate } from '@chronolignee/domain';
-import { GenealogyGraph, type GraphEdge, type GraphPerson } from './graph.js';
-import { hasBlocking, sortBySeverity, type Finding, type FindingCode } from './findings.js';
-import { auditPerson, auditTree, validateRelationshipProposal } from './validate.js';
+import { GenealogyGraph, type GraphEdge, type GraphPerson } from './graph';
+import { hasBlocking, sortBySeverity, type Finding, type FindingCode } from './findings';
+import { auditPerson, auditTree, validateRelationshipProposal } from './validate';
 
 const TODAY = 2_461_299; // 15 September 2026
 

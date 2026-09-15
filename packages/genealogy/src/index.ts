@@ -1,3 +1,3 @@
-export * from './graph.js';
-export * from './findings.js';
-export * from './validate.js';
+export * from './graph';
+export * from './findings';
+export * from './validate';

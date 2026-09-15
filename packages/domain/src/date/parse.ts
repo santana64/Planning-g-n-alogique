@@ -1,5 +1,5 @@
-import type { Calendar, CalendarDateParts } from './calendar.js';
-import { makeDate, unknownDate } from './interval.js';
+import type { Calendar, CalendarDateParts } from './calendar';
+import { makeDate, unknownDate } from './interval';
 import {
   DEFAULT_ESTIMATION_POLICY,
   MAX_PLAUSIBLE_YEAR,
@@ -7,7 +7,7 @@ import {
   type DateQualifier,
   type EstimationPolicy,
   type GenealogicalDate,
-} from './types.js';
+} from './types';
 
 /**
  * Genealogical date parser.

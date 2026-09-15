@@ -10,7 +10,7 @@ import {
   jdnToJulian,
   julianToJdn,
   wholeYearsBetween,
-} from './calendar.js';
+} from './calendar';
 
 describe('Gregorian <-> JDN', () => {
   // Anchors taken from published astronomical tables. If any of these move,
@@ -154,18 +154,62 @@ describe('wholeYearsBetween', () => {
     expect(wholeYearsBetween(g(1950, 1, 1), g(1900, 1, 1))).toBe(-50);
   });
 
-  it('never exceeds the day-count estimate by more than a year', () => {
+  // The properties below are about what the function *means*, not about how
+  // close it lands to a day-count estimate. An earlier version of this test
+  // asserted the latter and failed at 1.0017 years over five centuries —
+  // which said nothing about correctness, only that leap days are not evenly
+  // spread.
+  it('counts exactly one more year at each anniversary', () => {
     fc.assert(
       fc.property(
-        fc.integer({ min: 2_200_000, max: 2_460_000 }),
-        fc.integer({ min: 0, max: 200_000 }),
-        (start, span) => {
-          const years = wholeYearsBetween(start, start + span);
-          const approximate = span / 365.2425;
-          expect(Math.abs(years - approximate)).toBeLessThan(1);
+        fc.integer({ min: 1600, max: 2000 }),
+        fc.integer({ min: 1, max: 12 }),
+        fc.integer({ min: 1, max: 28 }),
+        fc.integer({ min: 0, max: 200 }),
+        (year, month, day, offset) => {
+          const birth = g(year, month, day);
+          const anniversary = g(year + offset, month, day);
+          expect(wholeYearsBetween(birth, anniversary)).toBe(offset);
+          // The day before the anniversary is still the previous age.
+          if (offset > 0) {
+            expect(wholeYearsBetween(birth, anniversary - 1)).toBe(offset - 1);
+          }
         },
       ),
       { numRuns: 1000 },
+    );
+  });
+
+  it('never decreases as the end date moves forward', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 2_200_000, max: 2_400_000 }),
+        fc.integer({ min: 0, max: 60_000 }),
+        fc.integer({ min: 1, max: 5_000 }),
+        (start, span, extra) => {
+          const earlier = wholeYearsBetween(start, start + span);
+          const later = wholeYearsBetween(start, start + span + extra);
+          expect(later).toBeGreaterThanOrEqual(earlier);
+        },
+      ),
+      { numRuns: 1000 },
+    );
+  });
+
+  it('is antisymmetric', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 2_200_000, max: 2_400_000 }),
+        fc.integer({ min: 0, max: 100_000 }),
+        (start, span) => {
+          // Stated as a sum rather than a negation: `-0` and `0` are equal
+          // under arithmetic but not under Object.is, which is what toBe uses.
+          expect(
+            wholeYearsBetween(start, start + span) + wholeYearsBetween(start + span, start),
+          ).toBe(0);
+        },
+      ),
+      { numRuns: 500 },
     );
   });
 });

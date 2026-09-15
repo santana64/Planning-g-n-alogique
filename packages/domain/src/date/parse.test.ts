@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
-import { gregorianToJdn } from './calendar.js';
-import { formatGenealogicalDate, formatYearOnly, toGedcomDateValue } from './format.js';
-import { intervalWidthDays, makeDate } from './interval.js';
-import { parseGenealogicalDate } from './parse.js';
+import { gregorianToJdn } from './calendar';
+import { formatGenealogicalDate, formatYearOnly, toGedcomDateValue } from './format';
+import { intervalWidthDays, makeDate } from './interval';
+import { parseGenealogicalDate } from './parse';
 
 const parse = (s: string) => parseGenealogicalDate(s);
 

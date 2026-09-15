@@ -50,3 +50,4 @@ infra/docker/volumes/
 # Benchmarks output
 docs/benchmarks/*.json
 !docs/benchmarks/.gitkeep
+next-env.d.ts

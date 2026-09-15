@@ -218,7 +218,10 @@ export function wholeYearsBetween(
   endJdn: number,
   calendar: Calendar = 'GREGORIAN',
 ): number {
-  if (endJdn < startJdn) return -wholeYearsBetween(endJdn, startJdn, calendar);
+  // `|| 0` normalises negative zero. -0 formats as "0" but fails Object.is
+  // against 0, which would make an equality check somewhere downstream behave
+  // differently for a zero-length span depending on argument order.
+  if (endJdn < startJdn) return -wholeYearsBetween(endJdn, startJdn, calendar) || 0;
 
   const from = fromJdn(calendar, startJdn);
   const to = fromJdn(calendar, endJdn);

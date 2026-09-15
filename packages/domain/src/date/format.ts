@@ -1,6 +1,6 @@
-import type { Calendar, CalendarDateParts } from './calendar.js';
-import { MONTH_TABLES } from './parse.js';
-import type { GenealogicalDate } from './types.js';
+import type { Calendar, CalendarDateParts } from './calendar';
+import { MONTH_TABLES } from './parse';
+import type { GenealogicalDate } from './types';
 
 /**
  * Date presentation.

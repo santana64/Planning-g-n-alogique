@@ -1,4 +1,10 @@
-import { featureFlagSchema, serverEnvSchema, type FeatureFlags, type ServerEnv } from './schema.js';
+import {
+  assertDeployable,
+  featureFlagSchema,
+  serverEnvSchema,
+  type FeatureFlags,
+  type ServerEnv,
+} from './schema';
 
 let cached: ServerEnv | undefined;
 
@@ -48,4 +54,4 @@ export function getFeatureFlags(source: NodeJS.ProcessEnv = process.env): Featur
   });
 }
 
-export { type ServerEnv, type FeatureFlags };
+export { assertDeployable, type ServerEnv, type FeatureFlags };

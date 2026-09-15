@@ -1,4 +1,4 @@
-import type { Calendar, CalendarDateParts } from './calendar.js';
+import type { Calendar, CalendarDateParts } from './calendar';
 
 /**
  * How a source expressed a date. Mirrors the GEDCOM 7 DateValue grammar,

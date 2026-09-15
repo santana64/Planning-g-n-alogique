@@ -1,0 +1,110 @@
+{
+  "common": {
+    "appName": "Chronolignée",
+    "tagline": "Explorez votre famille dans le temps.",
+    "loading": "Chargement…",
+    "error": "Une erreur est survenue",
+    "retry": "Réessayer",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "close": "Fermer",
+    "back": "Retour",
+    "search": "Rechercher",
+    "unknown": "Inconnu",
+    "skipToContent": "Aller au contenu principal"
+  },
+  "landing": {
+    "title": "Chronolignée",
+    "subtitle": "Explorez votre famille dans le temps.",
+    "lead": "Une généalogie n'est pas seulement un arbre. C'est des vies qui se chevauchent, des branches qui migrent, des sources qui se contredisent — et tout cela dans le temps.",
+    "cta": "Explorer mon histoire",
+    "ctaSecondary": "Voir la démonstration",
+    "skipAnimation": "Passer l'animation",
+    "signIn": "Se connecter",
+    "pillars": {
+      "time": {
+        "title": "Le temps comme dimension",
+        "body": "Chaque vie est un intervalle, pas une date. Le Gantt généalogique montre qui a vécu en même temps que qui."
+      },
+      "evidence": {
+        "title": "La preuve avant l'affirmation",
+        "body": "Une date de naissance n'est pas un champ : c'est une affirmation appuyée par une source, que vous pouvez contester."
+      },
+      "uncertainty": {
+        "title": "L'incertitude reste visible",
+        "body": "« Vers 1877 » ne devient jamais « 1877 ». Les bords flous restent flous."
+      }
+    }
+  },
+  "auth": {
+    "signIn": "Se connecter",
+    "signUp": "Créer un compte",
+    "signOut": "Se déconnecter",
+    "email": "Adresse e-mail",
+    "password": "Mot de passe",
+    "name": "Nom",
+    "forgotPassword": "Mot de passe oublié ?",
+    "noAccount": "Pas encore de compte ?",
+    "hasAccount": "Vous avez déjà un compte ?",
+    "signInTitle": "Reprendre votre recherche",
+    "signUpTitle": "Commencer votre généalogie",
+    "passwordHint": "12 caractères minimum",
+    "errors": {
+      "invalidCredentials": "Adresse e-mail ou mot de passe incorrect.",
+      "emailTaken": "Cette adresse est déjà utilisée.",
+      "weakPassword": "Mot de passe trop court : 12 caractères minimum.",
+      "invalidEmail": "Adresse e-mail invalide.",
+      "nameRequired": "Le nom est requis.",
+      "rateLimited": "Trop de tentatives. Réessayez dans quelques minutes.",
+      "unexpected": "Connexion impossible pour le moment."
+    }
+  },
+  "certainty": {
+    "exact": "Date exacte",
+    "approximate": "Date approximative",
+    "inferred": "Borne déduite",
+    "unknown": "Inconnue",
+    "inferredExplanation": "Aucun décès enregistré : cette limite vient de la durée de vie maximale, pas d'une source."
+  },
+  "membership": {
+    "certain": "Avec certitude",
+    "possible": "Possiblement",
+    "undated": "Sans date"
+  },
+  "findings": {
+    "severity": {
+      "ERROR": "Erreur",
+      "WARNING": "Avertissement",
+      "INFO": "Information"
+    },
+    "certainty": {
+      "CERTAIN": "Certain",
+      "POSSIBLE": "Possible"
+    },
+    "SELF_RELATIONSHIP": "Une personne ne peut pas être en relation avec elle-même.",
+    "ANCESTRY_CYCLE": "Cette relation rendrait une personne son propre ancêtre.",
+    "DUPLICATE_RELATIONSHIP": "Cette relation existe déjà.",
+    "DEATH_BEFORE_BIRTH": "Le décès précède la naissance.",
+    "CHILD_BORN_BEFORE_PARENT": "L'enfant serait né avant son parent.",
+    "BIRTH_AFTER_MOTHER_DEATH": "Naissance {days} jours après le décès de la mère.",
+    "PARENT_TOO_YOUNG": "Parent âgé de {age} ans à la naissance (seuil : {threshold}).",
+    "MOTHER_TOO_OLD": "Mère âgée de {age} ans à la naissance (seuil : {threshold}).",
+    "FATHER_TOO_OLD": "Père âgé de {age} ans à la naissance (seuil : {threshold}).",
+    "LIFESPAN_IMPLAUSIBLE": "Durée de vie de {years} ans (seuil : {threshold}).",
+    "POSTHUMOUS_BIRTH": "Naissance posthume, {days} jours après le décès du père.",
+    "SIBLINGS_BORN_TOO_CLOSE": "Deux naissances séparées de {days} jours seulement.",
+    "DISCONNECTED_COMPONENT": "{size} personnes ne sont reliées à aucune autre branche.",
+    "NO_TEMPORAL_EVIDENCE": "Aucune date connue pour cette personne.",
+    "CLAIM_WITHOUT_CITATION": "Cette affirmation n'est appuyée par aucune source.",
+    "PEDIGREE_COLLAPSE": "Cet ancêtre apparaît par plusieurs lignées.",
+    "MARRIAGE_BEFORE_BIRTH": "Mariage antérieur à la naissance.",
+    "MARRIAGE_AFTER_DEATH": "Mariage postérieur au décès.",
+    "MARRIED_TOO_YOUNG": "Mariage à {age} ans.",
+    "CONTRADICTORY_ACCEPTED_CLAIMS": "Deux affirmations acceptées se contredisent.",
+    "DUPLICATE_CANDIDATE": "Doublon possible avec une autre personne.",
+    "EVENT_OUTSIDE_LIFESPAN": "Événement situé hors de la vie de la personne.",
+    "CUSTOM_EVENT_UNLABELLED": "Un événement personnalisé doit être nommé."
+  }
+}

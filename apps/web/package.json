@@ -1,0 +1,51 @@
+{
+  "name": "@chronolignee/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --turbopack --port 3000",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@chronolignee/config": "workspace:*",
+    "@chronolignee/db": "workspace:*",
+    "@chronolignee/domain": "workspace:*",
+    "@chronolignee/genealogy": "workspace:*",
+    "@chronolignee/ui": "workspace:*",
+    "@radix-ui/react-dialog": "catalog:",
+    "@radix-ui/react-dropdown-menu": "catalog:",
+    "@radix-ui/react-label": "catalog:",
+    "@radix-ui/react-popover": "catalog:",
+    "@radix-ui/react-select": "catalog:",
+    "@radix-ui/react-slider": "catalog:",
+    "@radix-ui/react-switch": "catalog:",
+    "@radix-ui/react-tabs": "catalog:",
+    "@radix-ui/react-tooltip": "catalog:",
+    "@radix-ui/react-visually-hidden": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "better-auth": "catalog:",
+    "clsx": "catalog:",
+    "motion": "catalog:",
+    "next": "catalog:",
+    "next-intl": "catalog:",
+    "pino": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwind-merge": "catalog:",
+    "zod": "catalog:",
+    "zustand": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "postcss": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:"
+  }
+}

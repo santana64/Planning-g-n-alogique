@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { parseGenealogicalDate } from '@chronolignee/domain';
-import { createDatabase, encodeDate, decodeDate, type Database } from '../src/index.js';
+import { createDatabase, encodeDate, decodeDate, type Database } from '../src/index';
 
 /**
  * Schema integration tests.

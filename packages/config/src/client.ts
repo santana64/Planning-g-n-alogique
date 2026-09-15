@@ -1,4 +1,4 @@
-import type { FeatureFlags } from './schema.js';
+import type { FeatureFlags } from './schema';
 
 /**
  * Configuration safe to ship to the browser.

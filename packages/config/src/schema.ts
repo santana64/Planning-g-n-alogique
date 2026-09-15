@@ -91,7 +91,7 @@ export const serverEnvSchema = z
   })
   .superRefine((env, ctx) => {
     // Selecting the real provider without a key would fail on the first job,
-    // long after deploy. Catch it at boot instead.
+    // long after deploy. Catch it at parse time instead.
     if (env.AI_PROVIDER === 'anthropic' && !env.ANTHROPIC_API_KEY) {
       ctx.addIssue({
         code: 'custom',
@@ -99,22 +99,46 @@ export const serverEnvSchema = z
         message: 'AI_PROVIDER=anthropic requires ANTHROPIC_API_KEY. Use AI_PROVIDER=fake locally.',
       });
     }
-    if (env.NODE_ENV === 'production') {
-      if (env.APP_URL.startsWith('http://') && !env.APP_URL.includes('localhost')) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['APP_URL'],
-          message: 'Production APP_URL must use https: auth cookies are Secure-only.',
-        });
-      }
-      if (env.S3_SECRET_ACCESS_KEY.includes('dev_only')) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['S3_SECRET_ACCESS_KEY'],
-          message: 'Development credentials detected in a production environment.',
-        });
-      }
-    }
   });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
+
+/**
+ * Deployment-safety checks, kept separate from schema validation on purpose.
+ *
+ * These ask "is this configuration safe to *serve*", which is a different
+ * question from "is this configuration well-formed". The distinction is not
+ * academic: `next build` runs with NODE_ENV=production, so folding these into
+ * the schema makes it impossible to produce a production build on a developer
+ * machine — the tool would refuse to compile because the local .env points at
+ * a local MinIO.
+ *
+ * Call this when a server process actually starts listening, not when a module
+ * is imported.
+ */
+export function assertDeployable(env: ServerEnv): void {
+  if (env.NODE_ENV !== 'production') return;
+
+  const problems: string[] = [];
+
+  if (env.APP_URL.startsWith('http://') && !env.APP_URL.includes('localhost')) {
+    problems.push('APP_URL must use https in production: auth cookies are Secure-only.');
+  }
+  if (env.S3_SECRET_ACCESS_KEY.includes('dev_only')) {
+    problems.push('S3_SECRET_ACCESS_KEY still holds the development credential.');
+  }
+  if (env.DATABASE_URL.includes('chronolignee_dev_only')) {
+    problems.push('DATABASE_URL still holds the development credential.');
+  }
+  if (env.AI_PROVIDER === 'fake') {
+    problems.push('AI_PROVIDER=fake serves deterministic stub responses; set it to anthropic.');
+  }
+
+  if (problems.length > 0) {
+    throw new Error(
+      `Refusing to start in production with an unsafe configuration:\n${problems
+        .map((p) => `  - ${p}`)
+        .join('\n')}`,
+    );
+  }
+}
