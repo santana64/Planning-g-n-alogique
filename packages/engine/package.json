@@ -1,0 +1,26 @@
+{
+  "name": "@chronolignee/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "benchmark": "tsx src/benchmark/run.ts"
+  },
+  "dependencies": {
+    "@chronolignee/domain": "workspace:*",
+    "@chronolignee/genealogy": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "fast-check": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
