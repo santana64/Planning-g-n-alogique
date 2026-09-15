@@ -178,12 +178,16 @@ describe('level of detail', () => {
     expect(lod.showSourceMarkers).toBe(true);
   });
 
-  it('drops to bars alone across four centuries', () => {
+  it('still names forty people across four centuries', () => {
+    // Zooming out does not take a name away: the name sits beside the bar and
+    // does not need the bar to be wide. Only vertical room and crowding
+    // decide, which is what the earlier pixels-per-year rule got wrong.
     const lod = decideLod({ viewport: viewport(1600, 2000), rowHeightPx: 22, personCount: 40 });
-    expect(lod.showPersonLabels).toBe(false);
-    // Links survive one level longer than labels: a thin line stays legible
-    // where a name would not, and the links are what make it a genealogy.
+    expect(lod.showPersonLabels).toBe(true);
     expect(lod.showRelationshipLinks).toBe(true);
+    // Event markers do depend on temporal zoom: a marker is a position on the
+    // axis, and at this scale several years land on one pixel.
+    expect(lod.showEventMarkers).toBe(false);
   });
 
   it('stops drawing individual bars once a life is barely a pixel wide', () => {

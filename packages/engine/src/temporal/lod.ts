@@ -89,7 +89,12 @@ export function decideLod(input: LodInput): LodDecision {
   return {
     level,
     showPersonBars: atLeast('PERSON'),
-    showPersonLabels: atLeast('EVENT') && roomForLabels,
+    // Labels depend on VERTICAL room and crowding, not on temporal zoom.
+    //
+    // A name sits beside its bar; it does not need the bar to be wide. Gating
+    // it on pixels-per-year hid every name on a forty-person tree at its own
+    // default framing, which is the first thing anyone sees.
+    showPersonLabels: atLeast('PERSON') && roomForLabels,
     showEventMarkers: atLeast('EVENT'),
     showEventLabels: atLeast('DETAIL') && roomForLabels,
     // Links stay on one level longer than labels: a relationship line is thin

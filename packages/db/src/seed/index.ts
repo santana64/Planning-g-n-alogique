@@ -74,7 +74,10 @@ async function main(): Promise<void> {
           'Famille fictive, 1702-2026, onze générations, deux continents. ' +
           'Contient volontairement des dates approximatives, une date illisible, ' +
           'des sources contradictoires, un doublon et une anomalie à examiner.',
-        visibility: 'PRIVATE',
+        // Public so the landing page's "voir la démonstration" works without
+        // an account, and redacting living people so that public view exercises
+        // the privacy path rather than bypassing it.
+        visibility: 'PUBLIC',
         redactLivingPeople: true,
         members: { create: { userId: owner.id, role: 'OWNER' } },
       },

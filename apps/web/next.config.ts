@@ -65,6 +65,7 @@ const config: NextConfig = {
   // keeps the edit-run loop instant across the monorepo.
   transpilePackages: [
     '@chronolignee/ui',
+    '@chronolignee/engine',
     '@chronolignee/domain',
     '@chronolignee/genealogy',
     '@chronolignee/db',

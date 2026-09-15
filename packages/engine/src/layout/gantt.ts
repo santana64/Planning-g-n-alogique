@@ -101,8 +101,18 @@ export function layoutGantt(graph: GenealogyGraph, options: GanttLayoutOptions =
       .filter((childId) => visible(childId) && !placed.has(childId))
       .sort((a, b) => birthKey(graph, a) - birthKey(graph, b));
 
+    // A branch begins at a fork, not at the root.
+    //
+    // Keying every descendant of one root to that root gives a connected
+    // family exactly one branch, and therefore one colour — technically true
+    // and visually useless. Colour is only worth spending where it separates
+    // something: the first place a line divides is the first place a reader
+    // needs to tell two lines apart.
+    const forks = children.filter((childId) => graph.childrenOf(childId).length > 0);
+    const startsNewBranch = forks.length > 1;
+
     for (const childId of children) {
-      place(childId, depth + 1, branchKey);
+      place(childId, depth + 1, startsNewBranch ? childId : branchKey);
     }
   };
 

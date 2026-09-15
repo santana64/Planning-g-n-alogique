@@ -352,6 +352,9 @@ importers:
       '@chronolignee/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@chronolignee/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
       '@chronolignee/genealogy':
         specifier: workspace:*
         version: link:../../packages/genealogy

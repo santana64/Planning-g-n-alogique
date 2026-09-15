@@ -14,6 +14,7 @@
     "@chronolignee/config": "workspace:*",
     "@chronolignee/db": "workspace:*",
     "@chronolignee/domain": "workspace:*",
+    "@chronolignee/engine": "workspace:*",
     "@chronolignee/genealogy": "workspace:*",
     "@chronolignee/ui": "workspace:*",
     "@radix-ui/react-dialog": "catalog:",
