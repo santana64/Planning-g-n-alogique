@@ -1,7 +1,7 @@
 # État du projet
 
 **Dernière mise à jour** : 2026-09-15
-**Phase courante** : 1 (fondation du domaine) — terminée ; démarrage de la 2
+**Phase courante** : 2 (CRUD et surfaces) — authentification livrée, reste le CRUD
 
 Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
@@ -37,6 +37,24 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
 **Tests** : 109 unitaires + 23 d'intégration, tous verts.
 
+### Phase 1 (suite) — application web et authentification
+
+| Élément                                            | Preuve                                         |
+| -------------------------------------------------- | ---------------------------------------------- |
+| Next.js 16.3.5 + React 19.3, App Router, Turbopack | build de production vert                       |
+| Tokens de design OKLCH, sombre par défaut          | inspecté dans les deux thèmes                  |
+| Palette de branches (angle d'or, bandes réservées) | rendu vérifié                                  |
+| Langage visuel de l'incertitude                    | pointillé, estompe et fondu visibles à l'écran |
+| Scène d'ouverture (Gantt SVG animé)                | inspectée à 1440 px et 375 px                  |
+| i18n next-intl, fr par défaut sans préfixe         | routes `/fr` et `/en` générées                 |
+| CSP et en-têtes de sécurité                        | déclarés dans `next.config.ts`                 |
+| Better Auth + adaptateur Prisma                    | inscription → session → base, vérifié          |
+| Hachage du mot de passe                            | scrypt, 161 caractères en base                 |
+| Limitation de débit                                | 5 tentatives puis HTTP 429, mesuré             |
+| Cookies httpOnly préfixés                          | aucun cookie émis sur échec de connexion       |
+
+**Tests** : 179 unitaires + 23 d'intégration, tous verts.
+
 ---
 
 ## Bugs réels trouvés et corrigés
@@ -53,7 +71,23 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 3. **Images MinIO.** `minio/minio` et `minio/mc` ne sont plus servies par
    Docker Hub — elles vivent sur `quay.io`.
 
-4. **Regex mutilée par Prettier.** La classe de caractères combinants,
+4. **Antislash simple dans le matcher de locale.** `'\.'` dans une chaîne JS
+   perd son antislash : le motif excluait « tout chemin contenant un caractère
+   quelconque » au lieu de « contenant un point ». Aucune page n'aurait reçu de
+   locale. Échec totalement silencieux, désormais couvert par un test.
+
+5. **Dégradé SVG dégénéré.** Une `<line>` horizontale a une boîte englobante de
+   hauteur nulle ; avec les unités `objectBoundingBox` par défaut, le trait
+   disparaissait entièrement. Corrigé en `userSpaceOnUse`.
+
+6. **`stroke-dasharray` CSS écrasant l'attribut SVG.** L'animation de tracé
+   consommait le motif de tirets qui encode « date approximative ». Le
+   dévoilement passe désormais par un `clipPath`.
+
+7. **Âge calculé par division.** 1700→1900 s'affichait « 199 ans ». Remplacé
+   par de l'arithmétique calendaire.
+
+8. **Regex mutilée par Prettier.** La classe de caractères combinants,
    écrite en échappements Unicode, était réécrite en caractères littéraux —
    illisibles et fragiles. Remplacée par la propriété nommée `Diacritic`.
 
@@ -67,18 +101,18 @@ Rien. Point de reprise propre.
 
 ## Reste à faire
 
-| Phase | Contenu                                                           | État    |
-| ----- | ----------------------------------------------------------------- | ------- |
-| 2     | Better Auth, permissions, CRUD personne / relation / événement    | à faire |
-| 3     | Import / export GEDCOM 7 + écran de revue                         | à faire |
-| 4     | Services de graphe (ancêtres, descendants, branches), recherche   | à faire |
-| 5     | Moteur Chronolignée, Gantt, voyage temporel, « qui était vivant » | à faire |
-| 6     | Carte MapLibre, migrations animées                                | à faire |
-| 7     | Archives S3, visionneuse de documents                             | à faire |
-| 8     | Pipeline IA, propositions, assistant                              | à faire |
-| 9     | Constellation, profondeur temporelle, mode Récit                  | à faire |
-| 10    | Collaboration, confidentialité des vivants                        | à faire |
-| 11    | Durcissement production                                           | à faire |
+| Phase | Contenu                                                           | État                  |
+| ----- | ----------------------------------------------------------------- | --------------------- |
+| 2     | CRUD personne / relation / événement, permissions par rôle        | en cours (auth faite) |
+| 3     | Import / export GEDCOM 7 + écran de revue                         | à faire               |
+| 4     | Services de graphe (ancêtres, descendants, branches), recherche   | à faire               |
+| 5     | Moteur Chronolignée, Gantt, voyage temporel, « qui était vivant » | à faire               |
+| 6     | Carte MapLibre, migrations animées                                | à faire               |
+| 7     | Archives S3, visionneuse de documents                             | à faire               |
+| 8     | Pipeline IA, propositions, assistant                              | à faire               |
+| 9     | Constellation, profondeur temporelle, mode Récit                  | à faire               |
+| 10    | Collaboration, confidentialité des vivants                        | à faire               |
+| 11    | Durcissement production                                           | à faire               |
 
 ---
 
