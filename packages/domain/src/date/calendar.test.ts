@@ -9,6 +9,7 @@ import {
   jdnToGregorian,
   jdnToJulian,
   julianToJdn,
+  wholeYearsBetween,
 } from './calendar.js';
 
 describe('Gregorian <-> JDN', () => {
@@ -124,6 +125,47 @@ describe('French Republican <-> JDN', () => {
           expect(back).toEqual({ year, month, day });
         },
       ),
+    );
+  });
+});
+
+describe('wholeYearsBetween', () => {
+  const g = gregorianToJdn;
+
+  it('counts two centuries as 200 years, not 199', () => {
+    // Dividing 73 048 days by an average year length floors to 199. An age a
+    // user reads must match the one they would count themselves.
+    expect(wholeYearsBetween(g(1700, 1, 1), g(1900, 1, 1))).toBe(200);
+  });
+
+  it('does not credit a year until the anniversary has passed', () => {
+    expect(wholeYearsBetween(g(1900, 6, 15), g(1945, 6, 14))).toBe(44);
+    expect(wholeYearsBetween(g(1900, 6, 15), g(1945, 6, 15))).toBe(45);
+  });
+
+  it('handles a leap-day birthday', () => {
+    expect(wholeYearsBetween(g(1900, 2, 28), g(1901, 2, 28))).toBe(1);
+    expect(wholeYearsBetween(g(1904, 2, 29), g(1905, 2, 28))).toBe(0);
+    expect(wholeYearsBetween(g(1904, 2, 29), g(1905, 3, 1))).toBe(1);
+  });
+
+  it('is zero for the same day and negative when reversed', () => {
+    expect(wholeYearsBetween(g(1900, 1, 1), g(1900, 1, 1))).toBe(0);
+    expect(wholeYearsBetween(g(1950, 1, 1), g(1900, 1, 1))).toBe(-50);
+  });
+
+  it('never exceeds the day-count estimate by more than a year', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 2_200_000, max: 2_460_000 }),
+        fc.integer({ min: 0, max: 200_000 }),
+        (start, span) => {
+          const years = wholeYearsBetween(start, start + span);
+          const approximate = span / 365.2425;
+          expect(Math.abs(years - approximate)).toBeLessThan(1);
+        },
+      ),
+      { numRuns: 1000 },
     );
   });
 });

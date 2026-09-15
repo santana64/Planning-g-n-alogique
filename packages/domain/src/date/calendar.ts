@@ -201,5 +201,32 @@ export function dateToJdn(date: Date): number {
   return Math.floor(date.getTime() / 86_400_000) + JDN_UNIX_EPOCH;
 }
 
-/** Average days per year, used to convert JDN spans to approximate years. */
+/** Average days per year. Only for widening approximate dates, never for ages. */
 export const DAYS_PER_YEAR = 365.2425;
+
+/**
+ * Whole years between two days, counted the way a person counts a birthday.
+ *
+ * Dividing a day count by an average year length is wrong for anything a user
+ * reads: 1 January 1700 to 1 January 1900 is 73 048 days, and 73 048 / 365.2425
+ * floors to 199. Two centuries displayed as 199 years is the kind of small lie
+ * this product exists to avoid, so ages are computed from calendar parts and
+ * decremented when the anniversary has not yet come round.
+ */
+export function wholeYearsBetween(
+  startJdn: number,
+  endJdn: number,
+  calendar: Calendar = 'GREGORIAN',
+): number {
+  if (endJdn < startJdn) return -wholeYearsBetween(endJdn, startJdn, calendar);
+
+  const from = fromJdn(calendar, startJdn);
+  const to = fromJdn(calendar, endJdn);
+  // Hebrew has no conversion, so fall back to the approximation there.
+  if (!from || !to) return Math.floor((endJdn - startJdn) / DAYS_PER_YEAR);
+
+  let years = to.year - from.year;
+  const beforeAnniversary = to.month < from.month || (to.month === from.month && to.day < from.day);
+  if (beforeAnniversary) years -= 1;
+  return years;
+}

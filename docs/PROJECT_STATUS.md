@@ -53,8 +53,9 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 3. **Images MinIO.** `minio/minio` et `minio/mc` ne sont plus servies par
    Docker Hub — elles vivent sur `quay.io`.
 
-4. **Regex mutilée par Prettier.** `/[̀-ͯ]/` réécrit en caractères
-   combinants littéraux ; remplacé par `/\p{Diacritic}/gu`.
+4. **Regex mutilée par Prettier.** La classe de caractères combinants,
+   écrite en échappements Unicode, était réécrite en caractères littéraux —
+   illisibles et fragiles. Remplacée par la propriété nommée `Diacritic`.
 
 ---
 

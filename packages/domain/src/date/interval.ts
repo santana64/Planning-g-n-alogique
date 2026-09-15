@@ -2,6 +2,7 @@ import {
   DAYS_PER_YEAR,
   daysInMonth,
   toJdn,
+  wholeYearsBetween,
   type Calendar,
   type CalendarDateParts,
 } from './calendar.js';
@@ -326,8 +327,11 @@ export function ageAt(
   const b = birth?.interval;
   if (!b || (b.earliest === null && b.latest === null)) return null;
 
-  const upper = b.earliest !== null ? Math.floor((jdn - b.earliest) / DAYS_PER_YEAR) : null;
-  const lower = b.latest !== null ? Math.floor((jdn - b.latest) / DAYS_PER_YEAR) : null;
+  // Calendar arithmetic, not a division by an average year length: an age a
+  // user reads must match the one they would count on their fingers.
+  const calendar = birth?.calendar ?? 'GREGORIAN';
+  const upper = b.earliest !== null ? wholeYearsBetween(b.earliest, jdn, calendar) : null;
+  const lower = b.latest !== null ? wholeYearsBetween(b.latest, jdn, calendar) : null;
 
   if (upper === null && lower === null) return null;
   if (upper === null) return { min: lower as number, max: lower as number };
