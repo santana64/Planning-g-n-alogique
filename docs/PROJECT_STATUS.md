@@ -1,7 +1,7 @@
 # État du projet
 
 **Dernière mise à jour** : 2026-09-15
-**Phase courante** : 2 (CRUD et surfaces) — authentification livrée, reste le CRUD
+**Phase courante** : 5 (moteur temporel) — Gantt livré ; le CRUD de la phase 2 reste à faire
 
 Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
@@ -55,6 +55,23 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
 **Tests** : 179 unitaires + 23 d'intégration, tous verts.
 
+### Jeu de données et moteur temporel
+
+| Élément                                             | Preuve                                        |
+| --------------------------------------------------- | --------------------------------------------- |
+| Famille de démonstration, 40 personnes, 1702-2026   | semée et interrogée                           |
+| Date républicaine (4 germinal an VII)               | = 24 mars 1799, vérifié                       |
+| Date illisible conservée + lecture humaine en claim | `9 br 1889` sans position, claim à 1889-11-09 |
+| Sources contradictoires (1822 / 1823)               | les deux conservées, statuts distincts        |
+| Implexe (mariage entre cousins)                     | 22 ancêtres par 30 chemins                    |
+| Anomalie plantée (mère de 57 ans)                   | trouvée par l'audit, en avertissement         |
+| PostGIS Tours → Buenos Aires                        | ~11 000 km géodésiques                        |
+| Caméra temporelle, échelle, LOD, mise en page       | 237 tests unitaires                           |
+| Gantt généalogique à l'écran                        | inspecté, interaction testée                  |
+| Rédaction des personnes vivantes                    | 0 nom, 0 date dans la charge publique (HTTP)  |
+
+**Tests** : 237 unitaires + 40 d'intégration.
+
 ---
 
 ## Bugs réels trouvés et corrigés
@@ -84,12 +101,24 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
    consommait le motif de tirets qui encode « date approximative ». Le
    dévoilement passe désormais par un `clipPath`.
 
-7. **Âge calculé par division.** 1700→1900 s'affichait « 199 ans ». Remplacé
-   par de l'arithmétique calendaire.
+7. **Implexe sous-déclaré.** Seul le premier nœud partagé était marqué. Or si
+   un couple est doublé, toute son ascendance l'est aussi : la collapse était
+   sous-estimée de la majeure partie de l'arbre. Remplacé par un calcul de
+   multiplicité sur un ordre topologique.
 
-8. **Regex mutilée par Prettier.** La classe de caractères combinants,
-   écrite en échappements Unicode, était réécrite en caractères littéraux —
-   illisibles et fragiles. Remplacée par la propriété nommée `Diacritic`.
+8. **Graduations temporelles introuvables.** La recherche partait du pas le
+   plus grossier ; 1850-1950 était gradué en millénaires, soit zéro trait.
+
+9. **Fuite de rédaction par les marqueurs d'événements.** Le nom était masqué
+   mais la naissance restait tracée sur l'axe — la date que la rédaction
+   devait protéger. Même fuite par les liens de parenté et par la colonne
+   « certitude ».
+
+10. **Âge calculé par division.** 1700→1900 s'affichait « 199 ans ».
+
+11. **Regex mutilée par Prettier.** La classe de caractères combinants,
+    écrite en échappements Unicode, était réécrite en caractères littéraux —
+    illisibles et fragiles. Remplacée par la propriété nommée `Diacritic`.
 
 ---
 
@@ -101,18 +130,18 @@ Rien. Point de reprise propre.
 
 ## Reste à faire
 
-| Phase | Contenu                                                           | État                  |
-| ----- | ----------------------------------------------------------------- | --------------------- |
-| 2     | CRUD personne / relation / événement, permissions par rôle        | en cours (auth faite) |
-| 3     | Import / export GEDCOM 7 + écran de revue                         | à faire               |
-| 4     | Services de graphe (ancêtres, descendants, branches), recherche   | à faire               |
-| 5     | Moteur Chronolignée, Gantt, voyage temporel, « qui était vivant » | à faire               |
-| 6     | Carte MapLibre, migrations animées                                | à faire               |
-| 7     | Archives S3, visionneuse de documents                             | à faire               |
-| 8     | Pipeline IA, propositions, assistant                              | à faire               |
-| 9     | Constellation, profondeur temporelle, mode Récit                  | à faire               |
-| 10    | Collaboration, confidentialité des vivants                        | à faire               |
-| 11    | Durcissement production                                           | à faire               |
+| Phase | Contenu                                                           | État                                |
+| ----- | ----------------------------------------------------------------- | ----------------------------------- |
+| 2     | CRUD personne / relation / événement                              | à faire (auth + permissions faites) |
+| 3     | Import / export GEDCOM 7 + écran de revue                         | à faire                             |
+| 4     | Services de graphe (ancêtres, descendants, branches), recherche   | à faire                             |
+| 5     | Moteur Chronolignée, Gantt, voyage temporel, « qui était vivant » | à faire                             |
+| 6     | Carte MapLibre, migrations animées                                | à faire                             |
+| 7     | Archives S3, visionneuse de documents                             | à faire                             |
+| 8     | Pipeline IA, propositions, assistant                              | à faire                             |
+| 9     | Constellation, profondeur temporelle, mode Récit                  | à faire                             |
+| 10    | Collaboration, confidentialité des vivants                        | à faire                             |
+| 11    | Durcissement production                                           | à faire                             |
 
 ---
 
