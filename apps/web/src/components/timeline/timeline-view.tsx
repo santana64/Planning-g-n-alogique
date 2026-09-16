@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { TimelineCanvas } from './timeline-canvas';
+import { TemporalCursor } from './temporal-cursor';
+import { whoWasAlive } from './who-was-alive';
 import type { TimelineSnapshot } from '@/server/timeline';
 
 /**
@@ -23,8 +25,16 @@ const CERTAINTY_LABELS: Record<string, string> = {
 export function TimelineView({ snapshot }: { snapshot: TimelineSnapshot }) {
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [showTable, setShowTable] = useState(false);
+  const [cursorJdn, setCursorJdn] = useState<number | null>(null);
 
   const selected = snapshot.rows.find((row) => row.personId === selectedPersonId);
+
+  // Recomputed on every cursor move. Forty rows is nothing; twenty thousand is
+  // one pass over a typed array, which is still well inside a frame.
+  const alive = useMemo(
+    () => (cursorJdn === null ? null : whoWasAlive(snapshot.rows, cursorJdn, snapshot.todayJdn)),
+    [cursorJdn, snapshot.rows, snapshot.todayJdn],
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -59,9 +69,18 @@ export function TimelineView({ snapshot }: { snapshot: TimelineSnapshot }) {
             snapshot={snapshot}
             selectedPersonId={selectedPersonId}
             onSelect={setSelectedPersonId}
+            cursor={cursorJdn !== null && alive ? { jdn: cursorJdn, states: alive.states } : null}
           />
         )}
       </div>
+
+      <TemporalCursor
+        jdn={cursorJdn}
+        onChange={setCursorJdn}
+        minJdn={snapshot.earliestJdn}
+        maxJdn={snapshot.latestJdn}
+        alive={alive}
+      />
 
       <Legend />
 

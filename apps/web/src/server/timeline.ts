@@ -33,6 +33,19 @@ export interface TimelineRow {
   readonly branchKey: string;
   readonly earliestJdn: number | null;
   readonly latestJdn: number | null;
+  /**
+   * The birth and death windows, separately.
+   *
+   * The resolved lifespan is not enough to answer "was this person alive on
+   * D": that needs to know how far the birth could be late and how early the
+   * death could be, which is exactly the difference between YES and MAYBE.
+   * Sent to the client so dragging the time cursor is instant rather than a
+   * round trip per day.
+   */
+  readonly birthEarliestJdn: number | null;
+  readonly birthLatestJdn: number | null;
+  readonly deathEarliestJdn: number | null;
+  readonly deathLatestJdn: number | null;
   readonly startCertainty: EdgeCertainty;
   readonly endCertainty: EdgeCertainty;
   readonly isLiving: boolean;
@@ -138,6 +151,10 @@ export const loadTimeline = cache(async (treeSlug: string): Promise<TimelineSnap
         branchKey: row.branchKey,
         earliestJdn: row.earliestJdn,
         latestJdn: row.latestJdn,
+        birthEarliestJdn: birth?.interval.earliest ?? null,
+        birthLatestJdn: birth?.interval.latest ?? null,
+        deathEarliestJdn: death?.interval.earliest ?? null,
+        deathLatestJdn: death?.interval.latest ?? null,
         startCertainty: edges.start,
         endCertainty: edges.end,
         isLiving: person?.isDeceased === false,

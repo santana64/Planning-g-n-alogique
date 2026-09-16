@@ -301,12 +301,54 @@ export function wasAliveOn(
   todayJdn: number,
   maxLifespanYears: number = MAX_PLAUSIBLE_LIFESPAN_YEARS,
 ): Trivalent {
-  const birth = input.birth?.interval ?? UNBOUNDED;
-  const death = input.death?.interval ?? UNBOUNDED;
-  const resolved = resolveLifespan(input, todayJdn, maxLifespanYears);
+  return wasAliveOnIntervals(
+    {
+      birth: input.birth?.interval ?? UNBOUNDED,
+      death: input.death?.interval ?? UNBOUNDED,
+      isDeceased: input.isDeceased,
+    },
+    jdn,
+    todayJdn,
+    maxLifespanYears,
+  );
+}
+
+export interface LifespanIntervals {
+  readonly birth: JdnInterval;
+  readonly death: JdnInterval;
+  readonly isDeceased?: boolean | undefined;
+}
+
+/**
+ * The same question, answered from raw intervals.
+ *
+ * Exists because the answer has to be recomputed for every person on every
+ * frame while a time cursor is being dragged, and the caller there holds four
+ * numbers rather than parsed date objects. Reconstructing a GenealogicalDate
+ * per person per frame to ask a question about two comparisons would be
+ * absurd — so `wasAliveOn` delegates here instead of the two diverging.
+ */
+export function wasAliveOnIntervals(
+  input: LifespanIntervals,
+  jdn: number,
+  todayJdn: number,
+  maxLifespanYears: number = MAX_PLAUSIBLE_LIFESPAN_YEARS,
+): Trivalent {
+  const { birth, death } = input;
+
+  // The implied upper bound, reproduced here rather than routed through
+  // resolveLifespan, which needs date objects this caller does not have.
+  let latest = death.latest;
+  if (latest === null) {
+    const maxDays = Math.round(maxLifespanYears * DAYS_PER_YEAR);
+    const fromBirth = birth.earliest !== null ? birth.earliest + maxDays : null;
+    const fromStatus = input.isDeceased === false ? todayJdn : null;
+    const candidates = [fromBirth, fromStatus].filter((v): v is number => v !== null);
+    if (candidates.length > 0) latest = Math.min(...candidates);
+  }
 
   if (birth.earliest !== null && jdn < birth.earliest) return 'NO';
-  if (resolved.interval.latest !== null && jdn > resolved.interval.latest) return 'NO';
+  if (latest !== null && jdn > latest) return 'NO';
 
   const bornForSure = birth.latest !== null && birth.latest <= jdn;
   const notYetDeadForSure =

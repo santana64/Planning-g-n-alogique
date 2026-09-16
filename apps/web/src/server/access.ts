@@ -105,6 +105,10 @@ export interface RedactablePerson {
   readonly deathLabel: string;
   readonly earliestJdn: number | null;
   readonly latestJdn: number | null;
+  readonly birthEarliestJdn: number | null;
+  readonly birthLatestJdn: number | null;
+  readonly deathEarliestJdn: number | null;
+  readonly deathLatestJdn: number | null;
   readonly redacted: boolean;
 }
 
@@ -120,6 +124,12 @@ export function redactPerson<T extends RedactablePerson>(person: T, redact: bool
     deathLabel: '—',
     earliestJdn: null,
     latestJdn: null,
+    // The separate windows go too. Keeping them would let the time cursor
+    // reconstruct the birth year the name was hidden to protect.
+    birthEarliestJdn: null,
+    birthLatestJdn: null,
+    deathEarliestJdn: null,
+    deathLatestJdn: null,
     redacted: true,
   };
 }

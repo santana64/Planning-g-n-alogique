@@ -28,6 +28,8 @@ export interface TimelineCanvasProps {
   readonly selectedPersonId: string | null;
   readonly onSelect: (personId: string | null) => void;
   readonly onViewportChange?: (state: CameraState) => void;
+  /** The temporal cursor, owned by the view so the counts and the drawing agree. */
+  readonly cursor: { readonly jdn: number; readonly states: Uint8Array } | null;
 }
 
 function readTheme(element: HTMLElement): TimelineTheme {
@@ -54,6 +56,7 @@ export function TimelineCanvas({
   selectedPersonId,
   onSelect,
   onViewportChange,
+  cursor,
 }: TimelineCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -142,11 +145,11 @@ export function TimelineCanvas({
       scrollTopPx: scrollTop,
       rowHeightPx: ROW_HEIGHT,
       theme: themeRef.current,
-      interaction: { hoveredRow, selectedPersonId, relatedRows },
+      interaction: { hoveredRow, selectedPersonId, relatedRows, cursor },
     });
 
     setDetailLevel(result.detailLevel);
-  }, [snapshot, size, scrollTop, hoveredRow, selectedPersonId, relatedRows]);
+  }, [snapshot, size, scrollTop, hoveredRow, selectedPersonId, relatedRows, cursor]);
 
   const requestDraw = useCallback(() => {
     cancelAnimationFrame(frameRef.current);

@@ -9,6 +9,7 @@ import {
   resolveLifespan,
   unknownDate,
   wasAliveOn,
+  wasAliveOnIntervals,
 } from './interval';
 import { parseGenealogicalDate } from './parse';
 
@@ -227,6 +228,69 @@ describe('ageAt', () => {
         if (age) expect(age.max).toBeGreaterThanOrEqual(age.min);
       }),
       { numRuns: 300 },
+    );
+  });
+});
+
+describe('wasAliveOnIntervals', () => {
+  // The interval form exists so a dragged time cursor can recompute every
+  // person per frame without rebuilding date objects. It must agree with the
+  // date form exactly, or the timeline and the rest of the product would
+  // answer the same question differently.
+  const cases: ReadonlyArray<[string, string | null, string | null, boolean | undefined]> = [
+    ['both exact, bracketing', '3 MAR 1901', '17 NOV 1976', true],
+    ['born after', '1950', '2010', true],
+    ['died before', '1850', '1900', true],
+    ['uncertain birth straddling', 'ABT 1945', '2000', true],
+    ['no death recorded', '3 MAR 1901', null, true],
+    ['maximum-lifespan rule applies', '1750', null, true],
+    ['living person', '3 MAR 1930', null, false],
+    ['no dates at all', null, null, undefined],
+    ['only a death', null, '1900', true],
+    ['open-ended birth', 'AFT 1900', '1980', true],
+  ];
+
+  it.each(cases)('agrees with the date form: %s', (_label, birth, death, isDeceased) => {
+    const birthDate = birth ? parse(birth) : null;
+    const deathDate = death ? parse(death) : null;
+
+    for (const probe of [VE_DAY, day(1800, 1, 1), day(1960, 6, 1), day(2020, 1, 1)]) {
+      const viaDates = wasAliveOn({ birth: birthDate, death: deathDate, isDeceased }, probe, TODAY);
+      const viaIntervals = wasAliveOnIntervals(
+        {
+          birth: birthDate?.interval ?? { earliest: null, latest: null },
+          death: deathDate?.interval ?? { earliest: null, latest: null },
+          isDeceased,
+        },
+        probe,
+        TODAY,
+      );
+      expect(viaIntervals).toBe(viaDates);
+    }
+  });
+
+  it('agrees with the date form for arbitrary lifespans and probes', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1700, max: 1990 }),
+        fc.integer({ min: 1, max: 100 }),
+        fc.integer({ min: day(1600, 1, 1), max: day(2100, 1, 1) }),
+        fc.constantFrom('', 'ABT ', 'BEF ', 'AFT '),
+        (birthYear, lifespan, probe, qualifier) => {
+          const birth = parse(`${qualifier}${birthYear}`);
+          const death = parse(String(birthYear + lifespan));
+          const input = { birth, death, isDeceased: true };
+
+          expect(
+            wasAliveOnIntervals(
+              { birth: birth.interval, death: death.interval, isDeceased: true },
+              probe,
+              TODAY,
+            ),
+          ).toBe(wasAliveOn(input, probe, TODAY));
+        },
+      ),
+      { numRuns: 1000 },
     );
   });
 });

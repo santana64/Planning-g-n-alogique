@@ -41,6 +41,14 @@ export interface TimelineInteraction {
   readonly selectedPersonId: string | null;
   /** Rows connected to the selection, dimmed differently from the rest. */
   readonly relatedRows: ReadonlySet<number>;
+  /**
+   * The temporal cursor, when time travel is engaged.
+   *
+   * `states` is one byte per row from whoWasAlive(). Passing the codes rather
+   * than recomputing here keeps the answer in one place and keeps the render
+   * loop free of genealogical reasoning.
+   */
+  readonly cursor: { readonly jdn: number; readonly states: Uint8Array } | null;
 }
 
 export interface RenderOptions {
@@ -51,6 +59,29 @@ export interface RenderOptions {
   readonly rowHeightPx: number;
   readonly theme: TimelineTheme;
   readonly interaction: TimelineInteraction;
+}
+
+/**
+ * How present each state looks when the temporal cursor is engaged.
+ *
+ * Unborn all but disappears and the deceased recede rather than vanish: the
+ * difference carries the direction of time, which is the whole point of
+ * moving a cursor across a century. Collapsing both into "absent" would make
+ * the past and the future look identical.
+ */
+const STATE_ALPHA: Readonly<Record<number, number>> = {
+  0: 0.06, // UNBORN
+  1: 1, // ALIVE_CERTAIN
+  2: 0.5, // ALIVE_POSSIBLE
+  3: 0.22, // DECEASED
+  4: 0.14, // UNDATED
+  5: 0.14, // HIDDEN
+};
+
+/** Opacity for one row under the temporal cursor, 1 when time travel is off. */
+function cursorAlphaFor(interaction: TimelineInteraction, row: number): number {
+  if (!interaction.cursor) return 1;
+  return STATE_ALPHA[interaction.cursor.states[row] ?? 4] ?? 1;
 }
 
 const AXIS_HEIGHT = 26;
@@ -99,6 +130,7 @@ export function renderTimeline(
   if (lod.showEventMarkers) drawEvents(ctx, options, rowY, firstRow, lastRow);
   if (lod.showPersonLabels) drawLabels(ctx, options, rowY, firstRow, lastRow);
   drawTodayLine(ctx, options);
+  drawTemporalCursor(ctx, options);
   drawAxis(ctx, options);
 
   return { visibleRows: Math.max(lastRow - firstRow + 1, 0), detailLevel: lod.level };
@@ -206,7 +238,7 @@ function drawBars(
     const colour = branchColorForKey(row.branchKey);
 
     const dimmed = interaction.selectedPersonId !== null && !interaction.relatedRows.has(row.row);
-    ctx.globalAlpha = dimmed ? 0.22 : 1;
+    ctx.globalAlpha = (dimmed ? 0.22 : 1) * cursorAlphaFor(interaction, i);
 
     // An open edge fades instead of ending. A hard cap there would assert a
     // boundary nobody recorded.
@@ -330,8 +362,13 @@ function drawEvents(
     const x = jdnToX(viewport, event.jdn);
     if (x < -4 || x > viewport.widthPx + 4) continue;
 
+    // An event later than the cursor has not happened yet, so it is not drawn.
+    // Showing it would put the future on a timeline claiming to be a
+    // particular moment in the past.
+    if (interaction.cursor && event.jdn > interaction.cursor.jdn) continue;
+
     const dimmed = interaction.selectedPersonId !== null && !interaction.relatedRows.has(event.row);
-    ctx.globalAlpha = dimmed ? 0.2 : 0.9;
+    ctx.globalAlpha = (dimmed ? 0.2 : 0.9) * cursorAlphaFor(interaction, event.row);
     ctx.fillStyle = theme.textPrimary;
 
     const y = rowY(event.row);
@@ -370,7 +407,7 @@ function drawLabels(
     if (!bar.visible) continue;
 
     const dimmed = interaction.selectedPersonId !== null && !interaction.relatedRows.has(row.row);
-    ctx.globalAlpha = dimmed ? 0.3 : 1;
+    ctx.globalAlpha = (dimmed ? 0.3 : 1) * cursorAlphaFor(interaction, i);
     ctx.fillStyle = interaction.hoveredRow === row.row ? theme.textPrimary : theme.textMuted;
 
     // Label to the left of the bar, or inside it when the bar runs off the
@@ -413,6 +450,40 @@ function drawTodayLine(ctx: CanvasRenderingContext2D, options: RenderOptions): v
   ctx.moveTo(Math.round(x) + 0.5, AXIS_HEIGHT);
   ctx.lineTo(Math.round(x) + 0.5, heightPx);
   ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * The temporal cursor.
+ *
+ * Drawn in the accent colour and solid, where "today" is dotted: the cursor is
+ * where the user has put time, and it has to be findable instantly among three
+ * centuries of gridlines.
+ */
+function drawTemporalCursor(ctx: CanvasRenderingContext2D, options: RenderOptions): void {
+  const { viewport, heightPx, theme, interaction } = options;
+  if (!interaction.cursor) return;
+
+  const x = jdnToX(viewport, interaction.cursor.jdn);
+  if (x < 0 || x > viewport.widthPx) return;
+
+  ctx.save();
+  ctx.strokeStyle = theme.accent;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(Math.round(x) + 0.5, AXIS_HEIGHT);
+  ctx.lineTo(Math.round(x) + 0.5, heightPx);
+  ctx.stroke();
+
+  // A small handle at the top, so the line reads as something grabbable
+  // rather than as another gridline.
+  ctx.fillStyle = theme.accent;
+  ctx.beginPath();
+  ctx.moveTo(x - 5, AXIS_HEIGHT);
+  ctx.lineTo(x + 5, AXIS_HEIGHT);
+  ctx.lineTo(x, AXIS_HEIGHT + 7);
+  ctx.closePath();
+  ctx.fill();
   ctx.restore();
 }
 
