@@ -80,7 +80,13 @@ export const auth = betterAuth({
       // Credential endpoints are the ones worth brute-forcing, so they get a
       // tighter budget than the rest of the auth surface.
       '/sign-in/email': { window: 60, max: 5 },
-      '/sign-up/email': { window: 3600, max: 5 },
+      // Deliberately looser than sign-in. Sign-up is limited per IP, and a
+      // genealogy is something a family does together: relatives creating
+      // accounts from one household — or one office, one library, one
+      // retirement home behind a single NAT — are the normal case, not an
+      // attack. Twenty an hour still stops bulk registration cold while
+      // leaving room for the gathering this product exists to serve.
+      '/sign-up/email': { window: 3600, max: 20 },
       '/forget-password': { window: 3600, max: 3 },
     },
   },

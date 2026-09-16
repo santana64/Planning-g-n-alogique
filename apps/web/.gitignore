@@ -1,0 +1,4 @@
+
+# Playwright signs up once and keeps the session here. A real cookie for a
+# throwaway account, but a real cookie: never committed.
+e2e/.auth/

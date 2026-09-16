@@ -1,15 +1,19 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { listTreesForUser } from '@chronolignee/db';
 import { redirect } from '@/i18n/navigation';
+import { db } from '@/lib/db';
 import { getSession } from '@/lib/session';
 import { SignOutButton } from '@/components/auth/sign-out-button';
+import { TreeDashboard } from '@/components/trees/tree-dashboard';
 
 /**
- * The application shell, currently a placeholder landing spot for a freshly
- * authenticated user. The dashboard proper (tree list, first-run choice
- * between manual entry, GEDCOM import and the demo dataset) lands in phase 2.
+ * The application shell: the trees this account can open, and the way to make
+ * another one.
  *
- * What is real here is the guard: the session is read on the server, and an
- * unauthenticated request is redirected before any of this renders.
+ * The guard is the point. The session is read on the server, and an
+ * unauthenticated request is redirected before any of this renders — and the
+ * list comes from membership rows, so it cannot show a tree the account was
+ * never given.
  */
 /**
  * Dynamic, because it reads the database on every request.
@@ -29,6 +33,7 @@ export default async function AppPage({ params }: { params: Promise<{ locale: st
   if (!session) redirect({ href: '/sign-in', locale });
 
   const t = await getTranslations('auth');
+  const trees = session ? await listTreesForUser(db, session.user.id) : [];
 
   return (
     <main id="main" className="bg-surface-0 min-h-dvh px-6 py-14">
@@ -43,9 +48,9 @@ export default async function AppPage({ params }: { params: Promise<{ locale: st
           </div>
         </header>
 
-        <p className="text-text-muted mt-10">
-          Compte créé. Le tableau de bord arrive à la phase suivante.
-        </p>
+        <div className="mt-10">
+          <TreeDashboard trees={trees} />
+        </div>
       </div>
     </main>
   );

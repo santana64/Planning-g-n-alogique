@@ -114,8 +114,20 @@ export interface RedactablePerson {
 
 export const REDACTED_LABEL = 'Personne vivante';
 
+/**
+ * Whether this viewer must not see who this is.
+ *
+ * The single rule. Each projection blanks its own fields, because a timeline
+ * row and a list entry genuinely carry different ones — but none of them
+ * decides *whether* to blank. Three redaction leaks have already been caused
+ * by code that re-derived this decision locally and got it subtly wrong.
+ */
+export function isHiddenFrom(person: { readonly isLiving: boolean }, redact: boolean): boolean {
+  return redact && person.isLiving;
+}
+
 export function redactPerson<T extends RedactablePerson>(person: T, redact: boolean): T {
-  if (!redact || !person.isLiving) return person;
+  if (!isHiddenFrom(person, redact)) return person;
 
   return {
     ...person,

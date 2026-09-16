@@ -103,7 +103,22 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Image web de production                      | 433 Mo, non-root, sert la démo depuis la base      |
 | Image worker de production                   | 929 Mo, non-root, connectée à Redis                |
 
-**Tests** : 293 unitaires + 67 d'intégration + 18 E2E.
+### Écriture manuelle (phase 2)
+
+| Élément                                      | Preuve                                               |
+| -------------------------------------------- | ---------------------------------------------------- |
+| Création d'une personne                      | nom d'affichage à la française, `Jean DUPONT`        |
+| Date saisie au clavier                       | parsée par le domaine, FR et GEDCOM                  |
+| Date illisible conservée                     | `9 br 1889` gardé tel quel, aucune position inventée |
+| Naissance stockée en événement               | aucune colonne `birthDate`, participant `PRINCIPAL`  |
+| Cache de durée de vie rafraîchi à l'écriture | `lifespanEarliestJdn` renseigné dans la transaction  |
+| Correction d'une date                        | l'ancien événement est archivé, pas écrasé           |
+| Vivant masqué dès la création                | `privacy = REDACTED`, jamais public un seul instant  |
+| Journal des révisions                        | seuls les champs modifiés, pas l'enregistrement      |
+| Relation créant un cycle                     | refusée avant l'écriture (`RelationshipRefused`)     |
+| Mère de 58 ans                               | acceptée, avertissement retourné                     |
+
+**Tests** : 293 unitaires + 89 d'intégration + 18 E2E.
 
 ---
 
@@ -149,7 +164,18 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
 10. **Âge calculé par division.** 1700→1900 s'affichait « 199 ans ».
 
-11. **Regex mutilée par Prettier.** La classe de caractères combinants,
+11. **`.partial()` de Zod conserve les valeurs par défaut — fuite de
+    confidentialité.** Le schéma de mise à jour, dérivé du schéma de création,
+    réappliquait donc `livingStatus: UNKNOWN` à chaque édition. La
+    confidentialité suit le statut vivant : corriger le nom d'une personne
+    vivante la rendait publique. Corrigé en séparant les champs nus des
+    valeurs par défaut de création ; couvert par un test de régression.
+
+12. **`diffFields` comparait à des colonnes non sélectionnées.** Un champ
+    absent du `select` était lu comme une modification : chaque édition
+    écrivait une révision citant des champs que personne n'avait touchés.
+
+13. **Regex mutilée par Prettier.** La classe de caractères combinants,
     écrite en échappements Unicode, était réécrite en caractères littéraux —
     illisibles et fragiles. Remplacée par la propriété nommée `Diacritic`.
 
@@ -165,10 +191,11 @@ Rien. Point de reprise propre.
 
 | Phase | Contenu                                                           | État                                |
 | ----- | ----------------------------------------------------------------- | ----------------------------------- |
-| 2     | CRUD personne / relation / événement                              | à faire (auth + permissions faites) |
-| 3     | Import / export GEDCOM 7 + écran de revue                         | à faire                             |
+| 2     | Services CRUD personne / relation                                 | **fait** — interface non construite |
+| 2     | Formulaires d'édition, liste, éditeur de liens                    | à faire                             |
+| 3     | Import GEDCOM 7 + écran de revue                                  | **fait** — export sans bouton       |
 | 4     | Services de graphe (ancêtres, descendants, branches), recherche   | à faire                             |
-| 5     | Moteur Chronolignée, Gantt, voyage temporel, « qui était vivant » | à faire                             |
+| 5     | Moteur Chronolignée, Gantt, voyage temporel, « qui était vivant » | **fait**                            |
 | 6     | Carte MapLibre, migrations animées                                | à faire                             |
 | 7     | Archives S3, visionneuse de documents                             | à faire                             |
 | 8     | Pipeline IA, propositions, assistant                              | à faire                             |

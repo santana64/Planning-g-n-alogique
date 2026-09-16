@@ -8,3 +8,4 @@ export * from './services/import-gedcom';
 export * from './services/person';
 export * from './services/relationship';
 export * from './services/schemas';
+export * from './services/tree';
