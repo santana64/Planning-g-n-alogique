@@ -337,6 +337,12 @@ export function mapDocument(document: GedcomDocument): ImportPlan {
     const marriageDate = marriage ? recordDate(marriage) : null;
     const divorceDate = divorce ? recordDate(divorce) : null;
 
+    // Sources cited on the FAM record itself rather than on the event inside
+    // it. Both placements are legal and exporters disagree about which to
+    // use, so reading only one silently drops a citation — the opposite of
+    // what this importer is for.
+    const familySources = pointerValues(record, 'SOUR', knownXrefs, warnings);
+
     if (spouses.length === 2 && spouses[0] && spouses[1]) {
       relationships.push({
         sourceXref: spouses[0],
@@ -356,7 +362,9 @@ export function mapDocument(document: GedcomDocument): ImportPlan {
         placeName: recordPlace(node),
         description: undefined,
         participants: spouses.map((xref) => ({ xref, role: 'SPOUSE' })),
-        sourceXrefs: pointerValues(node, 'SOUR', knownXrefs, warnings),
+        sourceXrefs: [
+          ...new Set([...pointerValues(node, 'SOUR', knownXrefs, warnings), ...familySources]),
+        ],
       });
     }
 

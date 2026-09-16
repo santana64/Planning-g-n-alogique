@@ -364,9 +364,15 @@ importers:
       '@chronolignee/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      '@chronolignee/gedcom':
+        specifier: workspace:*
+        version: link:../../packages/gedcom
       '@chronolignee/genealogy':
         specifier: workspace:*
         version: link:../../packages/genealogy
+      '@chronolignee/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@chronolignee/ui':
         specifier: workspace:*
         version: link:../../packages/ui

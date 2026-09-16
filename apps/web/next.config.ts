@@ -66,6 +66,8 @@ const config: NextConfig = {
   transpilePackages: [
     '@chronolignee/ui',
     '@chronolignee/engine',
+    '@chronolignee/gedcom',
+    '@chronolignee/storage',
     '@chronolignee/domain',
     '@chronolignee/genealogy',
     '@chronolignee/db',

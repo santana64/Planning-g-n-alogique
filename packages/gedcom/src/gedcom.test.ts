@@ -222,6 +222,35 @@ describe('mapper', () => {
     expect(odd.relationships[0]?.type).toBe('PARENT_UNKNOWN');
   });
 
+  it('reads a source cited on the family record, not only on the event', () => {
+    // Both placements are legal and exporters disagree about which to use.
+    // Reading only one silently drops a citation.
+    const withFamilySource = mapDocument(
+      parseGedcom(
+        [
+          '0 HEAD',
+          '1 GEDC',
+          '2 VERS 7.0',
+          '0 @I1@ INDI',
+          '1 NAME A //',
+          '0 @I2@ INDI',
+          '1 NAME B //',
+          '0 @S1@ SOUR',
+          '1 TITL Registre de mariage',
+          '0 @F1@ FAM',
+          '1 HUSB @I1@',
+          '1 WIFE @I2@',
+          '1 MARR',
+          '2 DATE 1869',
+          '1 SOUR @S1@',
+          '0 TRLR',
+        ].join('\r\n'),
+      ),
+    );
+    const marriage = withFamilySource.events.find((e) => e.type === 'MARRIAGE');
+    expect(marriage?.sourceXrefs).toContain('@S1@');
+  });
+
   it('reports a pointer to a record that is not in the file', () => {
     const partial = mapDocument(
       parseGedcom(
