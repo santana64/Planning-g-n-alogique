@@ -1,5 +1,5 @@
-import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
+import { EDITING_STATE_PATH } from './global-setup';
 
 /**
  * Manual genealogy editing, end to end.
@@ -9,44 +9,84 @@ import { expect, test, type Page } from '@playwright/test';
  * timeline. Every step here failed for a real reason at some point during
  * development, which is why each is asserted rather than assumed.
  *
- * One account for the file, a fresh tree per test. The isolation that matters
+ * One account for the run, a fresh tree per test. The isolation that matters
  * is the data — a suite whose tests inherit each other's people goes red for
  * reasons unrelated to the code — and that is what a per-test tree gives.
  *
- * Signing up per test does not buy more isolation and does cost something
- * real: sign-up is rate-limited per IP, and a suite that spends the whole
- * budget on itself either fails or pressures someone into loosening a limit
- * that exists for a reason.
+ * Signing up per test buys no more isolation and costs something real:
+ * sign-up is rate-limited per IP, and a suite that spends the whole budget on
+ * itself either fails or pressures someone into loosening a limit that exists
+ * for a reason.
  */
 
-const STATE_PATH = fileURLToPath(new URL('./.auth/editing.json', import.meta.url));
+/**
+ * A longer budget than the default thirty seconds.
+ *
+ * These tests are genuinely heavier than a page-load assertion: each creates a
+ * tree, two or three people and the links between them, every step a real
+ * write through a real transaction. The per-step waits below stay comfortably
+ * under this number — setting one equal to the test budget means the test dies
+ * before the step can report what went wrong.
+ */
+test.describe.configure({ timeout: 90_000 });
 
-async function signUp(page: Page): Promise<string> {
-  const email = `e2e-crud-${Date.now()}-${Math.random().toString(36).slice(2)}@chronolignee.invalid`;
-  await page.goto('/sign-up');
-  await page.getByLabel('Nom').fill('Test CRUD');
-  await page.getByLabel('Adresse e-mail').fill(email);
-  await page.getByLabel('Mot de passe').fill(`E2e-${Date.now()}-abcdefgh`);
-  await page.getByRole('button', { name: 'Créer un compte' }).click();
-  await expect(page).toHaveURL(/\/app/);
-  return email;
-}
+// The account is created once per run by the global setup, not per worker:
+// several workers writing one session file is a race, and it showed up as a
+// single test failing in half the runs.
+test.use({ storageState: EDITING_STATE_PATH });
 
-/** One sign-up for the file; every test then starts already signed in. */
-test.beforeAll(async ({ browser }) => {
-  // storageState: undefined explicitly — the file-level test.use below applies
-  // to contexts opened in hooks too, and this one runs before the file exists.
-  const context = await browser.newContext({ storageState: undefined });
-  const page = await context.newPage();
-  await signUp(page);
-  await context.storageState({ path: STATE_PATH });
-  await context.close();
+/**
+ * Surface what the browser saw.
+ *
+ * These tests fail by waiting for something the client never did — a
+ * navigation, a combobox opening — and a timeout says nothing about why. An
+ * uncaught client error or a React hydration mismatch is exactly the kind of
+ * cause that produces that symptom and leaves no trace on the server.
+ */
+const clientErrors: string[] = [];
+
+test.beforeEach(({ page }) => {
+  clientErrors.length = 0;
+  page.on('pageerror', (error) => clientErrors.push(`pageerror: ${error.message}`));
+  page.on('console', (message) => {
+    if (message.type() === 'error') clientErrors.push(`console: ${message.text()}`);
+  });
 });
 
-test.use({ storageState: STATE_PATH });
+// eslint-disable-next-line no-empty-pattern -- Playwright passes testInfo second.
+test.afterEach(async ({}, testInfo) => {
+  if (testInfo.status !== testInfo.expectedStatus && clientErrors.length > 0) {
+    const report = clientErrors.join('\n');
+    testInfo.annotations.push({ type: 'client errors', description: report });
+    // eslint-disable-next-line no-console
+    console.log(`\n--- browser errors during this test ---\n${report}`);
+  }
+});
+
+/**
+ * Fill a field and check the value actually stayed.
+ *
+ * Playwright's `fill` waits for the element to be visible and editable, which
+ * a server-rendered input is well before React has hydrated it. Type into that
+ * window and hydration replaces the value with the `defaultValue` it was
+ * rendered with — silently, and only under load, which is why this showed up
+ * as one test failing in half the parallel runs and never once serially.
+ *
+ * Asserting the value and retrying is the honest fix: it says what the step
+ * actually requires rather than sleeping and hoping.
+ */
+async function fillStable(page: Page, label: string, value: string): Promise<void> {
+  // Exact, then first: "Date" must not also match "Date de naissance", and
+  // "Prénom(s)" legitimately appears once per name block.
+  const field = page.getByLabel(label, { exact: true }).first();
+  await expect(async () => {
+    await field.fill(value);
+    await expect(field).toHaveValue(value, { timeout: 750 });
+  }).toPass({ timeout: 15_000 });
+}
 
 async function createTree(page: Page, name: string): Promise<void> {
-  await page.getByLabel('Nom de l’arbre').fill(name);
+  await fillStable(page, 'Nom de l’arbre', name);
   await page.getByRole('button', { name: 'Créer l’arbre' }).click();
   await expect(page).toHaveURL(/\/personnes/);
 }
@@ -63,20 +103,26 @@ async function addPerson(
   },
 ): Promise<void> {
   await page.getByRole('link', { name: 'Ajouter une personne' }).click();
-  await page.getByLabel('Prénom(s)').first().fill(fields.given);
-  await page.getByLabel('Nom de famille').first().fill(fields.surname);
+  await fillStable(page, 'Prénom(s)', fields.given);
+  await fillStable(page, 'Nom de famille', fields.surname);
   if (fields.sex) await page.getByLabel('Sexe inscrit à l’état civil').selectOption(fields.sex);
-  if (fields.birth) await page.getByLabel('Date de naissance').fill(fields.birth);
-  if (fields.death) await page.getByLabel('Date de décès').fill(fields.death);
+  if (fields.birth) await fillStable(page, 'Date de naissance', fields.birth);
+  if (fields.death) await fillStable(page, 'Date de décès', fields.death);
   if (fields.living) await page.getByLabel('Statut').selectOption('LIVING');
   else if (fields.death) await page.getByLabel('Statut').selectOption('DECEASED');
   await page.getByRole('button', { name: 'Créer la personne' }).click();
 
-  // A refused write leaves the form in place with its reason on screen.
-  // Asserted by count, not with `.not.toContainText` — that one fails when the
-  // element does not exist at all, which is the passing case here and cost a
-  // whole run of false failures to notice.
-  await expect(page.locator('form').getByText(/échoué|invalide|Connectez/)).toHaveCount(0);
+  // Wait for whichever comes first: the navigation, or the form saying why it
+  // refused. Checking for the error immediately after the click is useless —
+  // nothing has rendered yet, the count is zero, and the real message arrives
+  // seconds later to nobody watching. Racing the two turns "timed out waiting
+  // for a URL" into the sentence the form was already displaying.
+  const refusal = page.locator('form').getByText(/échoué|invalide|Connectez|existe pas/);
+  await Promise.race([
+    page.waitForURL(/\/personnes\/[0-9a-f]{8}-/, { timeout: 30_000 }).catch(() => undefined),
+    refusal.waitFor({ state: 'visible', timeout: 30_000 }).catch(() => undefined),
+  ]);
+  await expect(refusal).toHaveCount(0);
   // Thirty seconds, not five: the first server action after a cold `next
   // start` pays for compilation, and reporting that as "the write failed"
   // sends the next person reading this to debug the wrong thing. The
@@ -116,7 +162,7 @@ test.describe('manual editing', () => {
 
     // Link the child to the parent, from the child's own point of view.
     await page.getByLabel('Sens du lien').selectOption('CHILD_OF');
-    await page.getByLabel('Le parent').fill('Jean-Baptiste');
+    await fillStable(page, 'Le parent', 'Jean-Baptiste');
     await page.getByRole('option', { name: /Jean-Baptiste CHASSAGNE/ }).click();
     await page.getByRole('button', { name: 'Créer le lien' }).click();
 
@@ -153,7 +199,7 @@ test.describe('manual editing', () => {
     await addPerson(page, { given: 'Perrine', surname: 'Cadette', birth: '1730' });
 
     await page.getByLabel('Sens du lien').selectOption('CHILD_OF');
-    await page.getByLabel('Le parent').fill('Mathurin');
+    await fillStable(page, 'Le parent', 'Mathurin');
     await page.getByRole('option', { name: /Mathurin ANCIEN/ }).click();
     await page.getByRole('button', { name: 'Créer le lien' }).click();
     await expect(page.getByText('Le lien a été créé.')).toBeVisible();
@@ -162,7 +208,7 @@ test.describe('manual editing', () => {
     await page.getByRole('link', { name: 'Mathurin ANCIEN' }).first().click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Mathurin ANCIEN');
     await page.getByLabel('Sens du lien').selectOption('CHILD_OF');
-    await page.getByLabel('Le parent').fill('Perrine');
+    await fillStable(page, 'Le parent', 'Perrine');
     await page.getByRole('option', { name: /Perrine CADETTE/ }).click();
     await page.getByRole('button', { name: 'Créer le lien' }).click();
 
@@ -194,7 +240,7 @@ test.describe('manual editing', () => {
     });
 
     await page.getByLabel('Sens du lien').selectOption('CHILD_OF');
-    await page.getByLabel('Le parent').fill('Victoire');
+    await fillStable(page, 'Le parent', 'Victoire');
     await page.getByRole('option', { name: /Victoire MARCHAND/ }).click();
     await page.getByRole('button', { name: 'Créer le lien' }).click();
 
@@ -223,9 +269,9 @@ test.describe('manual editing', () => {
 
     await page.getByRole('button', { name: 'Ajouter un événement' }).click();
     await page.getByLabel('Type d’événement').selectOption('MARRIAGE');
-    await page.getByLabel('Date', { exact: true }).fill('14 mai 1871');
-    await page.getByLabel('Lieu', { exact: true }).fill('Tours');
-    await page.getByLabel('Avec').fill('Paul');
+    await fillStable(page, 'Date', '14 mai 1871');
+    await fillStable(page, 'Lieu', 'Tours');
+    await fillStable(page, 'Avec', 'Paul');
     await page.getByRole('option', { name: /Paul RENARD/ }).click();
     await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
 
@@ -256,7 +302,7 @@ test.describe('manual editing', () => {
     await addPerson(page, { given: 'Fausse', surname: 'Date', birth: '1834' });
     await expect(page.getByText('1834').first()).toBeVisible();
 
-    await page.getByLabel('Date de naissance').fill('');
+    await fillStable(page, 'Date de naissance', '');
     await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
     await expect(page.getByText('a été enregistré')).toBeVisible();
 
@@ -280,14 +326,14 @@ test.describe('manual editing', () => {
     // Mother is on screen; link her to the child, then the father.
     await page.goto(subjectUrl);
     await page.getByLabel('Sens du lien').selectOption('CHILD_OF');
-    await page.getByLabel('Le parent').fill('Mere');
+    await fillStable(page, 'Le parent', 'Mere');
     await page.getByRole('option', { name: /Mere SUJET/ }).click();
     await page.getByRole('button', { name: 'Créer le lien' }).click();
     await expect(page.getByText('Le lien a été créé.')).toBeVisible();
 
     await page.goto(fatherUrl);
     await page.getByLabel('Sens du lien').selectOption('PARENT_OF');
-    await page.getByLabel('L’autre personne').fill('Enfant');
+    await fillStable(page, 'L’autre personne', 'Enfant');
     await page.getByRole('option', { name: /Enfant SUJET/ }).click();
     await page.getByRole('button', { name: 'Créer le lien' }).click();
     await expect(page.getByText('Le lien a été créé.')).toBeVisible();

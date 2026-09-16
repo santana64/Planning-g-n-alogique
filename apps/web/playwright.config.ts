@@ -22,13 +22,34 @@ const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: fileURLToPath(new URL('./e2e', import.meta.url)),
+
+  // Signs up the one account the editing suite shares, before any worker
+  // starts. Done per-worker it is a file race; done per-test it exhausts the
+  // sign-up rate limit.
+  globalSetup: fileURLToPath(new URL('./e2e/global-setup.ts', import.meta.url)),
   outputDir: fileURLToPath(new URL('./test-results', import.meta.url)),
 
   // Retries in CI only. A test that needs a retry locally is a test that is
   // telling you something, and hiding it on a developer machine is how a
   // flake becomes permanent.
   retries: process.env['CI'] ? 2 : 0,
-  workers: process.env['CI'] ? 2 : undefined,
+
+  /**
+   * One worker locally, two in CI.
+   *
+   * Not a concession on what the tests assert — worker count changes nothing
+   * about that. It is about what they are pointed at: a single `next start`
+   * process serving one Postgres. Left at the CPU count, a developer machine
+   * runs eight browsers writing concurrently through that one process, and
+   * runs that normally finish in eighteen seconds take almost two minutes,
+   * with requests crossing the thirty-second mark. What fails then is not the
+   * product: read-only anonymous requests time out alongside the writes, the
+   * database shows no lock waits and no saturation, and the browser console
+   * is clean. It is the harness outrunning the server it started.
+   *
+   * CI keeps two, on a dedicated runner, with retries.
+   */
+  workers: process.env['CI'] ? 2 : 1,
   forbidOnly: Boolean(process.env['CI']),
 
   reporter: process.env['CI']

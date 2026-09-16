@@ -1,6 +1,5 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { ZodError } from 'zod';
 import {
   RelationshipRefused,
@@ -19,6 +18,7 @@ import { findingMessage } from '@/lib/finding-messages';
 import { getSession } from '@/lib/session';
 import type { ActionState } from './action-state';
 import { resolveTreeAccess } from './access';
+import { revalidateTree } from './revalidate';
 import { listPeople, type PersonSummary } from './people';
 
 /**
@@ -107,18 +107,6 @@ function warningsFrom(findings: readonly Finding[]): string[] {
   return findings.map(findingMessage);
 }
 
-function refreshTree(): void {
-  // The route pattern, not an interpolated path. Next matches this against
-  // the route it compiled, so a half-interpolated `/[locale]/app/<slug>` —
-  // a literal placeholder next to a real value — matches nothing, and the
-  // client keeps serving the list it cached before the write.
-  //
-  // Broad on purpose: the pages here are all force-dynamic, so what this
-  // actually clears is the client router cache, where staleness is what a
-  // user notices as "my edit did not save".
-  revalidatePath('/[locale]/app/[treeSlug]', 'layout');
-}
-
 /**
  * Name lookup for the relationship editor.
  *
@@ -168,7 +156,7 @@ export async function createPersonAction(
 
   try {
     const created = await createPerson(db, input, authorised.context);
-    refreshTree();
+    revalidateTree(treeSlug);
     return {
       status: 'success',
       message: `${created.displayName} a été créé.`,
@@ -214,7 +202,7 @@ export async function updatePersonAction(
       },
       authorised.context,
     );
-    refreshTree();
+    revalidateTree(treeSlug);
     return { status: 'success', message: `${updated.displayName} a été enregistré.`, personId };
   } catch (error) {
     return failure(error);
@@ -231,7 +219,7 @@ export async function deletePersonAction(
 
   try {
     await deletePerson(db, text(form, 'personId'), authorised.context);
-    refreshTree();
+    revalidateTree(treeSlug);
     return { status: 'success', message: 'La personne a été retirée de l’arbre.' };
   } catch (error) {
     return failure(error);
@@ -260,7 +248,7 @@ export async function createRelationshipAction(
       },
       authorised.context,
     );
-    refreshTree();
+    revalidateTree(treeSlug);
 
     return {
       status: 'success',
@@ -284,7 +272,7 @@ export async function deleteRelationshipAction(
 
   try {
     await deleteRelationship(db, text(form, 'relationshipId'), authorised.context);
-    refreshTree();
+    revalidateTree(treeSlug);
     return { status: 'success', message: 'Le lien a été supprimé.' };
   } catch (error) {
     return failure(error);

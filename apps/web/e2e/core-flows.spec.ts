@@ -23,6 +23,25 @@ test.describe('landing', () => {
 
   test('has no detectable accessibility violations', async ({ page }) => {
     await page.goto('/');
+
+    // Wait for the stylesheet to have actually painted before measuring.
+    //
+    // axe reads computed colours. Under parallel load it can run while the
+    // page is still unstyled, at which point every element reports the body's
+    // own background as both foreground and background — contrast 1.01 — and
+    // the suite reports a contrast failure that exists nowhere but in that
+    // frame. Waiting on the accent button's own background is a direct check
+    // that the cascade has landed.
+    await expect
+      .poll(async () =>
+        page
+          .locator('.bg-accent')
+          .first()
+          .evaluate((element) => getComputedStyle(element).backgroundColor),
+      )
+      .not.toBe('rgba(0, 0, 0, 0)');
+    await page.evaluate(() => document.fonts.ready);
+
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
       .analyze();
@@ -161,6 +180,61 @@ test.describe('the command palette', () => {
     await expect(page.getByRole('dialog', { name: 'Recherche' })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Recherche' })).toHaveCount(0);
+  });
+});
+
+test.describe('descent', () => {
+  test('numbers a descendant study and marks where lines rejoin', async ({ page }) => {
+    // Reached through the palette so the journey is the real one: a name in
+    // the head, a record on screen, then the study.
+    await page.goto('/app/famille-chassagne-demo/personnes');
+    await page.keyboard.press('ControlOrMeta+k');
+    await page.getByRole('combobox', { name: /Chercher une personne/ }).fill('mathurin');
+    await expect(page.getByRole('option').first()).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Mathurin CHASSAGNE');
+
+    await page.getByRole('link', { name: 'Descendance →' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Descendance');
+
+    // Mathurin is born in 1702, so five generations stop in the 1850s. The
+    // depth control is how a descendant study reaches the present, and this
+    // exercises it rather than hard-coding a URL.
+    await page
+      .getByRole('navigation', { name: 'Profondeur' })
+      .getByRole('link', { name: '10' })
+      .click();
+    await expect(page).toHaveURL(/g=10/);
+
+    // D'Aboville: the subject is 1, the eldest child 1.1.
+    const list = page.getByRole('list').filter({ hasText: '1.1' });
+    await expect(list).toBeVisible();
+
+    // Cousins married in this family, so some descendants arrive by two
+    // lines. Collapsing those to one row would hide the loop.
+    await expect(page.getByText('descend par deux lignes').first()).toBeVisible();
+  });
+
+  test('redacts the living descendants a study inevitably reaches', async ({ page }) => {
+    // A descendant study is the one view that runs into the present by
+    // construction: the last two generations are mostly alive.
+    await page.goto('/app/famille-chassagne-demo/personnes');
+    await page.keyboard.press('ControlOrMeta+k');
+    await page.getByRole('combobox', { name: /Chercher une personne/ }).fill('mathurin');
+    await expect(page.getByRole('option').first()).toBeVisible();
+    await page.keyboard.press('Enter');
+    await page.getByRole('link', { name: 'Descendance →' }).click();
+    await page
+      .getByRole('navigation', { name: 'Profondeur' })
+      .getByRole('link', { name: '10' })
+      .click();
+    await expect(page).toHaveURL(/g=10/);
+
+    await expect(page.getByText('Personne vivante').first()).toBeVisible();
+    const body = await page.content();
+    for (const name of ['Camille', 'Léa', 'Mateo', 'Valentina']) {
+      expect(body).not.toContain(name);
+    }
   });
 });
 

@@ -1,6 +1,5 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { ZodError } from 'zod';
 import {
   RelationshipRefused,
@@ -16,6 +15,7 @@ import { db } from '@/lib/db';
 import { getSession } from '@/lib/session';
 import type { ActionState } from './action-state';
 import { resolveTreeAccess } from './access';
+import { revalidateTree } from './revalidate';
 
 /**
  * Events other than birth and death.
@@ -60,10 +60,6 @@ const UNION_LINK: Partial<Record<string, 'SPOUSE' | 'PARTNER' | 'DIVORCED_PARTNE
   CIVIL_UNION: 'PARTNER',
   DIVORCE: 'DIVORCED_PARTNER',
 };
-
-function refresh(): void {
-  revalidatePath('/[locale]/app/[treeSlug]', 'layout');
-}
 
 function failure(error: unknown): ActionState {
   if (error instanceof ZodError) {
@@ -151,7 +147,7 @@ export async function createEventAction(
       }
     }
 
-    refresh();
+    revalidateTree(treeSlug);
     return {
       status: 'success',
       message: "L'événement a été ajouté.",
@@ -181,7 +177,7 @@ export async function updateEventAction(
       },
       authorised.context,
     );
-    refresh();
+    revalidateTree(treeSlug);
     return { status: 'success', message: "L'événement a été corrigé." };
   } catch (error) {
     return failure(error);
@@ -198,7 +194,7 @@ export async function deleteEventAction(
 
   try {
     await deleteEvent(db, text(form, 'eventId'), authorised.context);
-    refresh();
+    revalidateTree(treeSlug);
     return { status: 'success', message: "L'événement a été retiré." };
   } catch (error) {
     return failure(error);

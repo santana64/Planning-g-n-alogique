@@ -171,7 +171,19 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Palette ⌘K                     | ouverte, parcourue et validée au clavier seul                 |
 | Vivants dans la palette        | jamais proposés à un visiteur extérieur                       |
 
-**Tests** : 341 unitaires + 115 d'intégration + 30 E2E.
+### Descendance (phase 4)
+
+| Élément                            | Preuve                                                 |
+| ---------------------------------- | ------------------------------------------------------ |
+| Numérotation d'Aboville            | 1, puis 1.1 / 1.2 / 1.3 dans l'ordre des naissances    |
+| Enfant sans date                   | placé en dernier et marqué « rang non attesté »        |
+| Enfant adopté                      | inclus — contrairement à Sosa, qui encode la filiation |
+| Descendant par deux lignes         | garde ses deux numéros                                 |
+| Comptage par génération            | des personnes, pas des positions                       |
+| Total sur l'arbre de démonstration | 26 depuis Mathurin CHASSAGNE, vérifié en SQL           |
+| Cycle échappé à la validation      | tronque au lieu de faire exploser la pile              |
+
+**Tests** : 353 unitaires + 124 d'intégration + 32 E2E.
 
 ---
 
@@ -283,7 +295,21 @@ Rien. Point de reprise propre.
 
 ## Points à surveiller
 
-- La suite E2E consomme **3 inscriptions par exécution**, contre un plafond de
+- **Contention du poste, pas du produit.** En parallèle maximale, la suite E2E
+  échouait une fois sur trois : des attentes côté client expiraient à 30 s.
+  Établi par mesure : aucune attente de verrou ni saturation côté PostgreSQL,
+  console navigateur propre, et des requêtes **anonymes en lecture seule**
+  expiraient aussi. Les exécutions saines durent 18 s, les contendues 1,8 min.
+  Un seul processus `next start` ne sert pas huit navigateurs concurrents.
+  Workers fixés à 1 en local, 2 en CI (avec reprises). Le nombre de workers ne
+  change rien à ce que les tests vérifient.
+
+- La suite E2E consomme désormais **1 inscription par exécution** (au lieu de 3) :
+  le compte est créé dans `globalSetup`, avant tout worker. En le faisant dans
+  `beforeAll`, chaque worker réécrivait le même fichier de session pendant
+  qu'un autre le lisait.
+
+- La suite E2E consommait **3 inscriptions par exécution**, contre un plafond de
   20 par heure et par IP. Enchaîner plus de six exécutions complètes dans
   l'heure fait échouer les tests authentifiés : c'est le rate-limit qui
   fonctionne, pas une régression. Attendre, ou viser un fichier précis.

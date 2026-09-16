@@ -1,10 +1,10 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { createTree } from '@chronolignee/db';
 import { db } from '@/lib/db';
 import { getSession } from '@/lib/session';
 import type { ActionState } from './action-state';
+import { revalidateDashboard } from './revalidate';
 
 /**
  * Creating a tree.
@@ -36,7 +36,7 @@ export async function createTreeAction(
 
   try {
     const created = await createTree(db, { name }, session.user.id);
-    revalidatePath('/[locale]/app', 'layout');
+    revalidateDashboard();
     return { status: 'success', message: `« ${name} » a été créé.`, slug: created.slug };
   } catch {
     return { status: 'error', message: "L'arbre n'a pas pu être créé." };
