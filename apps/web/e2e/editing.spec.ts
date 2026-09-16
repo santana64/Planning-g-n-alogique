@@ -77,7 +77,11 @@ async function addPerson(
   // element does not exist at all, which is the passing case here and cost a
   // whole run of false failures to notice.
   await expect(page.locator('form').getByText(/échoué|invalide|Connectez/)).toHaveCount(0);
-  await page.waitForURL(/\/personnes\/[0-9a-f]{8}-/, { timeout: 15_000 });
+  // Thirty seconds, not five: the first server action after a cold `next
+  // start` pays for compilation, and reporting that as "the write failed"
+  // sends the next person reading this to debug the wrong thing. The
+  // assertion is unchanged — it must still navigate.
+  await page.waitForURL(/\/personnes\/[0-9a-f]{8}-/, { timeout: 30_000 });
   await expect(page.getByRole('heading', { level: 1 })).toContainText(fields.surname.toUpperCase());
 }
 
@@ -259,6 +263,48 @@ test.describe('manual editing', () => {
     await page.reload();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fausse DATE');
     await expect(page.getByText('1834')).toHaveCount(0);
+  });
+
+  test('numbers an ancestry and shows where the lines rejoin', async ({ page }) => {
+    await page.goto('/app');
+    await createTree(page, `Sosa ${Date.now()}`);
+
+    await addPerson(page, { given: 'Enfant', surname: 'Sujet', birth: '1900' });
+    const subjectUrl = page.url();
+    await page.getByRole('link', { name: 'Toutes les personnes' }).click();
+    await addPerson(page, { given: 'Pere', surname: 'Sujet', birth: '1870', sex: 'MALE' });
+    const fatherUrl = page.url();
+    await page.getByRole('link', { name: 'Toutes les personnes' }).click();
+    await addPerson(page, { given: 'Mere', surname: 'Sujet', birth: '1875', sex: 'FEMALE' });
+
+    // Mother is on screen; link her to the child, then the father.
+    await page.goto(subjectUrl);
+    await page.getByLabel('Sens du lien').selectOption('CHILD_OF');
+    await page.getByLabel('Le parent').fill('Mere');
+    await page.getByRole('option', { name: /Mere SUJET/ }).click();
+    await page.getByRole('button', { name: 'Créer le lien' }).click();
+    await expect(page.getByText('Le lien a été créé.')).toBeVisible();
+
+    await page.goto(fatherUrl);
+    await page.getByLabel('Sens du lien').selectOption('PARENT_OF');
+    await page.getByLabel('L’autre personne').fill('Enfant');
+    await page.getByRole('option', { name: /Enfant SUJET/ }).click();
+    await page.getByRole('button', { name: 'Créer le lien' }).click();
+    await expect(page.getByText('Le lien a été créé.')).toBeVisible();
+
+    await page.goto(`${subjectUrl}/ascendance`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ascendance');
+
+    // The father takes 2 and the mother 3, from their recorded sex — not from
+    // whichever link happened to be created first.
+    const generation1 = page.getByRole('listitem').filter({ hasText: 'Pere SUJET' });
+    await expect(generation1).toContainText('2');
+    const motherSlot = page.getByRole('listitem').filter({ hasText: 'Mere SUJET' });
+    await expect(motherSlot).toContainText('3');
+
+    // And the positions nobody fills are shown rather than omitted: they are
+    // what the researcher came to see.
+    await expect(page.getByText('Inconnu').first()).toBeVisible();
   });
 
   test('does not publish a living person to someone outside the tree', async ({

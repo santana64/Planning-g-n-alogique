@@ -13,7 +13,17 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
-          include: ['packages/*/src/**/*.test.ts', 'apps/*/src/**/*.test.ts'],
+          // Both locations, deliberately. The convention is a test beside its
+          // source, but a unit test dropped into `tests/` used to match
+          // neither project and was silently never run — a whole file of
+          // green-looking assertions that never executed. Widening the glob
+          // removes the trap instead of relying on everyone remembering it.
+          include: [
+            'packages/*/src/**/*.test.ts',
+            'apps/*/src/**/*.test.ts',
+            'packages/*/tests/**/*.test.ts',
+            'apps/*/tests/**/*.test.ts',
+          ],
           exclude: ['**/node_modules/**', '**/*.integration.test.ts'],
           environment: 'node',
           globals: false,

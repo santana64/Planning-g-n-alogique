@@ -147,7 +147,18 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Effacer une date                 | l'efface vraiment ; l'ancien événement reste archivé    |
 | Naissance / décès                | corrigés depuis la fiche, pas depuis deux écrans        |
 
-**Tests** : 300 unitaires + 104 d'intégration + 25 E2E.
+### Ascendance (phase 4)
+
+| Élément                            | Preuve                                                             |
+| ---------------------------------- | ------------------------------------------------------------------ |
+| Numérotation Sosa-Stradonitz       | sujet 1, père 2, mère 3 ; le sexe décide la case, pas l'ordre      |
+| Implexe                            | Pierre et Victoire CHASSAGNE en 10/11 **et** 12/13, vérifié en SQL |
+| Générations vides                  | affichées : c'est là que la recherche s'arrête                     |
+| Complétude                         | compte des personnes, pas des cases                                |
+| Filiation adoptive                 | hors numérotation Sosa, toujours visible dans les liens            |
+| Parenté (cousin germain, issu de…) | code + nombres, accord grammatical testé                           |
+
+**Tests** : 341 unitaires + 104 d'intégration + 26 E2E.
 
 ---
 
@@ -258,6 +269,12 @@ Rien. Point de reprise propre.
   inventée.
 
 ## Points à surveiller
+
+- Un échec E2E observé **une fois sur environ huit exécutions complètes**, juste
+  après une reconstruction : `waitForURL` expirait sur la première action
+  serveur d'un `next start` froid. Budget porté de 15 à 30 s — l'assertion est
+  inchangée. Six exécutions propres depuis, mais l'observation est trop mince
+  pour affirmer que la cause est établie.
 
 - L'image du worker pèse 929 Mo, dominée par le SDK AWS et les moteurs Prisma.
   Acceptable, pas optimal.

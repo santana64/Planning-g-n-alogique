@@ -55,6 +55,12 @@ export default async function PersonPage({
           <p className="tabular text-text-muted">
             {person.birthLabel} — {person.deathLabel}
           </p>
+          <Link
+            href={`/app/${treeSlug}/personnes/${person.personId}/ascendance`}
+            className="text-accent mt-1 self-start text-sm hover:underline"
+          >
+            Voir l’ascendance →
+          </Link>
         </div>
 
         {person.redacted ? (
