@@ -71,6 +71,13 @@ async function addPerson(
   if (fields.living) await page.getByLabel('Statut').selectOption('LIVING');
   else if (fields.death) await page.getByLabel('Statut').selectOption('DECEASED');
   await page.getByRole('button', { name: 'Créer la personne' }).click();
+
+  // A refused write leaves the form in place with its reason on screen.
+  // Asserted by count, not with `.not.toContainText` — that one fails when the
+  // element does not exist at all, which is the passing case here and cost a
+  // whole run of false failures to notice.
+  await expect(page.locator('form').getByText(/échoué|invalide|Connectez/)).toHaveCount(0);
+  await page.waitForURL(/\/personnes\/[0-9a-f]{8}-/, { timeout: 15_000 });
   await expect(page.getByRole('heading', { level: 1 })).toContainText(fields.surname.toUpperCase());
 }
 
@@ -200,6 +207,58 @@ test.describe('manual editing', () => {
         .locator('form')
         .getByText('Victoire MARCHAND aurait 57 ans à la naissance de Hippolyte MARCHAND'),
     ).toBeVisible();
+  });
+
+  test('records a marriage as one event belonging to two people', async ({ page }) => {
+    await page.goto('/app');
+    await createTree(page, `Mariage ${Date.now()}`);
+
+    await addPerson(page, { given: 'Paul', surname: 'Renard', birth: '1845', death: '1902' });
+    await page.getByRole('link', { name: 'Toutes les personnes' }).click();
+    await addPerson(page, { given: 'Adèle', surname: 'Chassagne', birth: '1849', death: '1912' });
+
+    await page.getByRole('button', { name: 'Ajouter un événement' }).click();
+    await page.getByLabel('Type d’événement').selectOption('MARRIAGE');
+    await page.getByLabel('Date', { exact: true }).fill('14 mai 1871');
+    await page.getByLabel('Lieu', { exact: true }).fill('Tours');
+    await page.getByLabel('Avec').fill('Paul');
+    await page.getByRole('option', { name: /Paul RENARD/ }).click();
+    await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
+
+    await expect(page.getByText("L'événement a été ajouté.")).toBeVisible();
+    // Exact, because the form's own hint quotes the same date as an example.
+    await expect(page.getByText('14 mai 1871', { exact: true })).toBeVisible();
+
+    // The union link was offered by the form and taken, so Paul is now on
+    // Adèle's record as a spouse — the event is a date, the link is what the
+    // graph walks, and the form asked rather than inferring.
+    await expect(page.getByRole('heading', { name: 'Unions et fratrie' })).toBeVisible();
+
+    // The same event, once, on the other person's page — not a second copy
+    // with its own date free to drift.
+    await page.getByRole('link', { name: 'Paul RENARD' }).first().click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Paul RENARD');
+    await expect(page.getByText('Mariage', { exact: true })).toBeVisible();
+    await expect(page.getByText('14 mai 1871', { exact: true })).toBeVisible();
+  });
+
+  test('lets a wrong date be removed, not only overwritten', async ({ page }) => {
+    await page.goto('/app');
+    await createTree(page, `Effacement ${Date.now()}`);
+
+    // Emptying the field used to be indistinguishable from not sending it, so
+    // the save reported success and kept the date. Deleting a wrong date
+    // meant typing a different wrong date over it.
+    await addPerson(page, { given: 'Fausse', surname: 'Date', birth: '1834' });
+    await expect(page.getByText('1834').first()).toBeVisible();
+
+    await page.getByLabel('Date de naissance').fill('');
+    await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+    await expect(page.getByText('a été enregistré')).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fausse DATE');
+    await expect(page.getByText('1834')).toHaveCount(0);
   });
 
   test('does not publish a living person to someone outside the tree', async ({

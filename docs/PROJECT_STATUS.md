@@ -134,7 +134,20 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Autorisation                                  | revérifiée en base dans chaque action serveur      |
 | Vivant vu d'un autre navigateur               | 404, ni nom ni année dans le HTML                  |
 
-**Tests** : 300 unitaires + 89 d'intégration + 23 E2E.
+### Événements (phase 2, suite)
+
+| Élément                          | Preuve                                                  |
+| -------------------------------- | ------------------------------------------------------- |
+| Événement à deux participants    | un mariage, une date, deux fiches — pas deux copies     |
+| Lien d'union                     | **proposé** par le formulaire, jamais déduit en silence |
+| Participant d'un autre arbre     | refusé                                                  |
+| Baptême tenant lieu de naissance | déplace la durée de vie                                 |
+| Baptême retiré                   | la durée de vie repart à vide                           |
+| Date d'événement illisible       | conservée, certitude abaissée, événement gardé          |
+| Effacer une date                 | l'efface vraiment ; l'ancien événement reste archivé    |
+| Naissance / décès                | corrigés depuis la fiche, pas depuis deux écrans        |
+
+**Tests** : 300 unitaires + 104 d'intégration + 25 E2E.
 
 ---
 

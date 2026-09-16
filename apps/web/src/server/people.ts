@@ -152,6 +152,14 @@ export interface PersonEventRow {
   readonly type: string;
   readonly label: string;
   readonly dateLabel: string;
+  /**
+   * What the register actually said, for seeding a correction field.
+   *
+   * Not the same as `dateLabel`: round-tripping "vers 1750" through a
+   * formatter and back would hand the researcher a rewrite of their own
+   * words and then save it as though they had typed it.
+   */
+  readonly dateText: string;
   readonly placeName: string | null;
   /** True when the date was kept verbatim because it could not be read. */
   readonly dateUnparsed: boolean;
@@ -343,6 +351,7 @@ export const loadPersonDetail = cache(
                 ? (event.customType ?? 'Autre')
                 : (EVENT_LABELS[event.type] ?? event.type),
             dateLabel: dateLabelOf(date, event.dateOriginalText),
+            dateText: event.dateOriginalText,
             placeName: event.place?.name ?? null,
             dateUnparsed: event.dateUnparsed,
           };

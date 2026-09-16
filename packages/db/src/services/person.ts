@@ -1,20 +1,15 @@
 import { dateToJdn, parseGenealogicalDate, type GenealogicalDate } from '@chronolignee/domain';
 import type { Database } from '../client';
 import { encodeDate } from '../date-codec';
-import {
-  buildDisplayForm,
-  buildSearchName,
-  normaliseGiven,
-  normalisePlaceName,
-  normaliseSurname,
-} from '../normalise';
+import { buildDisplayForm, buildSearchName, normaliseGiven, normaliseSurname } from '../normalise';
 import { lifespanColumns, projectPersonLifespan } from '../projections/person-lifespan';
 import { diffFields, recordRevision } from './audit';
+import { resolvePlace } from './place';
 import {
   createPersonInput,
   updatePersonInput,
   type CreatePersonInput,
-  type PersonNameInput,
+  type PersonNameValue,
   type UpdatePersonInput,
 } from './schemas';
 
@@ -44,7 +39,7 @@ export interface PersonWriteResult {
   readonly displayName: string;
 }
 
-function nameFields(name: PersonNameInput) {
+function nameFields(name: PersonNameValue) {
   return {
     given: name.given ?? null,
     surname: name.surname ?? null,
@@ -56,7 +51,7 @@ function nameFields(name: PersonNameInput) {
 }
 
 /** The name shown in lists, from whichever record is marked preferred. */
-function preferredOf(names: readonly PersonNameInput[]): PersonNameInput | undefined {
+function preferredOf(names: readonly PersonNameValue[]): PersonNameValue | undefined {
   return names.find((name) => name.isPreferred) ?? names[0];
 }
 
@@ -310,30 +305,8 @@ export async function deletePerson(
 
 type Tx = Parameters<Parameters<Database['$transaction']>[0]>[0];
 
-function parse(text: string | undefined): GenealogicalDate | null {
+function parse(text: string | null | undefined): GenealogicalDate | null {
   return text ? parseGenealogicalDate(text) : null;
-}
-
-async function resolvePlace(
-  tx: Tx,
-  treeId: string,
-  name: string | undefined,
-): Promise<string | undefined> {
-  if (!name) return undefined;
-  const normalised = normalisePlaceName(name);
-
-  // Matched on the folded name so "Tours" typed twice does not become two
-  // places — which would split the same town across a map.
-  const existing = await tx.place.findFirst({
-    where: { treeId, normalisedName: normalised },
-    select: { id: true },
-  });
-  if (existing) return existing.id;
-
-  const created = await tx.place.create({
-    data: { treeId, name, normalisedName: normalised, type: 'OTHER', confidence: 'LOW' },
-  });
-  return created.id;
 }
 
 async function writeVitalEvent(
@@ -341,8 +314,8 @@ async function writeVitalEvent(
   treeId: string,
   personId: string,
   type: 'BIRTH' | 'DEATH',
-  dateText: string | undefined,
-  placeName: string | undefined,
+  dateText: string | null | undefined,
+  placeName: string | null | undefined,
 ): Promise<void> {
   if (!dateText && !placeName) return;
 
@@ -373,8 +346,8 @@ async function replaceVitalEvent(
   treeId: string,
   personId: string,
   type: 'BIRTH' | 'DEATH',
-  dateText: string | undefined,
-  placeName: string | undefined,
+  dateText: string | null | undefined,
+  placeName: string | null | undefined,
 ): Promise<void> {
   await tx.event.updateMany({
     where: {

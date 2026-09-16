@@ -4,6 +4,7 @@ import { Link } from '@/i18n/navigation';
 import { SEVERITY_LABELS, findingMessage } from '@/lib/finding-messages';
 import { loadPersonDetail } from '@/server/people';
 import { DeletePerson } from '@/components/people/delete-person';
+import { EventEditor } from '@/components/people/event-editor';
 import { PersonForm } from '@/components/people/person-form';
 import { RelationshipEditor } from '@/components/people/relationship-editor';
 import { TreeNav } from '@/components/people/tree-nav';
@@ -123,34 +124,14 @@ export default async function PersonPage({
               />
             </section>
 
-            <section className="flex flex-col gap-2">
+            <section className="flex flex-col gap-3">
               <h2 className="text-text-faint text-xs tracking-wide uppercase">Événements</h2>
-              {person.events.length === 0 ? (
-                <p className="text-text-faint text-sm">Aucun événement enregistré.</p>
-              ) : (
-                <ul className="flex flex-col">
-                  {person.events.map((event) => (
-                    <li
-                      key={event.eventId}
-                      className="border-border-subtle flex items-baseline justify-between gap-4 border-b py-2 last:border-b-0"
-                    >
-                      <span className="text-text-primary text-sm">{event.label}</span>
-                      <span className="text-text-muted flex items-baseline gap-2 text-sm">
-                        <span className="tabular">{event.dateLabel}</span>
-                        {/* An unreadable date is shown as written and marked as
-                         * such. Hiding it would remove the one clue needed to
-                         * correct it. */}
-                        {event.dateUnparsed ? (
-                          <span className="text-warning text-xs">date illisible</span>
-                        ) : null}
-                        {event.placeName ? (
-                          <span className="text-text-faint text-xs">{event.placeName}</span>
-                        ) : null}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <EventEditor
+                treeSlug={treeSlug}
+                personId={person.personId}
+                events={person.events}
+                canEdit={access.canEdit && !person.redacted}
+              />
             </section>
           </div>
         </div>

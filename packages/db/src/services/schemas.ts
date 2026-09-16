@@ -3,6 +3,12 @@ import { z } from 'zod';
 /**
  * What a write accepts.
  *
+ * The exported types are `z.input`, not `z.infer`. Every service takes a
+ * `raw` argument and parses it here, so the type a caller writes is the one
+ * before defaults are filled in and before `''` becomes `null` — demanding the
+ * parsed shape would make callers supply the very fields the schema exists to
+ * supply for them.
+ *
  * Separate from the domain types on purpose: the domain describes what a
  * person *is*, and these describe what an API is willing to be told. They
  * differ in the ways that matter at a boundary — a form sends empty strings
@@ -13,13 +19,24 @@ import { z } from 'zod';
  * covers most of an input is a schema nobody can reason about.
  */
 
-/** Trimmed, and empty becomes undefined so a cleared field really clears. */
+/**
+ * Trimmed text, where cleared and absent are different things.
+ *
+ * Empty becomes `null`, not `undefined`. The distinction is the whole point:
+ * `undefined` means the caller said nothing about this field and it must be
+ * left alone, `null` means the user emptied it and wants it gone. Collapsing
+ * both to `undefined` — which this did — made it impossible to remove a date
+ * or a note at all: the form submitted an empty string, every update guard
+ * read it as "not sent", and the save reported success while changing
+ * nothing. Having to type a wrong date in order to delete a wrong date is
+ * the opposite of a research tool.
+ */
 const optionalText = (max: number) =>
   z
     .string()
     .trim()
     .max(max)
-    .transform((value) => (value.length === 0 ? undefined : value))
+    .transform((value) => (value.length === 0 ? null : value))
     .optional();
 
 export const RECORDED_SEX = ['MALE', 'FEMALE', 'INTERSEX', 'UNKNOWN'] as const;
@@ -47,7 +64,13 @@ export const personNameInput = z.object({
   isPreferred: z.boolean().default(false),
   confidence: z.enum(CONFIDENCE).default('MEDIUM'),
 });
-export type PersonNameInput = z.infer<typeof personNameInput>;
+export type PersonNameInput = z.input<typeof personNameInput>;
+/**
+ * A name after parsing: defaults filled in, cleared fields turned into null.
+ * What the services work with once `.parse` has run, as opposed to what a
+ * caller hands them.
+ */
+export type PersonNameValue = z.output<typeof personNameInput>;
 
 /**
  * The person fields, with no defaults.
@@ -80,10 +103,10 @@ export const createPersonInput = z.object({
   // again and becomes an orphan row nobody knows how to fix.
   names: personFields.names,
 });
-export type CreatePersonInput = z.infer<typeof createPersonInput>;
+export type CreatePersonInput = z.input<typeof createPersonInput>;
 
 export const updatePersonInput = z.object(personFields).partial().extend({ personId: z.uuid() });
-export type UpdatePersonInput = z.infer<typeof updatePersonInput>;
+export type UpdatePersonInput = z.input<typeof updatePersonInput>;
 
 export const RELATIONSHIP_TYPES = [
   'PARENT_BIOLOGICAL',
@@ -116,7 +139,7 @@ export const createRelationshipInput = z
     message: 'Une personne ne peut pas être en relation avec elle-même.',
     path: ['targetId'],
   });
-export type CreateRelationshipInput = z.infer<typeof createRelationshipInput>;
+export type CreateRelationshipInput = z.input<typeof createRelationshipInput>;
 
 export const EVENT_TYPES = [
   'BIRTH',
@@ -179,7 +202,7 @@ export const createEventInput = z
     message: 'Un événement personnalisé doit être nommé.',
     path: ['customType'],
   });
-export type CreateEventInput = z.infer<typeof createEventInput>;
+export type CreateEventInput = z.input<typeof createEventInput>;
 
 export const updateEventInput = z.object({
   eventId: z.uuid(),
@@ -189,4 +212,4 @@ export const updateEventInput = z.object({
   notes: optionalText(4000),
   confidence: z.enum(CONFIDENCE).optional(),
 });
-export type UpdateEventInput = z.infer<typeof updateEventInput>;
+export type UpdateEventInput = z.input<typeof updateEventInput>;
