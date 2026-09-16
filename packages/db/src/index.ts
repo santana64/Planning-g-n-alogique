@@ -3,4 +3,8 @@ export * from './date-codec';
 export * from './normalise';
 export * from './projections/person-lifespan';
 export * from './repositories/graph';
+export * from './services/audit';
 export * from './services/import-gedcom';
+export * from './services/person';
+export * from './services/relationship';
+export * from './services/schemas';
