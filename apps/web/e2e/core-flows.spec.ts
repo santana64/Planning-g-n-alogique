@@ -183,6 +183,68 @@ test.describe('the command palette', () => {
   });
 });
 
+test.describe('the map', () => {
+  const MAP = '/app/famille-chassagne-demo/carte';
+
+  test('publishes its numbers as a table, not only as a canvas', async ({ page }) => {
+    await page.goto(MAP);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Carte');
+
+    // A canvas is opaque to a screen reader and to anyone wanting to copy a
+    // figure out. The same decision the timeline makes, for the same reason.
+    await page.getByRole('button', { name: 'Voir le tableau' }).click();
+    const table = page.getByRole('table');
+    await expect(table).toBeVisible();
+    await expect(table).toContainText('Tours');
+    await expect(table).toContainText('Buenos Aires');
+  });
+
+  test('says what it cannot draw instead of quietly omitting it', async ({ page }) => {
+    await page.goto(MAP);
+    // Countries and departments carry no coordinates in this tree. A map that
+    // silently dropped them would misstate how much of the archive it covers.
+    await expect(page.getByText(/coordonnées/)).toBeVisible();
+  });
+
+  test('withholds living people’s movements from a stranger', async ({ page }) => {
+    await page.goto(MAP);
+    await expect(page.getByText(/déplacements de .* vivantes? ne sont pas affichés/)).toBeVisible();
+  });
+
+  test('moves the year and narrows what is shown', async ({ page }) => {
+    await page.goto(MAP);
+    await page.getByRole('button', { name: 'Voir le tableau' }).click();
+
+    const rowsBefore = await page.getByRole('row').count();
+
+    // Back to roughly a fifth of the way through the recorded span. The value
+    // is computed from the input's own min and step: a range input refuses a
+    // value off its step grid, and hard-coding one couples the test to how
+    // wide the demonstration tree happens to be.
+    const slider = page.getByLabel('Année');
+    const early = await slider.evaluate((element) => {
+      const input = element as HTMLInputElement;
+      const min = Number(input.min);
+      const step = Number(input.step) || 1;
+      const steps = Math.floor((Number(input.max) - min) / step / 5);
+      return String(min + steps * step);
+    });
+    await slider.fill(early);
+
+    // Fewer places stand before the family had been to most of them.
+    await expect(page.getByRole('row')).not.toHaveCount(rowsBefore);
+  });
+
+  test('loads its basemap from the application, not a tile provider', async ({ request }) => {
+    // The map ships its own public-domain outline. If this ever 404s, the
+    // page renders an empty ocean and nobody notices until someone opens it.
+    const response = await request.get('/basemap/countries-110m.geojson');
+    expect(response.status()).toBe(200);
+    const body = (await response.json()) as { features: unknown[] };
+    expect(body.features.length).toBeGreaterThan(150);
+  });
+});
+
 test.describe('descent', () => {
   test('numbers a descendant study and marks where lines rejoin', async ({ page }) => {
     // Reached through the palette so the journey is the real one: a name in

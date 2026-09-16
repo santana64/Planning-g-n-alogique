@@ -116,6 +116,40 @@
 
 @layer components {
   /**
+   * Map markers.
+   *
+   * Sized by the square root of the record count, so twice the records reads
+   * as twice the ink rather than twice the radius — which the eye takes for
+   * four times as much.
+   */
+  .atlas-marker {
+    border-radius: var(--radius-full);
+    background: oklch(0.76 0.115 76 / 0.35);
+    border: 1.5px solid var(--accent-primary);
+    cursor: pointer;
+    transition:
+      background var(--duration-fast) var(--ease-out),
+      transform var(--duration-fast) var(--ease-out);
+  }
+
+  .atlas-marker:hover,
+  .atlas-marker[data-selected='true'] {
+    background: oklch(0.76 0.115 76 / 0.7);
+    transform: scale(1.12);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .atlas-marker {
+      transition: none;
+    }
+
+    .atlas-marker:hover,
+    .atlas-marker[data-selected='true'] {
+      transform: none;
+    }
+  }
+
+  /**
    * Skip link. Off-screen until focused — the one pattern where hiding an
    * interactive element is correct, because it exists for the keyboard user
    * who is about to need it.

@@ -183,7 +183,22 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Total sur l'arbre de démonstration | 26 depuis Mathurin CHASSAGNE, vérifié en SQL           |
 | Cycle échappé à la validation      | tronque au lieu de faire exploser la pile              |
 
-**Tests** : 353 unitaires + 124 d'intégration + 32 E2E.
+### Carte (phase 6)
+
+| Élément                      | Preuve                                                         |
+| ---------------------------- | -------------------------------------------------------------- |
+| Fond de carte sans clé d'API | Natural Earth 110m, domaine public, 229 ko servis par l'app    |
+| Trajets géodésiques          | Le Havre → Buenos Aires passe par l'Atlantique, pas le Sahara  |
+| Antiméridien                 | déroulé — pas de traînée horizontale                           |
+| Séjour long                  | 3 actes à Tours = 0 déplacement, pas 2                         |
+| Curseur temporel             | un lieu apparaît quand quelque chose y est enregistré          |
+| Arc affiché à l'arrivée      | jamais pendant la traversée : on n'est pas sur deux continents |
+| Démonstration                | 7 lieux, 8 déplacements, 1702–2018                             |
+| Vivants                      | 7 trajets retenus et **annoncés**                              |
+| Lieux sans coordonnées       | 3 comptés et annoncés, jamais omis en silence                  |
+| Tableau accessible           | mêmes chiffres que la carte, comme la chronologie              |
+
+**Tests** : 362 unitaires + 130 d'intégration + 37 E2E.
 
 ---
 

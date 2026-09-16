@@ -4,6 +4,7 @@ export * from './normalise';
 export * from './projections/person-lifespan';
 export * from './repositories/graph';
 export * from './repositories/search';
+export * from './repositories/atlas';
 export * from './services/audit';
 export * from './services/event';
 export * from './services/import-gedcom';

@@ -107,6 +107,17 @@ export default tseslint.config(
   // --- Node-side code may log through pino only ----------------------------
   {
     files: ['**/*.config.{ts,js,mjs}', 'infra/**/*', 'packages/testing/**/*', '**/scripts/**/*'],
+    languageOptions: {
+      // Build scripts run in Node, not in a browser. Without this, `process`
+      // and friends read as undefined globals and the only way past is an
+      // eslint-disable on every line that touches them.
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+        Buffer: 'readonly',
+        __dirname: 'readonly',
+      },
+    },
     rules: {
       'no-console': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
