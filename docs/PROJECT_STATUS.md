@@ -1,7 +1,7 @@
 # État du projet
 
 **Dernière mise à jour** : 2026-09-15
-**Phase courante** : 3 (GEDCOM) — moteur, Gantt et voyage temporel livrés ; reste l'écran de revue d'import et le CRUD
+**Phase courante** : 11 (durcissement) en parallèle — GEDCOM et infrastructure livrés ; le CRUD de la phase 2 reste le principal manque
 
 Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
@@ -86,6 +86,24 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Import en base, transactionnel          | `FRENCH_R 4 GERM 7` → base → « 4 germinal an VII »               |
 
 **Tests** : 292 unitaires + 49 d'intégration.
+
+### Import, stockage et durcissement
+
+| Élément                                      | Preuve                                             |
+| -------------------------------------------- | -------------------------------------------------- |
+| Écran de revue avant écriture                | analyse = 0 ligne en base, vérifié en HTTP         |
+| Import complet (upload → revue → validation) | 4 personnes, 5 relations, 0 rejet                  |
+| Rejeu d'un import déjà appliqué              | HTTP 409                                           |
+| Stockage privé S3/MinIO                      | URL présignée OK, non signée refusée               |
+| Validation par nombres magiques              | script renommé en `.png` refusé                    |
+| CI GitHub Actions                            | 4 jobs : qualité, intégration, E2E, images         |
+| Tests de bout en bout                        | **18**, dont contrôle axe                          |
+| Contraste WCAG AA                            | corrigé dans les **deux** thèmes, mesuré           |
+| Worker BullMQ                                | démarre, consomme, s'arrête proprement sur SIGTERM |
+| Image web de production                      | 433 Mo, non-root, sert la démo depuis la base      |
+| Image worker de production                   | 929 Mo, non-root, connectée à Redis                |
+
+**Tests** : 293 unitaires + 67 d'intégration + 18 E2E.
 
 ---
 
@@ -183,6 +201,11 @@ Rien. Point de reprise propre.
   inventée.
 
 ## Points à surveiller
+
+- L'image du worker pèse 929 Mo, dominée par le SDK AWS et les moteurs Prisma.
+  Acceptable, pas optimal.
+- L'export GEDCOM existe au niveau moteur et n'a pas encore de bouton dans
+  l'interface.
 
 - Les commandes Prisma bloquent sans TTY : préfixer par `CI=true`.
 - `packages/db/generated` est ignoré par git ; `pnpm db:generate` est requis
