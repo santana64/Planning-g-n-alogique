@@ -11,6 +11,16 @@ import { SignOutButton } from '@/components/auth/sign-out-button';
  * What is real here is the guard: the session is read on the server, and an
  * unauthenticated request is redirected before any of this renders.
  */
+/**
+ * Dynamic, because it reads the database on every request.
+ *
+ * Stated rather than inferred: the locale layout declares generateStaticParams,
+ * which makes every page under it a prerender candidate, and Next would
+ * otherwise try to render this one at build time — against a database the build
+ * container does not have.
+ */
+export const dynamic = 'force-dynamic';
+
 export default async function AppPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);

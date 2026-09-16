@@ -25,7 +25,7 @@
     "test:unit": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:integration": "vitest run --project integration",
-    "test:e2e": "playwright test --config apps/web/playwright.config.ts",
+    "test:e2e": "pnpm --filter @chronolignee/web exec playwright test",
     "test:coverage": "vitest run --project unit --coverage",
     "db:generate": "pnpm --filter @chronolignee/db generate",
     "db:migrate": "pnpm --filter @chronolignee/db migrate",
@@ -39,7 +39,8 @@
     "infra:logs": "docker compose logs -f",
     "infra:nuke": "docker compose down -v",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:unit",
-    "setup": "pnpm install && pnpm infra:up && pnpm db:generate && pnpm db:migrate && pnpm db:seed"
+    "setup": "pnpm install && pnpm infra:up && pnpm db:generate && pnpm db:migrate && pnpm db:seed",
+    "test:e2e:ui": "pnpm --filter @chronolignee/web exec playwright test --ui"
   },
   "devDependencies": {
     "@eslint/js": "catalog:",

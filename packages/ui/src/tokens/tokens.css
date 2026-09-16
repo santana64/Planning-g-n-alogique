@@ -36,7 +36,10 @@
   --text-primary: oklch(0.945 0.012 85);
   --text-secondary: oklch(0.79 0.014 85);
   --text-muted: oklch(0.63 0.014 85);
-  --text-faint: oklch(0.48 0.013 258);
+  /* L tuned by measurement, not by eye: at 0.48 this was 2.75:1 against
+   * surface-1, which fails WCAG AA for normal text. 0.62 measures 4.97:1.
+   * "Faint" has to mean quiet, not unreadable. */
+  --text-faint: oklch(0.62 0.014 258);
   --text-inverse: oklch(0.19 0.018 258);
 
   /* --- Borders ----------------------------------------------------------- */
@@ -150,8 +153,8 @@
 
   --text-primary: oklch(0.21 0.018 258);
   --text-secondary: oklch(0.4 0.016 258);
-  --text-muted: oklch(0.53 0.014 258);
-  --text-faint: oklch(0.66 0.012 258);
+  --text-muted: oklch(0.44 0.015 258);
+  --text-faint: oklch(0.47 0.015 258);
   --text-inverse: oklch(0.96 0.008 85);
 
   --border-subtle: oklch(0.88 0.008 85);
@@ -198,8 +201,8 @@
 
     --text-primary: oklch(0.21 0.018 258);
     --text-secondary: oklch(0.4 0.016 258);
-    --text-muted: oklch(0.53 0.014 258);
-    --text-faint: oklch(0.66 0.012 258);
+    --text-muted: oklch(0.44 0.015 258);
+    --text-faint: oklch(0.47 0.015 258);
     --text-inverse: oklch(0.96 0.008 85);
 
     --border-subtle: oklch(0.88 0.008 85);

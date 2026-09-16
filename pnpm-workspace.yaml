@@ -18,6 +18,10 @@ allowBuilds:
   # Next.js native toolchain.
   '@swc/core': true
   '@parcel/watcher': true
+  # BullMQ's optional native msgpack accelerator. Linux-only, so it never
+  # surfaced during Windows development and only appeared in the container
+  # build — which is exactly what the container build is for.
+  msgpackr-extract: true
 
 # Single source of truth for every third-party version in the monorepo.
 # Packages reference these with `"dep": "catalog:"` so a version can never

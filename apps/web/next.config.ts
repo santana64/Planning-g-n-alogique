@@ -56,6 +56,14 @@ const isDev = process.env.NODE_ENV === 'development';
 const config: NextConfig = {
   reactStrictMode: true,
 
+  // A self-contained server bundle for the production image: node_modules for
+  // a pnpm monorepo is a forest of symlinks, and copying it into a container
+  // produces an image several times larger than the app.
+  output: 'standalone',
+  // The trace has to start at the workspace root or the workspace packages
+  // this app imports are left out of the bundle.
+  outputFileTracingRoot: fileURLToPath(new URL('../..', import.meta.url)),
+
   // Next offers to write its own CLAUDE.md / AGENTS.md into this directory.
   // The repository already has one at the root that covers the whole monorepo,
   // and a second, framework-scoped file would compete with it.

@@ -5,6 +5,16 @@ import { getSession } from '@/lib/session';
 import { loadTimeline } from '@/server/timeline';
 import { TimelineView } from '@/components/timeline/timeline-view';
 
+/**
+ * Dynamic, because it reads the database on every request.
+ *
+ * Stated rather than inferred: the locale layout declares generateStaticParams,
+ * which makes every page under it a prerender candidate, and Next would
+ * otherwise try to render this one at build time — against a database the build
+ * container does not have.
+ */
+export const dynamic = 'force-dynamic';
+
 export default async function ChronologiePage({
   params,
 }: {

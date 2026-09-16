@@ -1,0 +1,227 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push supersedes an in-flight run on the same branch. Reviewers read the
+# latest result, and a queue of stale runs only delays it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The AI provider is always the deterministic stub in CI. A test suite that
+  # can call a paid API will eventually call it by accident, on a branch, in a
+  # loop (ADR 0004).
+  AI_PROVIDER: fake
+  NODE_ENV: test
+
+jobs:
+  quality:
+    name: Format, lint, types, unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.4.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        # Frozen lockfile: CI must fail on a dependency that was added without
+        # committing the lock, rather than quietly resolving something else.
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+        env:
+          DATABASE_URL: postgresql://placeholder/placeholder
+
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test:unit
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        # Must match docker-compose.yml. A CI database that differs from the
+        # development one turns "works on my machine" into a CI-only mystery.
+        image: postgis/postgis:18-3.6
+        env:
+          POSTGRES_USER: chronolignee
+          POSTGRES_PASSWORD: chronolignee_ci
+          POSTGRES_DB: chronolignee
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U chronolignee -d chronolignee"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+      minio:
+        image: quay.io/minio/minio:latest
+        env:
+          MINIO_ROOT_USER: chronolignee
+          MINIO_ROOT_PASSWORD: chronolignee_ci
+        ports: ['9000:9000']
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql://chronolignee:chronolignee_ci@localhost:5432/chronolignee?schema=public
+      REDIS_URL: redis://localhost:6379
+      APP_URL: http://localhost:3000
+      BETTER_AUTH_URL: http://localhost:3000
+      BETTER_AUTH_SECRET: ci-only-secret-not-used-in-any-deployment-0123456789
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: chronolignee-archives
+      S3_ACCESS_KEY_ID: chronolignee
+      S3_SECRET_ACCESS_KEY: chronolignee_ci
+      S3_FORCE_PATH_STYLE: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Create the bucket
+        run: |
+          curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
+          chmod +x /usr/local/bin/mc
+          mc alias set ci http://localhost:9000 chronolignee chronolignee_ci
+          mc mb --ignore-existing ci/chronolignee-archives
+          mc anonymous set none ci/chronolignee-archives
+
+      - name: Apply migrations
+        # `migrate deploy`, never `db push`. The migrations are the schema, and
+        # CI is where a migration that does not apply cleanly must be caught.
+        run: pnpm db:migrate:deploy
+
+      - name: Check for schema drift
+        # Fails when the Prisma schema and the migrations disagree — the state
+        # that produces a database nobody can reproduce from the repository.
+        run: pnpm --filter @chronolignee/db exec prisma migrate diff
+          --from-migrations prisma/migrations
+          --to-schema-datamodel prisma/schema
+          --shadow-database-url "$DATABASE_URL"
+          --exit-code
+        continue-on-error: false
+
+      - run: pnpm db:seed
+      - run: pnpm test:integration
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [quality]
+
+    services:
+      postgres:
+        image: postgis/postgis:18-3.6
+        env:
+          POSTGRES_USER: chronolignee
+          POSTGRES_PASSWORD: chronolignee_ci
+          POSTGRES_DB: chronolignee
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U chronolignee -d chronolignee"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql://chronolignee:chronolignee_ci@localhost:5432/chronolignee?schema=public
+      REDIS_URL: redis://localhost:6379
+      APP_URL: http://localhost:3000
+      BETTER_AUTH_URL: http://localhost:3000
+      BETTER_AUTH_SECRET: ci-only-secret-not-used-in-any-deployment-0123456789
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: chronolignee-archives
+      S3_ACCESS_KEY_ID: chronolignee
+      S3_SECRET_ACCESS_KEY: chronolignee_ci
+      S3_FORCE_PATH_STYLE: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate:deploy
+      - run: pnpm db:seed
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @chronolignee/web exec playwright install --with-deps chromium
+
+      - run: pnpm build
+
+      - run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7
+
+  docker:
+    name: Production images
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [quality]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      # Built, never pushed. This job answers "would this deploy" and nothing
+      # else; publishing is a separate, deliberate step.
+      - name: Build the web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/web.Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build the worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/worker.Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
