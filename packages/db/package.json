@@ -21,11 +21,12 @@
   },
   "dependencies": {
     "@chronolignee/domain": "workspace:*",
-    "@prisma/client": "catalog:",
-    "zod": "catalog:",
+    "@chronolignee/gedcom": "workspace:*",
+    "@chronolignee/genealogy": "workspace:*",
     "@prisma/adapter-pg": "catalog:",
+    "@prisma/client": "catalog:",
     "pg": "catalog:",
-    "@chronolignee/genealogy": "workspace:*"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

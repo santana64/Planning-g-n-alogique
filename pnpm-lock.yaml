@@ -468,6 +468,9 @@ importers:
       '@chronolignee/domain':
         specifier: workspace:*
         version: link:../domain
+      '@chronolignee/gedcom':
+        specifier: workspace:*
+        version: link:../gedcom
       '@chronolignee/genealogy':
         specifier: workspace:*
         version: link:../genealogy
