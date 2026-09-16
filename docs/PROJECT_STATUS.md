@@ -198,7 +198,24 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Lieux sans coordonnées       | 3 comptés et annoncés, jamais omis en silence                  |
 | Tableau accessible           | mêmes chiffres que la carte, comme la chronologie              |
 
-**Tests** : 362 unitaires + 130 d'intégration + 37 E2E.
+### Archives (phase 7)
+
+| Élément                              | Preuve                                                                |
+| ------------------------------------ | --------------------------------------------------------------------- |
+| Source distincte de la citation      | « Archives d'Indre-et-Loire » n'est pas une preuve, c'est un bâtiment |
+| Cote conservée et mise en avant      | ce qui permet de redemander le document au dépôt                      |
+| Citation rattachée à l'**événement** | un acte prouve un baptême, pas une vie entière                        |
+| Transcription verbatim               | champ séparé, jamais une paraphrase                                   |
+| Source d'un autre arbre              | refusée ; événement d'un autre arbre aussi                            |
+| Taux de sourçage affiché             | le chiffre qui dit ce que vaut la recherche                           |
+| Versement de document                | validé aux nombres magiques, pas à l'extension                        |
+| Script renommé `.png`                | refusé, HTTP 415                                                      |
+| Même fichier versé deux fois         | un seul document, annoncé comme doublon                               |
+| Clé de stockage                      | générée par le serveur, jamais le nom de fichier                      |
+| Téléchargement                       | URL présignée courte, autorisation revérifiée à chaque fois           |
+| Document privé                       | REDACTED hors de l'arbre, RESTRICTED aux administrateurs              |
+
+**Tests** : 362 unitaires + 140 d'intégration + 39 E2E.
 
 ---
 

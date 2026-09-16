@@ -10,6 +10,7 @@ import { decodeDate, foldName, loadGenealogyGraph } from '@chronolignee/db';
 import { auditPerson, sortBySeverity, type Finding } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
 import { REDACTED_LABEL, isHiddenFrom, resolveTreeAccess, type TreeAccess } from './access';
+import { loadCitationsForPerson, type EventCitation } from './archive';
 
 /**
  * Reads for the editing screens.
@@ -163,6 +164,14 @@ export interface PersonEventRow {
   readonly placeName: string | null;
   /** True when the date was kept verbatim because it could not be read. */
   readonly dateUnparsed: boolean;
+  /**
+   * What this event rests on.
+   *
+   * Carried with the event rather than fetched separately by the client,
+   * because "is this sourced" is the first question a reader should be able
+   * to answer about any fact on the page.
+   */
+  readonly citations: readonly EventCitation[];
 }
 
 export interface PersonLinkRow {
@@ -339,6 +348,12 @@ export const loadPersonDetail = cache(
     // facts about a living person that the redaction exists to protect — the
     // event type is the sensitive part, and the date was only ever the part
     // that was easy to notice.
+    // Citations for every one of this person's events, in one query rather
+    // than one per row.
+    const citationsByEvent = hidden
+      ? new Map<string, EventCitation[]>()
+      : await loadCitationsForPerson(access.treeId, person.id);
+
     const events = hidden
       ? []
       : eventRows.map((event): PersonEventRow => {
@@ -354,6 +369,7 @@ export const loadPersonDetail = cache(
             dateText: event.dateOriginalText,
             placeName: event.place?.name ?? null,
             dateUnparsed: event.dateUnparsed,
+            citations: citationsByEvent.get(event.id) ?? [],
           };
         });
 

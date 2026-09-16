@@ -7,6 +7,7 @@ export * from './repositories/search';
 export * from './repositories/atlas';
 export * from './services/audit';
 export * from './services/event';
+export * from './services/evidence';
 export * from './services/import-gedcom';
 export * from './services/person';
 export * from './services/place';

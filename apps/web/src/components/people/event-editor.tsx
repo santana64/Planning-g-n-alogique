@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from 'react';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { createEventAction, deleteEventAction, updateEventAction } from '@/server/event-actions';
 import type { PersonEventRow } from '@/server/people';
+import { EventCitations } from '@/components/archive/event-citations';
 import { Field, Select, SubmitButton, TextInput } from './fields';
 import { PersonPicker } from './person-picker';
 
@@ -99,44 +100,57 @@ export function EventEditor({
             ) : (
               <li
                 key={event.eventId}
-                className="border-border-subtle flex items-baseline justify-between gap-4 border-b py-2 last:border-b-0"
+                className="border-border-subtle flex flex-col gap-1 border-b py-2 last:border-b-0"
               >
-                <span className="text-text-primary text-sm">{event.label}</span>
-                <span className="text-text-muted flex items-baseline gap-2 text-sm">
-                  <span className="tabular">{event.dateLabel}</span>
-                  {/* An unreadable date is shown as written and marked as
-                   * such. Hiding it would remove the one clue needed to
-                   * correct it. */}
-                  {event.dateUnparsed ? (
-                    <span className="text-warning text-xs">date illisible</span>
-                  ) : null}
-                  {event.placeName ? (
-                    <span className="text-text-faint text-xs">{event.placeName}</span>
-                  ) : null}
+                <span className="flex items-baseline justify-between gap-4">
+                  <span className="text-text-primary text-sm">{event.label}</span>
+                  <span className="text-text-muted flex items-baseline gap-2 text-sm">
+                    <span className="tabular">{event.dateLabel}</span>
+                    {/* An unreadable date is shown as written and marked as
+                     * such. Hiding it would remove the one clue needed to
+                     * correct it. */}
+                    {event.dateUnparsed ? (
+                      <span className="text-warning text-xs">date illisible</span>
+                    ) : null}
+                    {event.placeName ? (
+                      <span className="text-text-faint text-xs">{event.placeName}</span>
+                    ) : null}
 
-                  {canEdit && !VITAL.has(event.type) ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setEditing(event.eventId)}
-                        className="text-text-faint hover:text-accent text-xs"
-                      >
-                        Corriger
-                      </button>
-                      <form action={deleteAction} className="inline">
-                        <input type="hidden" name="treeSlug" value={treeSlug} />
-                        <input type="hidden" name="eventId" value={event.eventId} />
-                        <button type="submit" className="text-text-faint hover:text-danger text-xs">
-                          Retirer
+                    {canEdit && !VITAL.has(event.type) ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setEditing(event.eventId)}
+                          className="text-text-faint hover:text-accent text-xs"
+                        >
+                          Corriger
                         </button>
-                      </form>
-                    </>
-                  ) : canEdit ? (
-                    // Vital events are corrected on the person form, where the
-                    // previous value is archived rather than overwritten.
-                    <span className="text-text-faint text-xs">via la fiche</span>
-                  ) : null}
+                        <form action={deleteAction} className="inline">
+                          <input type="hidden" name="treeSlug" value={treeSlug} />
+                          <input type="hidden" name="eventId" value={event.eventId} />
+                          <button
+                            type="submit"
+                            className="text-text-faint hover:text-danger text-xs"
+                          >
+                            Retirer
+                          </button>
+                        </form>
+                      </>
+                    ) : canEdit ? (
+                      // Vital events are corrected on the person form, where the
+                      // previous value is archived rather than overwritten.
+                      <span className="text-text-faint text-xs">via la fiche</span>
+                    ) : null}
+                  </span>
                 </span>
+
+                <EventCitations
+                  treeSlug={treeSlug}
+                  eventId={event.eventId}
+                  eventLabel={event.label}
+                  citations={event.citations}
+                  canEdit={canEdit}
+                />
               </li>
             ),
           )}

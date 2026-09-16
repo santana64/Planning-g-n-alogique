@@ -54,6 +54,13 @@ export function CommandPalette({ treeSlug, canEdit }: { treeSlug: string; canEdi
       requiresEdit: false,
     },
     {
+      id: 'archive',
+      label: 'Archives',
+      hint: 'vue',
+      href: `/app/${treeSlug}/archives`,
+      requiresEdit: false,
+    },
+    {
       id: 'new',
       label: 'Ajouter une personne',
       hint: 'action',

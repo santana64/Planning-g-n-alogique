@@ -353,6 +353,90 @@ test.describe('manual editing', () => {
     await expect(page.getByText('Inconnu').first()).toBeVisible();
   });
 
+  test('sources a fact, and counts what is still unsourced', async ({ page }) => {
+    await page.goto('/app');
+    const treeName = `Sources ${Date.now()}`;
+    await createTree(page, treeName);
+    await addPerson(page, { given: 'Sourcee', surname: 'Personne', birth: '12 juin 1822' });
+    const personUrl = page.url();
+
+    // Nothing is cited yet, and the archive says so rather than staying quiet.
+    await page.getByRole('link', { name: 'Archives' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Archives');
+    await expect(page.getByText('0 %')).toBeVisible();
+
+    await fillStable(page, 'Titre', 'Registre paroissial de Tours 1820-1825');
+    await fillStable(page, 'Cote', '6 NUM 7/261/003');
+    await page.getByRole('button', { name: 'Ajouter la source' }).click();
+    await expect(page.getByText('6 NUM 7/261/003').first()).toBeVisible();
+
+    // Back to the record: the citation is attached to the event, not to the
+    // person — a register page proves a baptism, not a whole life.
+    await page.goto(personUrl);
+    await expect(page.getByText('Aucune source pour cet événement').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Citer une source' }).first().click();
+    await fillStable(page, 'Où exactement', 'vue 118, acte 7');
+    await page.getByRole('button', { name: 'Enregistrer la citation' }).click();
+    await expect(page.getByText('La citation a été enregistrée.')).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByText('vue 118, acte 7').first()).toBeVisible();
+
+    // And the coverage figure moved, which is the number that says what the
+    // research is worth.
+    await page.getByRole('link', { name: 'Archives' }).click();
+    await expect(page.getByText('0 %')).toHaveCount(0);
+  });
+
+  test('accepts a real image and refuses a file lying about its type', async ({
+    page,
+    request,
+  }) => {
+    await page.goto('/app');
+    await createTree(page, `Documents ${Date.now()}`);
+    const treeSlug = new URL(page.url()).pathname.split('/')[2];
+
+    // A one-pixel PNG, byte for byte. The route reads the magic number rather
+    // than trusting the name or the declared type.
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    );
+
+    const accepted = await request.post(`/api/trees/${treeSlug}/documents`, {
+      multipart: {
+        file: { name: 'acte.png', mimeType: 'image/png', buffer: png },
+        title: 'Acte de naissance',
+      },
+    });
+    expect(accepted.status()).toBe(200);
+
+    // The same bytes again are the same document, not a second one.
+    const again = await request.post(`/api/trees/${treeSlug}/documents`, {
+      multipart: { file: { name: 'copie.png', mimeType: 'image/png', buffer: png } },
+    });
+    expect(((await again.json()) as { duplicate: boolean }).duplicate).toBe(true);
+
+    // A script renamed to .png. The extension and the declared type both say
+    // image; the first bytes do not, and those are what decide.
+    const refused = await request.post(`/api/trees/${treeSlug}/documents`, {
+      multipart: {
+        file: {
+          name: 'innocent.png',
+          mimeType: 'image/png',
+          buffer: Buffer.from('#!/bin/sh\necho hello\n'),
+        },
+      },
+    });
+    expect(refused.status()).toBe(415);
+
+    // The archive lists what was accepted, once — the duplicate did not
+    // create a second row, and the refused file created none.
+    await page.goto(`/app/${treeSlug}/archives`);
+    await expect(page.getByText('Acte de naissance').first()).toBeVisible();
+    await expect(page.getByText('innocent.png')).toHaveCount(0);
+  });
+
   test('does not publish a living person to someone outside the tree', async ({
     page,
     browser,

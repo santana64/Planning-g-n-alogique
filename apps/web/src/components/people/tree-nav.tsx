@@ -17,12 +17,13 @@ export function TreeNav({
   treeSlug: string;
   treeName: string;
   canEdit: boolean;
-  current: 'people' | 'timeline' | 'map' | 'import';
+  current: 'people' | 'timeline' | 'map' | 'archive' | 'import';
 }) {
   const tabs = [
     { key: 'people' as const, href: `/app/${treeSlug}/personnes`, label: 'Personnes' },
     { key: 'timeline' as const, href: `/app/${treeSlug}/chronologie`, label: 'Chronologie' },
     { key: 'map' as const, href: `/app/${treeSlug}/carte`, label: 'Carte' },
+    { key: 'archive' as const, href: `/app/${treeSlug}/archives`, label: 'Archives' },
     ...(canEdit
       ? [{ key: 'import' as const, href: `/app/${treeSlug}/import`, label: 'Importer' }]
       : []),
