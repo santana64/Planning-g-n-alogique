@@ -118,7 +118,23 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Relation créant un cycle                     | refusée avant l'écriture (`RelationshipRefused`)     |
 | Mère de 58 ans                               | acceptée, avertissement retourné                     |
 
-**Tests** : 293 unitaires + 89 d'intégration + 18 E2E.
+### Interface d'édition (phase 2)
+
+| Élément                                       | Preuve                                             |
+| --------------------------------------------- | -------------------------------------------------- |
+| Compte neuf → arbre → personne → lien → Gantt | parcours E2E complet, vert                         |
+| Tableau de bord des arbres                    | liste les appartenances, crée un arbre privé       |
+| Formulaire personne                           | dates en texte libre, noms multiples, surnom       |
+| Date illisible saisie à la main               | `9 br 1889` conservé, marquée « date illisible »   |
+| Éditeur de liens                              | sens demandé côté sujet, arête dirigée assemblée   |
+| Recherche de personne dans l'éditeur          | interroge le serveur, repliement d'accents partagé |
+| Lien créant un cycle                          | refusé, motif affiché                              |
+| Mère de 57 ans                                | écrit, avertissement affiché, jamais bloquant      |
+| Suppression                                   | nom à retaper, suppression douce                   |
+| Autorisation                                  | revérifiée en base dans chaque action serveur      |
+| Vivant vu d'un autre navigateur               | 404, ni nom ni année dans le HTML                  |
+
+**Tests** : 300 unitaires + 89 d'intégration + 23 E2E.
 
 ---
 
@@ -189,19 +205,20 @@ Rien. Point de reprise propre.
 
 ## Reste à faire
 
-| Phase | Contenu                                                           | État                                |
-| ----- | ----------------------------------------------------------------- | ----------------------------------- |
-| 2     | Services CRUD personne / relation                                 | **fait** — interface non construite |
-| 2     | Formulaires d'édition, liste, éditeur de liens                    | à faire                             |
-| 3     | Import GEDCOM 7 + écran de revue                                  | **fait** — export sans bouton       |
-| 4     | Services de graphe (ancêtres, descendants, branches), recherche   | à faire                             |
-| 5     | Moteur Chronolignée, Gantt, voyage temporel, « qui était vivant » | **fait**                            |
-| 6     | Carte MapLibre, migrations animées                                | à faire                             |
-| 7     | Archives S3, visionneuse de documents                             | à faire                             |
-| 8     | Pipeline IA, propositions, assistant                              | à faire                             |
-| 9     | Constellation, profondeur temporelle, mode Récit                  | à faire                             |
-| 10    | Collaboration, confidentialité des vivants                        | à faire                             |
-| 11    | Durcissement production                                           | à faire                             |
+| Phase | Contenu                                                           | État                          |
+| ----- | ----------------------------------------------------------------- | ----------------------------- |
+| 2     | Services CRUD personne / relation                                 | **fait**                      |
+| 2     | Formulaires d'édition, liste, éditeur de liens                    | **fait**                      |
+| 2     | Éditeur d'événements hors naissance / décès                       | à faire                       |
+| 3     | Import GEDCOM 7 + écran de revue                                  | **fait** — export sans bouton |
+| 4     | Services de graphe (ancêtres, descendants, branches), recherche   | à faire                       |
+| 5     | Moteur Chronolignée, Gantt, voyage temporel, « qui était vivant » | **fait**                      |
+| 6     | Carte MapLibre, migrations animées                                | à faire                       |
+| 7     | Archives S3, visionneuse de documents                             | à faire                       |
+| 8     | Pipeline IA, propositions, assistant                              | à faire                       |
+| 9     | Constellation, profondeur temporelle, mode Récit                  | à faire                       |
+| 10    | Collaboration, confidentialité des vivants                        | à faire                       |
+| 11    | Durcissement production                                           | à faire                       |
 
 ---
 
