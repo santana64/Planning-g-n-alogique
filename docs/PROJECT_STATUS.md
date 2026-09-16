@@ -158,7 +158,20 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Filiation adoptive                 | hors numérotation Sosa, toujours visible dans les liens            |
 | Parenté (cousin germain, issu de…) | code + nombres, accord grammatical testé                           |
 
-**Tests** : 341 unitaires + 104 d'intégration + 26 E2E.
+### Recherche (phase 4)
+
+| Élément                        | Preuve                                                        |
+| ------------------------------ | ------------------------------------------------------------- |
+| Similarité trigramme           | « chassaigne » trouve CHASSAIGNE **et** les CHASSAGNE         |
+| Orthographe approchée annoncée | marquée « orthographe proche », jamais présentée comme exacte |
+| Accents repliés des deux côtés | « lefevre » trouve LEFÈVRE, et l'inverse                      |
+| Année dans la requête          | « chassagne 1901 » remonte Anne ; 1822 remonte Jean-Baptiste  |
+| Année qui classe sans exclure  | l'acte décalé d'un an reste dans les résultats                |
+| Cloisonnement par arbre        | vérifié avec un homonyme dans un second arbre                 |
+| Palette ⌘K                     | ouverte, parcourue et validée au clavier seul                 |
+| Vivants dans la palette        | jamais proposés à un visiteur extérieur                       |
+
+**Tests** : 341 unitaires + 115 d'intégration + 30 E2E.
 
 ---
 
@@ -269,6 +282,11 @@ Rien. Point de reprise propre.
   inventée.
 
 ## Points à surveiller
+
+- La suite E2E consomme **3 inscriptions par exécution**, contre un plafond de
+  20 par heure et par IP. Enchaîner plus de six exécutions complètes dans
+  l'heure fait échouer les tests authentifiés : c'est le rate-limit qui
+  fonctionne, pas une régression. Attendre, ou viser un fichier précis.
 
 - Un échec E2E observé **une fois sur environ huit exécutions complètes**, juste
   après une reconstruction : `waitForURL` expirait sur la première action

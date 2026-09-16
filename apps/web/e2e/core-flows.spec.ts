@@ -105,6 +105,65 @@ test.describe('the demonstration timeline', () => {
   });
 });
 
+test.describe('the command palette', () => {
+  // The demonstration tree is public, so these run without an account — which
+  // also means every assertion about redaction here is made from exactly the
+  // position the redaction exists to defend against.
+  const TREE = '/app/famille-chassagne-demo/personnes';
+
+  test('finds a person by a spelling nobody in the tree uses', async ({ page }) => {
+    await page.goto(TREE);
+
+    await page.keyboard.press('ControlOrMeta+k');
+    const search = page.getByRole('combobox', { name: /Chercher une personne/ });
+    await expect(search).toBeFocused();
+
+    // CHASSAIGNE is not how most of this family spells it. A search that only
+    // matched substrings would hide exactly the duplicate a researcher hunts.
+    await search.fill('chassaigne');
+    const options = page.getByRole('option');
+    await expect(options.first()).toBeVisible();
+    await expect(page.getByRole('listbox', { name: 'Résultats' })).toContainText('CHASSAGNE');
+    await expect(page.getByText('orthographe proche').first()).toBeVisible();
+  });
+
+  test('opens the record from the keyboard alone', async ({ page }) => {
+    await page.goto(TREE);
+    await page.keyboard.press('ControlOrMeta+k');
+    await page.getByRole('combobox', { name: /Chercher une personne/ }).fill('hippolyte');
+    await expect(page.getByRole('option').first()).toBeVisible();
+    await page.keyboard.press('Enter');
+
+    // The demo tree is public, so an anonymous visitor lands on the record.
+    await expect(page).toHaveURL(/\/personnes\/[0-9a-f]{8}-/);
+    // Given name as written, surname in caps: the French convention, and the
+    // only thing telling a reader which token is the family name.
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Hippolyte CHASSAGNE');
+  });
+
+  test('never offers a living person to a stranger', async ({ page }) => {
+    await page.goto(TREE);
+    await page.keyboard.press('ControlOrMeta+k');
+    await page.getByRole('combobox', { name: /Chercher une personne/ }).fill('bertrand');
+    await expect(page.getByRole('option').first()).toBeVisible();
+
+    // Living BERTRANDs exist in this tree. Searching the surname must not put
+    // their names or years in front of someone outside the family.
+    const listbox = page.getByRole('listbox', { name: 'Résultats' });
+    await expect(listbox).not.toContainText('Camille');
+    await expect(listbox).not.toContainText('Léa');
+    await expect(listbox).not.toContainText('Thomas');
+  });
+
+  test('closes on escape and gives the focus back', async ({ page }) => {
+    await page.goto(TREE);
+    await page.keyboard.press('ControlOrMeta+k');
+    await expect(page.getByRole('dialog', { name: 'Recherche' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Recherche' })).toHaveCount(0);
+  });
+});
+
 test.describe('authorisation', () => {
   test('sends an anonymous visitor to sign in rather than showing a tree', async ({ page }) => {
     await page.goto('/app');
