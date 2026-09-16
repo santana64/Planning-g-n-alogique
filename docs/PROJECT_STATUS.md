@@ -1,7 +1,7 @@
 # État du projet
 
 **Dernière mise à jour** : 2026-09-15
-**Phase courante** : 5 (moteur temporel) — Gantt livré ; le CRUD de la phase 2 reste à faire
+**Phase courante** : 3 (GEDCOM) — moteur, Gantt et voyage temporel livrés ; reste l'écran de revue d'import et le CRUD
 
 Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
@@ -71,6 +71,21 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Rédaction des personnes vivantes                    | 0 nom, 0 date dans la charge publique (HTTP)  |
 
 **Tests** : 237 unitaires + 40 d'intégration.
+
+### Voyage temporel et GEDCOM
+
+| Élément                                 | Preuve                                                           |
+| --------------------------------------- | ---------------------------------------------------------------- |
+| Curseur temporel, états visuels         | inspecté ; événements postérieurs non dessinés                   |
+| « Qui était vivant ? » trivalué         | 8 mai 1945 : 11 certains, 1 possible, 7 masqués — recoupé en SQL |
+| Forme par intervalles ≡ forme par dates | propriété sur 1000 cas aléatoires                                |
+| Lexer / parseur GEDCOM 7                | tolérant aux fichiers réels, ne jette jamais                     |
+| Mappeur vers le domaine                 | pedigree, coordonnées, tags inconnus conservés                   |
+| Écriture GEDCOM 7                       | familles réassemblées, `FAMS`/`FAMC` régénérés                   |
+| Aller-retour sans perte                 | intervalles de dates identiques, `ABT` préservé                  |
+| Import en base, transactionnel          | `FRENCH_R 4 GERM 7` → base → « 4 germinal an VII »               |
+
+**Tests** : 292 unitaires + 49 d'intégration.
 
 ---
 
