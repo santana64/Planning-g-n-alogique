@@ -29,7 +29,11 @@ export async function loadGenealogyGraph(
         recordedSex: true,
         lifespanEarliestJdn: true,
         lifespanLatestJdn: true,
+        // Archived events stay in the record — a corrected date is kept, not
+        // overwritten — and out of every projection. Without this filter the
+        // graph placed people at dates the researcher had corrected.
         eventRoles: {
+          where: { event: { deletedAt: null } },
           select: {
             event: {
               select: {

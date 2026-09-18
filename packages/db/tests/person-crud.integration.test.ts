@@ -206,6 +206,19 @@ describe('editing a person', () => {
     expect(row.lifespanEarliestJdn).toBe(gregorianToJdn(1799, 7, 19));
   });
 
+  it('leaves the archived date out of the graph the views are drawn from', async () => {
+    // The archived event stays in the record, and must stay out of every
+    // projection: the fan, the ancestry and the validation all read the graph,
+    // and would otherwise place someone at a date the researcher corrected.
+    const created = await person('Hippolyte', 'Vasseur', '1830');
+    await updatePerson(db, { personId: created.personId, birthDate: '4 MAR 1835' }, ctx);
+
+    const graph = await loadGenealogyGraph(db, treeId, TODAY_JDN);
+    const birth = graph.people.get(created.personId)?.birth;
+    expect(birth?.interval.earliest).toBe(gregorianToJdn(1835, 3, 4));
+    expect(birth?.interval.latest).toBe(gregorianToJdn(1835, 3, 4));
+  });
+
   it('records what changed, not the whole row', async () => {
     const created = await person('Rosalie', 'Dubois');
     await updatePerson(db, { personId: created.personId, recordedSex: 'FEMALE' }, ctx);

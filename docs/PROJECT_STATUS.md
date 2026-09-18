@@ -367,6 +367,12 @@ L'ascendance en éventail, dont le rayon est le **temps** et non la génération
     hook de démarrage est compilé pour tous les runtimes. La partie Node est
     importée dynamiquement derrière la vérification du runtime.
 
+27. **Date corrigée encore présente dans le graphe.** Corriger une date
+    archive l'ancien événement ; le cache de durée de vie l'excluait, mais pas
+    le chargeur du graphe. L'éventail, l'ascendance et la validation pouvaient
+    donc lire la date corrigée. Trouvé en relisant le chargeur pour la
+    constellation ; test de régression rouge puis vert.
+
 ---
 
 ## En cours

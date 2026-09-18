@@ -272,6 +272,7 @@ async function projectImportedLifespans(
       id: true,
       livingStatus: true,
       eventRoles: {
+        where: { event: { deletedAt: null } },
         select: {
           event: {
             select: {
