@@ -526,6 +526,107 @@ test.describe('the constellation', () => {
   });
 });
 
+test.describe('the story', () => {
+  async function openEmile(page: Page) {
+    await page.goto('/app/famille-chassagne-demo/personnes');
+    await page.keyboard.press('ControlOrMeta+k');
+    await page.getByRole('combobox', { name: /Chercher une personne/ }).fill('émile moreau');
+    await expect(page.getByRole('option').first()).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Émile MOREAU');
+    await page.getByRole('link', { name: 'Remonter la lignée →' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Remonter la lignée');
+  }
+
+  test('climbs back in time, citing every fact it states', async ({ page }) => {
+    await openEmile(page);
+
+    // A climb into the past: the years beside the chapters only ever go back.
+    const markers = await page.locator('li[id^="chapter-"] > p:first-child').allTextContents();
+    const years = markers
+      .map((marker) => Number.parseInt(marker.replace(/\D+/g, ''), 10))
+      .filter((year) => !Number.isNaN(year));
+    expect(years.length).toBeGreaterThan(3);
+    expect([...years].sort((a, b) => b - a)).toEqual(years);
+
+    // The written story, not the player's dialog, which holds the same text
+    // while closed.
+    const story = page.getByRole('list', { name: 'Récit' });
+    await expect(story).toContainText('Il a 34 ans à la naissance d’Émile MOREAU.');
+    // Sources are notes, and a fact without one says so.
+    await expect(story.getByRole('list', { name: 'Sources' }).first()).toBeVisible();
+    await expect(story.getByText('(sans source)').first()).toBeVisible();
+    // History is marked as history, not as the family's own record.
+    await expect(
+      story.getByRole('complementary', { name: 'Contexte historique' }).first(),
+    ).toContainText('pas un fait tiré des archives de la famille');
+    // The story ends where the record does, and says so.
+    await expect(story).toContainText('c’est là que la recherche continue');
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    expect(
+      results.violations.map((v) => `${v.id}: ${v.nodes.length} nodes`),
+      JSON.stringify(results.violations, null, 2),
+    ).toEqual([]);
+  });
+
+  test('reads one generation at a time, and lets the reader out at once', async ({ page }) => {
+    await openEmile(page);
+    const open = page.getByRole('button', { name: 'Lire comme un récit' });
+    await open.click();
+
+    const player = page.getByRole('dialog', { name: /Remonter la lignée/ });
+    await expect(player).toBeVisible();
+    // The reflex key press moves the story on rather than closing it.
+    await expect(player.getByRole('button', { name: 'Suivant →' })).toBeFocused();
+    await expect(player.getByRole('heading', { level: 2 })).toHaveText('Émile MOREAU');
+
+    await page.keyboard.press('ArrowRight');
+    await expect(player.getByRole('heading', { level: 2 })).toHaveText('Paul MOREAU');
+    await expect(player).toContainText('2 /');
+
+    await page.keyboard.press('Escape');
+    await expect(player).toBeHidden();
+    await expect(open).toBeFocused();
+  });
+
+  test('follows the paternal line when asked', async ({ page }) => {
+    await openEmile(page);
+    await page
+      .getByRole('navigation', { name: 'Lignée' })
+      .getByRole('link', { name: 'Paternelle' })
+      .click();
+    await expect(page).toHaveURL(/ligne=paternelle/);
+
+    const eyebrows = await page
+      .locator('li[id^="chapter-"] section > p:first-child')
+      .allTextContents();
+    // After the starting point, every step is a father.
+    for (const eyebrow of eyebrows.slice(1, -1)) expect(eyebrow).toMatch(/^Père /);
+    await expect(page.getByRole('list', { name: 'Récit' })).toContainText(
+      /Le père de .+ n’est pas connu/,
+    );
+  });
+
+  test('tells no story of a living person to a stranger', async ({ page }) => {
+    await page.goto('/app/famille-chassagne-demo/personnes');
+    await page
+      .getByRole('link', { name: /Personne vivante/ })
+      .first()
+      .click();
+    await page.getByRole('link', { name: 'Remonter la lignée →' }).click();
+
+    await expect(page.getByText('Cette personne est vivante.', { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Lire comme un récit' })).toHaveCount(0);
+    const body = await page.content();
+    for (const name of ['Claire', 'Sylvie', 'Thomas', 'Valentina', 'Camille', 'Léa', 'Mateo']) {
+      expect(body).not.toContain(name);
+    }
+  });
+});
+
 test.describe('machine proposals', () => {
   test('are never shown to someone outside the tree, even on a public one', async ({ page }) => {
     // A pending proposal is a reading nobody has vouched for. Publishing it

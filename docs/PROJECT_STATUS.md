@@ -1,7 +1,7 @@
 # État du projet
 
 **Dernière mise à jour** : 2026-09-18
-**Phase courante** : 9 (vues de profondeur) — éventail et constellation livrés ; Récit à suivre
+**Phase courante** : 9 (vues de profondeur) — éventail, constellation et Récit livrés ; Directeur à suivre
 
 Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
@@ -287,6 +287,34 @@ WebGPU (three.js r186, `WebGPURenderer`, matériaux en TSL).
 
 **Tests** : 538 unitaires + 167 d'intégration + 49 E2E.
 
+### Récit — « Remonter la lignée » (phase 9)
+
+Génération après génération vers le passé, sans une phrase qui ne vienne du
+registre. Toujours disponible, sans drapeau.
+
+| Élément                        | Preuve                                                                           |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| Plan, puis phrases             | le planificateur ne produit que des références ; aucune phrase ne s'y écrit      |
+| Trois lignées                  | paternelle, maternelle, la plus ancienne (jusqu'à la naissance la plus reculée)  |
+| Père et mère                   | selon le sexe inscrit ; un parent de sexe non renseigné n'est ni l'un ni l'autre |
+| Chaque phrase citée            | notes numérotées par chapitre ; « (sans source) » quand il n'y en a pas          |
+| Âges                           | seulement si les deux naissances sont connues ; en fourchette sinon              |
+| Contexte historique            | seulement si naissance **et** décès l'encadrent ; décès inconnu : rien           |
+| Vague d'émigration             | rattachée seulement à qui a une migration enregistrée                            |
+| Histoire ≠ archives familiales | aparté distinct, marqué « pas un fait tiré des archives de la famille »          |
+| Déplacement                    | seulement entre deux lieux géolocalisés, à plus de 25 km                         |
+| Baptême, inhumation            | dits comme tels, accordés ; « vers 1702 » affiché « v. 1702 »                    |
+| Français                       | élision, dates républicaines (« le 4 germinal an VII »), pronom jamais deviné    |
+| L'horloge ne fait que reculer  | un chapitre par génération, apartés sans effet sur l'année (E2E)                 |
+| Fin de la lignée               | dit ce qui manque : « c'est là que la recherche continue »                       |
+| Lecteur                        | `<dialog>` natif : Échap rend la main et le focus ; flèches ; lecture auto       |
+| Focus initial                  | sur « Suivant », pas sur « Quitter » (E2E)                                       |
+| Vivant, vu de l'extérieur      | aucun récit ; une lignée s'arrête avant un parent vivant, sans le nommer         |
+| Données envoyées au navigateur | seulement les personnes citées par le plan, sans liens vers leurs parents        |
+| Accessibilité                  | récit statique structuré, apartés en `aside` ; axe sans violation                |
+
+**Tests** : 574 unitaires + 167 d'intégration + 53 E2E.
+
 ---
 
 ## Bugs réels trouvés et corrigés
@@ -413,6 +441,20 @@ WebGPU (three.js r186, `WebGPURenderer`, matériaux en TSL).
 29. **Lien distingué par la seule couleur.** « Élargir » dans une phrase :
     contraste 1,36:1 avec le texte autour (axe `link-in-text-block`). Souligné.
 
+30. **Le Récit faisait avancer l'horloge en remontant le temps.** Le contexte
+    historique, raconté comme une scène à part, donnait 1884, 1914, 1850,
+    1916… Vu à la relecture du rendu. Regroupé en chapitres par génération,
+    le contexte en aparté ; testé.
+
+31. **Vague d'émigration attachée à une femme restée à Tours.** Vrai mot pour
+    mot, trompeur par juxtaposition. Un événement historique de catégorie
+    migration ne concerne plus que qui a une migration enregistrée.
+
+32. **Focus initial du lecteur sur « Quitter ».** React ne rend pas
+    l'attribut `autofocus` et le dialogue, monté fermé, ignore le `focus()`
+    de montage : un Entrée réflexe refermait le récit. Focus donné après
+    `showModal()` ; vérifié en E2E.
+
 ---
 
 ## En cours
@@ -423,20 +465,20 @@ Rien. Point de reprise propre.
 
 ## Reste à faire
 
-| Phase | Contenu                                                           | État                          |
-| ----- | ----------------------------------------------------------------- | ----------------------------- |
-| 2     | Services CRUD personne / relation                                 | **fait**                      |
-| 2     | Formulaires d'édition, liste, éditeur de liens                    | **fait**                      |
-| 2     | Éditeur d'événements hors naissance / décès                       | **fait**                      |
-| 3     | Import GEDCOM 7 + écran de revue                                  | **fait** — export sans bouton |
-| 4     | Services de graphe (ancêtres, descendants, branches), recherche   | **fait** — sans doublons      |
-| 5     | Moteur Chronolignée, Gantt, voyage temporel, « qui était vivant » | **fait**                      |
-| 6     | Carte MapLibre, migrations                                        | **fait** — arcs au curseur    |
-| 7     | Archives S3, visionneuse de documents                             | **fait** — sans visionneuse   |
-| 8     | Pipeline IA, propositions, assistant                              | **fait** — texte seul         |
-| 9     | Constellation, profondeur temporelle, mode Récit                  | **en cours** — reste le Récit |
-| 10    | Collaboration, confidentialité des vivants                        | rédaction faite ; reste l'UI  |
-| 11    | Durcissement production                                           | partiel                       |
+| Phase | Contenu                                                           | État                           |
+| ----- | ----------------------------------------------------------------- | ------------------------------ |
+| 2     | Services CRUD personne / relation                                 | **fait**                       |
+| 2     | Formulaires d'édition, liste, éditeur de liens                    | **fait**                       |
+| 2     | Éditeur d'événements hors naissance / décès                       | **fait**                       |
+| 3     | Import GEDCOM 7 + écran de revue                                  | **fait** — export sans bouton  |
+| 4     | Services de graphe (ancêtres, descendants, branches), recherche   | **fait** — sans doublons       |
+| 5     | Moteur Chronolignée, Gantt, voyage temporel, « qui était vivant » | **fait**                       |
+| 6     | Carte MapLibre, migrations                                        | **fait** — arcs au curseur     |
+| 7     | Archives S3, visionneuse de documents                             | **fait** — sans visionneuse    |
+| 8     | Pipeline IA, propositions, assistant                              | **fait** — texte seul          |
+| 9     | Constellation, profondeur temporelle, mode Récit                  | **en cours** — reste Directeur |
+| 10    | Collaboration, confidentialité des vivants                        | rédaction faite ; reste l'UI   |
+| 11    | Durcissement production                                           | partiel                        |
 
 Manques identifiés hors phases : détection de doublons, bouton d'export
 GEDCOM, édition des coordonnées d'un lieu, lecture d'images par l'IA,

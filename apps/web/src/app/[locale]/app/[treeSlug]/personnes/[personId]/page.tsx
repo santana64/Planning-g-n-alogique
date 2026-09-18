@@ -101,6 +101,12 @@ export default async function PersonPage({
                 Éventail temporel →
               </Link>
             ) : null}
+            <Link
+              href={`/app/${treeSlug}/personnes/${person.personId}/recit`}
+              className="text-accent text-sm hover:underline"
+            >
+              Remonter la lignée →
+            </Link>
           </p>
         </div>
 

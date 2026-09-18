@@ -6,3 +6,4 @@ export * from './layout/temporal-fan';
 export * from './layout/constellation';
 export * from './render/quality';
 export * from './render/labels';
+export * from './story/lineage';
