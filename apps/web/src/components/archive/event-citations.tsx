@@ -10,6 +10,8 @@ import {
   type SourceChoice,
 } from '@/server/evidence-actions';
 import type { EventCitation } from '@/server/archive';
+import type { AIStatus } from '@/server/ai';
+import { ExtractButton } from '@/components/ai/extract-button';
 import { Field, Select, SubmitButton, TextArea, TextInput } from '@/components/people/fields';
 
 /**
@@ -39,12 +41,17 @@ export function EventCitations({
   eventLabel,
   citations,
   canEdit,
+  personId,
+  ai,
 }: {
   treeSlug: string;
   eventId: string;
   eventLabel: string;
   citations: readonly EventCitation[];
   canEdit: boolean;
+  /** The person whose record this is, as a hint for attributing statements. */
+  personId: string;
+  ai: AIStatus;
 }) {
   const [createState, createAction, creating] = useActionState<ActionState, FormData>(
     createCitationAction,
@@ -106,6 +113,14 @@ export function EventCitations({
                 <q className="text-text-muted border-border-subtle border-l pl-2 text-xs italic">
                   {citation.quotation}
                 </q>
+              ) : null}
+              {citation.quotation && canEdit && ai.enabled ? (
+                <ExtractButton
+                  treeSlug={treeSlug}
+                  citationId={citation.citationId}
+                  personId={personId}
+                  ai={ai}
+                />
               ) : null}
             </li>
           ))}

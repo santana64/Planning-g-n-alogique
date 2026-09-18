@@ -203,6 +203,12 @@ model AiProposal {
   documentPageId String? @db.Uuid
   /// Person the proposal concerns, when the extraction could identify one.
   personId       String? @db.Uuid
+  /// The citation whose verbatim transcription was read.
+  ///
+  /// Carried so that an accepted claim cites the same source the proposal
+  /// came from. Without it the chain breaks at the one link that matters: a
+  /// fact accepted from a register page would stop saying which page.
+  citationId     String? @db.Uuid
 
   predicate ClaimPredicate
   value     Json
@@ -237,6 +243,7 @@ model AiProposal {
   document     Document?     @relation(fields: [documentId], references: [id], onDelete: Cascade)
   documentPage DocumentPage? @relation(fields: [documentPageId], references: [id], onDelete: Cascade)
   person       Person?       @relation(fields: [personId], references: [id], onDelete: SetNull)
+  citation     Citation?     @relation(fields: [citationId], references: [id], onDelete: SetNull)
   reviewedBy   User?         @relation("ProposalReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   claims Claim[]
@@ -244,5 +251,6 @@ model AiProposal {
   @@index([treeId, status])
   @@index([documentId])
   @@index([personId])
+  @@index([citationId])
   @@map("ai_proposals")
 }

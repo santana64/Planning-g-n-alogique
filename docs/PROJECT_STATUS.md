@@ -215,7 +215,26 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Téléchargement                       | URL présignée courte, autorisation revérifiée à chaque fois           |
 | Document privé                       | REDACTED hors de l'arbre, RESTRICTED aux administrateurs              |
 
-**Tests** : 362 unitaires + 140 d'intégration + 39 E2E.
+### Lecture assistée (phase 8)
+
+| Élément                                | Preuve                                                               |
+| -------------------------------------- | -------------------------------------------------------------------- |
+| L'IA propose, l'humain décide          | proposition enregistrée : aucune affirmation, durée de vie inchangée |
+| Lecture d'une transcription **citée**  | jamais de texte libre : toute proposition a une source et une cote   |
+| Citation vérifiée mot pour mot         | paraphrase ou passage inventé écarté **et compté**                   |
+| Confiance du modèle                    | affichée, jamais utilisée pour accepter ; pas d'« accepter tout »    |
+| Acceptation                            | affirmation ACCEPTED + lien vers la citation + provenance IA         |
+| Date acceptée                          | 1823 → 12 juin 1822 sur la chronologie **et** la fiche               |
+| Désaccord événement / affirmation      | affiché, pas masqué                                                  |
+| Nouvelle date acceptée                 | l'ancienne SUPERSEDED, jamais supprimée                              |
+| Rejet                                  | conservé avec sa raison                                              |
+| Nom inconnu de l'arbre                 | laissé non relié ; le relecteur choisit, rien n'est deviné           |
+| Propositions sur un arbre public       | 404 pour un visiteur, lien absent                                    |
+| Aucun appel payant en CI               | refus codé en dur, sans interrupteur                                 |
+| Aucune donnée privée dans les journaux | ids, compteurs, durées ; chemins masqués dans pino                   |
+| Fournisseur Anthropic                  | testé avec un client factice : requête, refus, troncature, erreurs   |
+
+**Tests** : 457 unitaires + 160 d'intégration + 41 E2E.
 
 ---
 
@@ -326,6 +345,16 @@ Rien. Point de reprise propre.
   inventée.
 
 ## Points à surveiller
+
+- **Modèle par défaut : `claude-opus-5`**, et non Fable 5.1, qui impose une
+  rétention de 30 jours côté fournisseur — mauvais défaut pour des
+  transcriptions qui nomment des vivants. Le `.env` local contient encore
+  `claude-fable-5-1` (inutilisé tant que `AI_PROVIDER=fake`).
+- Le fournisseur Anthropic n'a **jamais été appelé pour de vrai** dans ce
+  projet : aucune clé n'est configurée. Son comportement est vérifié contre un
+  client factice et contre les types du SDK installé (0.125.0). Le premier appel
+  réel mérite d'être observé.
+- Repli serveur en cas de refus activé (`fallbacks: 'default'`).
 
 - **Contention du poste, pas du produit.** En parallèle maximale, la suite E2E
   échouait une fois sur trois : des attentes côté client expiraient à 30 s.

@@ -212,6 +212,7 @@ model Place {
   events Event[]
 
   @@index([treeId, normalisedName])
+  @@index([normalisedName(ops: raw("gin_trgm_ops"))], type: Gin, map: "places_name_trgm")
   @@index([treeId, type])
   @@index([parentId])
   @@map("places")

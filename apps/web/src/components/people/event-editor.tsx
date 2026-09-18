@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from 'react';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { createEventAction, deleteEventAction, updateEventAction } from '@/server/event-actions';
 import type { PersonEventRow } from '@/server/people';
+import type { AIStatus } from '@/server/ai';
 import { EventCitations } from '@/components/archive/event-citations';
 import { Field, Select, SubmitButton, TextInput } from './fields';
 import { PersonPicker } from './person-picker';
@@ -61,11 +62,13 @@ export function EventEditor({
   personId,
   events,
   canEdit,
+  ai,
 }: {
   treeSlug: string;
   personId: string;
   events: readonly PersonEventRow[];
   canEdit: boolean;
+  ai: AIStatus;
 }) {
   const [createState, createAction, creating] = useActionState<ActionState, FormData>(
     createEventAction,
@@ -150,6 +153,8 @@ export function EventEditor({
                   eventLabel={event.label}
                   citations={event.citations}
                   canEdit={canEdit}
+                  personId={personId}
+                  ai={ai}
                 />
               </li>
             ),

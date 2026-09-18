@@ -21,6 +21,7 @@ FROM base AS manifests
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/web/package.json ./apps/web/
 COPY apps/worker/package.json ./apps/worker/
+COPY packages/ai/package.json ./packages/ai/
 COPY packages/config/package.json ./packages/config/
 COPY packages/domain/package.json ./packages/domain/
 COPY packages/db/package.json ./packages/db/

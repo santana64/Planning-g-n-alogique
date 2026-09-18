@@ -388,6 +388,67 @@ test.describe('manual editing', () => {
     await expect(page.getByText('0 %')).toHaveCount(0);
   });
 
+  test('reads a cited transcription into proposals that change nothing until accepted', async ({
+    page,
+  }) => {
+    await page.goto('/app');
+    await createTree(page, `Lecture ${Date.now()}`);
+    // Entered with the year the family remembered, before anyone read the act.
+    await addPerson(page, { given: 'Jean-Baptiste', surname: 'Chassagne', birth: '1823' });
+    const personUrl = page.url();
+
+    await page.getByRole('link', { name: 'Archives' }).click();
+    await fillStable(page, 'Titre', 'Registre de Tours 1822');
+    await fillStable(page, 'Cote', '6 NUM 7/261/003');
+    await page.getByRole('button', { name: 'Ajouter la source' }).click();
+    await expect(page.getByText('6 NUM 7/261/003').first()).toBeVisible();
+
+    // The transcription is typed onto a citation, so every proposal made from
+    // it has a source and a locator before anyone is asked to judge it.
+    await page.goto(personUrl);
+    await page.getByRole('button', { name: 'Citer une source' }).first().click();
+    await fillStable(page, 'Où exactement', 'vue 118');
+    await fillStable(
+      page,
+      'Transcription',
+      'né le 12 juin 1822 à Tours, fils de Pierre Chassagne et de Marie Lefèvre',
+    );
+    await page.getByRole('button', { name: 'Enregistrer la citation' }).click();
+    await expect(page.getByText('La citation a été enregistrée.')).toBeVisible();
+
+    await page.reload();
+    // Before pressing anything, the page says where the text will go.
+    await expect(page.getByText(/rien ne quitte ce serveur/).first()).toBeVisible();
+    await page
+      .getByRole('button', { name: 'Proposer des faits à partir de cette transcription' })
+      .click();
+    await expect(page.getByText(/propositions? à examiner\./).first()).toBeVisible();
+
+    // Nothing has changed yet. The record still says what was typed.
+    await page.reload();
+    await expect(page.getByRole('heading', { name: /propositions? à examiner/ })).toBeVisible();
+    await expect(page.getByText('1823 — —')).toBeVisible();
+
+    const birth = page.getByRole('article', { name: 'Date de naissance : 12 juin 1822' });
+    // The reviewer judges the words, shown beside the value.
+    await expect(birth.getByText(/né le 12 juin 1822/)).toBeVisible();
+    await expect(birth.getByText(/Lecture par règles/)).toBeVisible();
+    await birth.getByRole('button', { name: 'Accepter', exact: true }).click();
+    await expect(page.getByText(/Le fait est enregistré avec sa source/)).toBeVisible();
+
+    const place = page.getByRole('article', { name: 'Lieu de naissance : Tours' });
+    await place.getByRole('button', { name: 'Rejeter' }).click();
+    await place.getByLabel(/Pourquoi/).fill('lieu du mariage, pas de la naissance');
+    await place.getByRole('button', { name: 'Confirmer le rejet' }).click();
+    await expect(page.getByText(/La proposition reste consultable/)).toBeVisible();
+
+    // Accepted: the record now shows the register's date, and says what the
+    // event typed earlier still records rather than hiding the disagreement.
+    await page.reload();
+    await expect(page.getByText('12 juin 1822 — —')).toBeVisible();
+    await expect(page.getByText(/événement saisi indique « 1823 »/)).toBeVisible();
+  });
+
   test('accepts a real image and refuses a file lying about its type', async ({
     page,
     request,

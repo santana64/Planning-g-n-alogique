@@ -12,6 +12,7 @@
     "basemap": "node scripts/build-basemap.mjs"
   },
   "dependencies": {
+    "@chronolignee/ai": "workspace:*",
     "@chronolignee/config": "workspace:*",
     "@chronolignee/db": "workspace:*",
     "@chronolignee/domain": "workspace:*",

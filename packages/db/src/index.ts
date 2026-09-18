@@ -10,6 +10,7 @@ export * from './services/event';
 export * from './services/evidence';
 export * from './services/import-gedcom';
 export * from './services/person';
+export * from './services/proposals';
 export * from './services/place';
 export * from './services/relationship';
 export * from './services/schemas';

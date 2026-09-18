@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { Worker, type Job } from 'bullmq';
 import pino from 'pino';
-import { getServerEnv } from '@chronolignee/config/server';
+import { assertDeployable, getServerEnv } from '@chronolignee/config/server';
 import { createDatabase, importGedcomPlan } from '@chronolignee/db';
 import { mapDocument, parseGedcom } from '@chronolignee/gedcom';
 import { getObjectStore } from '@chronolignee/storage';
@@ -26,6 +26,11 @@ try {
 }
 
 const env = getServerEnv();
+
+// The same deployment-safety checks the web server runs at start-up. A worker
+// holds the same credentials and talks to the same database, so an unsafe
+// configuration is no safer here for running without an HTTP port.
+assertDeployable(env);
 
 const logger = pino({
   level: env.LOG_LEVEL,

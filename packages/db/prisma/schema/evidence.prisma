@@ -96,7 +96,8 @@ model Citation {
   documentPage DocumentPage? @relation(fields: [documentPageId], references: [id], onDelete: SetNull)
   event        Event?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
 
-  claims ClaimCitation[]
+  claims      ClaimCitation[]
+  aiProposals AiProposal[]
 
   @@index([treeId, sourceId])
   @@index([documentId])

@@ -61,9 +61,23 @@ export const serverEnvSchema = z
     S3_FORCE_PATH_STYLE: booleanFromString.default(true),
     S3_PRESIGN_TTL_SECONDS: positiveInt.max(3600).default(900),
 
-    AI_PROVIDER: z.enum(['anthropic', 'fake']).default('fake'),
-    AI_MODEL_PRIMARY: z.string().min(1).default('claude-fable-5-1'),
-    AI_MODEL_FAST: z.string().min(1).default('claude-haiku-4-5-20251001'),
+    /**
+     * `none` turns the AI features off. It is the honest production setting
+     * for an instance without a key: the family tree does not depend on a
+     * paid API to exist, and a button that cannot work is better absent.
+     * `fake` is the deterministic test double — fine for development and CI,
+     * refused in production below, because its output presented as a reading
+     * of a register would be a small fabrication.
+     */
+    AI_PROVIDER: z.enum(['anthropic', 'fake', 'none']).default('fake'),
+    /**
+     * Opus rather than Fable by default. Fable is available and more capable,
+     * but it requires thirty-day data retention on the provider's side — the
+     * wrong default for transcriptions that routinely name living people. An
+     * operator who wants it can set it; nobody should get it by accident.
+     */
+    AI_MODEL_PRIMARY: z.string().min(1).default('claude-opus-5'),
+    AI_MODEL_FAST: z.string().min(1).default('claude-haiku-4-5'),
     ANTHROPIC_API_KEY: z.string().optional(),
     AI_MAX_CONCURRENCY: positiveInt.max(32).default(2),
     AI_REQUEST_TIMEOUT_MS: positiveInt.default(120_000),
@@ -119,9 +133,17 @@ export type ServerEnv = z.infer<typeof serverEnvSchema>;
 export function assertDeployable(env: ServerEnv): void {
   if (env.NODE_ENV !== 'production') return;
 
+  // A production build whose own address is localhost is being tested, not
+  // served: the end-to-end suite, a container smoke test, a developer trying
+  // the built app. It legitimately runs with development credentials and the
+  // AI test double. A deployment serving anyone else cannot use a localhost
+  // URL — authentication checks the request origin against it — so this
+  // cannot be used to slip an unsafe configuration past the checks below.
+  if (isLocalAddress(env.APP_URL)) return;
+
   const problems: string[] = [];
 
-  if (env.APP_URL.startsWith('http://') && !env.APP_URL.includes('localhost')) {
+  if (env.APP_URL.startsWith('http://')) {
     problems.push('APP_URL must use https in production: auth cookies are Secure-only.');
   }
   if (env.S3_SECRET_ACCESS_KEY.includes('dev_only')) {
@@ -131,7 +153,9 @@ export function assertDeployable(env: ServerEnv): void {
     problems.push('DATABASE_URL still holds the development credential.');
   }
   if (env.AI_PROVIDER === 'fake') {
-    problems.push('AI_PROVIDER=fake serves deterministic stub responses; set it to anthropic.');
+    problems.push(
+      'AI_PROVIDER=fake serves a deterministic test double; set it to anthropic, or to none to turn AI off.',
+    );
   }
 
   if (problems.length > 0) {
@@ -141,4 +165,21 @@ export function assertDeployable(env: ServerEnv): void {
         .join('\n')}`,
     );
   }
+}
+
+/** Whether a URL points at this machine and nowhere else. */
+export function isLocalAddress(url: string): boolean {
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return (
+    hostname === 'localhost' ||
+    hostname.endsWith('.localhost') ||
+    hostname === '127.0.0.1' ||
+    hostname === '[::1]' ||
+    hostname === '::1'
+  );
 }

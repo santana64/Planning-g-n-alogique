@@ -97,6 +97,10 @@ model Person {
   // Serves the Gantt and "who was alive on D": both scan a tree by lifespan.
   @@index([treeId, lifespanEarliestJdn, lifespanLatestJdn])
   @@index([treeId, livingStatus])
+  // Declared here, not only in SQL. An index Prisma does not know about is
+  // drift to Prisma, and the next `migrate dev` writes a DROP INDEX for it —
+  // which is how fuzzy name search would quietly degrade to a table scan.
+  @@index([searchName(ops: raw("gin_trgm_ops"))], type: Gin, map: "people_search_name_trgm")
   @@map("people")
 }
 
@@ -153,6 +157,8 @@ model PersonName {
   @@index([personId])
   @@index([treeId, normalisedSurname])
   @@index([treeId, normalisedGiven])
+  @@index([normalisedSurname(ops: raw("gin_trgm_ops"))], type: Gin, map: "person_names_surname_trgm")
+  @@index([normalisedGiven(ops: raw("gin_trgm_ops"))], type: Gin, map: "person_names_given_trgm")
   @@map("person_names")
 }
 

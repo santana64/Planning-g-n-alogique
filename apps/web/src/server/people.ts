@@ -6,7 +6,7 @@ import {
   formatYearOnly,
   type GenealogicalDate,
 } from '@chronolignee/domain';
-import { decodeDate, foldName, loadGenealogyGraph } from '@chronolignee/db';
+import { decodeDate, foldName, loadGenealogyGraph, projectPersonLifespan } from '@chronolignee/db';
 import { auditPerson, sortBySeverity, type Finding } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
 import { REDACTED_LABEL, isHiddenFrom, resolveTreeAccess, type TreeAccess } from './access';
@@ -198,6 +198,14 @@ export interface PersonDetail {
   readonly deathPlaceName: string;
   readonly birthLabel: string;
   readonly deathLabel: string;
+  /**
+   * Whether the date shown comes from an accepted claim rather than the
+   * event typed on the form. When it does and the two differ, the page says
+   * so: the disagreement is research information, not an inconsistency to
+   * hide.
+   */
+  readonly birthFromClaim: boolean;
+  readonly deathFromClaim: boolean;
   readonly events: readonly PersonEventRow[];
   readonly links: readonly PersonLinkRow[];
   readonly findings: readonly Finding[];
@@ -343,6 +351,33 @@ export const loadPersonDetail = cache(
     const birth = vital('BIRTH');
     const death = vital('DEATH');
 
+    // The dates this page shows come from the same resolution the timeline
+    // and the list use: an accepted claim wins over an event, and a baptism
+    // stands in for an unrecorded birth. Reading the birth event directly
+    // here, as this page once did, meant accepting "12 juin 1822" moved the
+    // person on the timeline while their own record still said "1823".
+    const acceptedClaims = await db.claim.findMany({
+      where: {
+        treeId: access.treeId,
+        personId: person.id,
+        status: 'ACCEPTED',
+        predicate: { in: ['BIRTH_DATE', 'BAPTISM_DATE', 'DEATH_DATE', 'BURIAL_DATE'] },
+      },
+      select: { predicate: true, status: true, value: true },
+    });
+    const projection = projectPersonLifespan(
+      { livingStatus: person.livingStatus, events: eventRows, claims: acceptedClaims },
+      todayJdn,
+    );
+    const claimDated = (predicates: readonly string[]) =>
+      acceptedClaims.some(
+        (claim) =>
+          predicates.includes(claim.predicate) &&
+          typeof (claim.value as { date?: unknown } | null)?.date === 'string',
+      );
+    const resolved = (date: GenealogicalDate) =>
+      date.interval.earliest === null && date.interval.latest === null ? null : date;
+
     // The whole list goes, not just its dates. Blanking the date while still
     // listing "Divorce", "Naturalisation" or "Service militaire" publishes
     // facts about a living person that the redaction exists to protect — the
@@ -390,12 +425,10 @@ export const loadPersonDetail = cache(
       birthPlaceName: hidden ? '' : (birth?.place?.name ?? ''),
       deathDateText: hidden ? '' : (death?.dateOriginalText ?? ''),
       deathPlaceName: hidden ? '' : (death?.place?.name ?? ''),
-      birthLabel: hidden
-        ? '—'
-        : dateLabelOf(birth ? decodeDate(birth) : null, birth?.dateOriginalText),
-      deathLabel: hidden
-        ? '—'
-        : dateLabelOf(death ? decodeDate(death) : null, death?.dateOriginalText),
+      birthLabel: hidden ? '—' : dateLabelOf(resolved(projection.birth), birth?.dateOriginalText),
+      deathLabel: hidden ? '—' : dateLabelOf(resolved(projection.death), death?.dateOriginalText),
+      birthFromClaim: !hidden && claimDated(['BIRTH_DATE', 'BAPTISM_DATE']),
+      deathFromClaim: !hidden && claimDated(['DEATH_DATE', 'BURIAL_DATE']),
       events,
       links,
       findings: hidden ? [] : findings,

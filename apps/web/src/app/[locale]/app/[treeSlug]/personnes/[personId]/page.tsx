@@ -5,6 +5,9 @@ import { SEVERITY_LABELS, findingMessage } from '@/lib/finding-messages';
 import { loadPersonDetail } from '@/server/people';
 import { DeletePerson } from '@/components/people/delete-person';
 import { EventEditor } from '@/components/people/event-editor';
+import { ProposalReview } from '@/components/ai/proposal-review';
+import { getAIStatus } from '@/server/ai';
+import { loadPendingForPerson } from '@/server/proposals';
 import { PersonForm } from '@/components/people/person-form';
 import { RelationshipEditor } from '@/components/people/relationship-editor';
 import { TreeNav } from '@/components/people/tree-nav';
@@ -31,6 +34,8 @@ export default async function PersonPage({
   if (!person) notFound();
 
   const { access } = person;
+  const ai = getAIStatus();
+  const proposals = person.redacted ? [] : await loadPendingForPerson(access, person.personId);
 
   return (
     <main id="main" className="bg-surface-0 min-h-dvh px-6 py-10">
@@ -55,6 +60,25 @@ export default async function PersonPage({
           <p className="tabular text-text-muted">
             {person.birthLabel} — {person.deathLabel}
           </p>
+          {/* Two sources disagreeing is research information, not a glitch to
+           * paper over. The accepted claim wins, and the page says what the
+           * event on the form still records. */}
+          {person.birthFromClaim &&
+          person.birthDateText &&
+          person.birthDateText !== person.birthLabel ? (
+            <p className="text-text-faint text-xs">
+              Naissance retenue d’après une affirmation acceptée ; l’événement saisi indique «{' '}
+              {person.birthDateText} ».
+            </p>
+          ) : null}
+          {person.deathFromClaim &&
+          person.deathDateText &&
+          person.deathDateText !== person.deathLabel ? (
+            <p className="text-text-faint text-xs">
+              Décès retenu d’après une affirmation acceptée ; l’événement saisi indique «{' '}
+              {person.deathDateText} ».
+            </p>
+          ) : null}
           <p className="mt-1 flex gap-4">
             <Link
               href={`/app/${treeSlug}/personnes/${person.personId}/ascendance`}
@@ -70,6 +94,27 @@ export default async function PersonPage({
             </Link>
           </p>
         </div>
+
+        {/* Above everything else on the page, because a pending proposal is
+         * a decision waiting on the reader, and the rest of the record may be
+         * about to change because of it. */}
+        {proposals.length > 0 ? (
+          <section
+            aria-labelledby="proposals-heading"
+            className="border-source/30 flex flex-col gap-3 rounded-[var(--radius-lg)] border p-4"
+          >
+            <h2 id="proposals-heading" className="text-source text-xs tracking-wide uppercase">
+              {proposals.length === 1
+                ? '1 proposition à examiner'
+                : `${proposals.length} propositions à examiner`}
+            </h2>
+            <p className="text-text-muted text-sm">
+              Lues dans les transcriptions citées ci-dessous. Rien n’entre dans la fiche avant que
+              vous l’acceptiez.
+            </p>
+            <ProposalReview treeSlug={treeSlug} rows={proposals} showSubject={false} />
+          </section>
+        ) : null}
 
         {person.redacted ? (
           <p className="border-source/30 bg-source/10 text-source rounded-[var(--radius-md)] border px-4 py-3">
@@ -145,6 +190,7 @@ export default async function PersonPage({
                 personId={person.personId}
                 events={person.events}
                 canEdit={access.canEdit && !person.redacted}
+                ai={ai}
               />
             </section>
           </div>

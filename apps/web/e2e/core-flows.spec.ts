@@ -300,6 +300,18 @@ test.describe('descent', () => {
   });
 });
 
+test.describe('machine proposals', () => {
+  test('are never shown to someone outside the tree, even on a public one', async ({ page }) => {
+    // A pending proposal is a reading nobody has vouched for. Publishing it
+    // would present unverified statements about a family as its record.
+    const response = await page.goto('/app/famille-chassagne-demo/propositions');
+    expect(response?.status()).toBe(404);
+
+    await page.goto('/app/famille-chassagne-demo/personnes');
+    await expect(page.getByRole('link', { name: 'Propositions' })).toHaveCount(0);
+  });
+});
+
 test.describe('authorisation', () => {
   test('sends an anonymous visitor to sign in rather than showing a tree', async ({ page }) => {
     await page.goto('/app');
