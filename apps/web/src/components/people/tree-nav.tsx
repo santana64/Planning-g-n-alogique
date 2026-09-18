@@ -1,4 +1,5 @@
 import { Link } from '@/i18n/navigation';
+import { features } from '@/lib/env';
 
 /**
  * The header shared by every screen of one tree.
@@ -17,11 +18,20 @@ export function TreeNav({
   treeSlug: string;
   treeName: string;
   canEdit: boolean;
-  current: 'people' | 'timeline' | 'map' | 'archive' | 'proposals' | 'import';
+  current: 'people' | 'timeline' | 'constellation' | 'map' | 'archive' | 'proposals' | 'import';
 }) {
   const tabs = [
     { key: 'people' as const, href: `/app/${treeSlug}/personnes`, label: 'Personnes' },
     { key: 'timeline' as const, href: `/app/${treeSlug}/chronologie`, label: 'Chronologie' },
+    ...(features.constellation
+      ? [
+          {
+            key: 'constellation' as const,
+            href: `/app/${treeSlug}/constellation`,
+            label: 'Constellation',
+          },
+        ]
+      : []),
     { key: 'map' as const, href: `/app/${treeSlug}/carte`, label: 'Carte' },
     { key: 'archive' as const, href: `/app/${treeSlug}/archives`, label: 'Archives' },
     // Editors only: a proposal is a reading nobody has vouched for yet.

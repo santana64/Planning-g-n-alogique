@@ -5,6 +5,7 @@ export * from './projections/person-lifespan';
 export * from './repositories/graph';
 export * from './repositories/search';
 export * from './repositories/atlas';
+export * from './repositories/evidence-coverage';
 export * from './services/audit';
 export * from './services/event';
 export * from './services/evidence';

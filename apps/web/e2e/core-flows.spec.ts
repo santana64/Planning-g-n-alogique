@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
@@ -364,6 +364,165 @@ test.describe('the temporal fan', () => {
     for (const name of ['Claire', 'Sylvie', 'Thomas', 'Valentina', 'Camille', 'Léa', 'Mateo']) {
       expect(body).not.toContain(name);
     }
+  });
+});
+
+test.describe('the constellation', () => {
+  const CONSTELLATION = '/app/famille-chassagne-demo/constellation';
+  const LIVING = ['Claire', 'Sylvie', 'Thomas', 'Valentina', 'Camille', 'Léa', 'Mateo'];
+
+  /**
+   * Read the canvas back, in the same task as a frame.
+   *
+   * A WebGL drawing buffer is only readable until the frame is composited,
+   * so the next frame is caught from inside requestAnimationFrame, right
+   * after the scene has drawn it. Counting pixels is the only way to tell a
+   * drawn constellation from an empty canvas with names laid over it — which
+   * is exactly the failure this caught during development.
+   */
+  async function readCanvas(page: Page) {
+    return page.evaluate(async () => {
+      const root = document.querySelector<HTMLElement>('[data-renderer]');
+      const canvas = root?.querySelector('canvas');
+      const gl = canvas?.getContext('webgl2');
+      if (!root || !canvas || !gl) return null;
+      const original = window.requestAnimationFrame.bind(window);
+      const before = Number(root.dataset['frames']);
+      let result: { lit: number; sky: number; total: number } | null = null;
+      window.requestAnimationFrame = (callback) =>
+        original((time) => {
+          callback(time);
+          if (result || Number(root.dataset['frames']) <= before) return;
+          const pixels = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          gl.readPixels(
+            0,
+            0,
+            gl.drawingBufferWidth,
+            gl.drawingBufferHeight,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            pixels,
+          );
+          let lit = 0;
+          let sky = 0;
+          for (let index = 0; index < pixels.length; index += 4) {
+            const r = pixels[index] as number;
+            const g = pixels[index + 1] as number;
+            const b = pixels[index + 2] as number;
+            if (r + g + b > 300) lit += 1;
+            if (Math.abs(r - 11) < 6 && Math.abs(g - 16) < 6 && Math.abs(b - 32) < 6) sky += 1;
+          }
+          result = { lit, sky, total: pixels.length / 4 };
+        });
+      document.querySelector<HTMLButtonElement>('button[aria-label="Rapprocher"]')?.click();
+      for (let wait = 0; wait < 50 && !result; wait += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      window.requestAnimationFrame = original;
+      // Assigned inside the frame callback, which the compiler cannot follow.
+      return result as { lit: number; sky: number; total: number } | null;
+    });
+  }
+
+  test('draws the family as light, and names who is at the centre', async ({ page }) => {
+    await page.goto(CONSTELLATION);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Constellation');
+
+    const sky = page.locator('[data-renderer]');
+    // Never a blank rectangle: a renderer, or a sentence saying there is none.
+    await expect(sky).toHaveAttribute('data-renderer', /^(webgpu|webgl2)$/, { timeout: 15_000 });
+    await expect(sky).toHaveAttribute('data-settled', 'true', { timeout: 15_000 });
+
+    const renderer = await sky.getAttribute('data-renderer');
+    if (renderer === 'webgl2') {
+      const pixels = await readCanvas(page);
+      expect(pixels, 'the canvas could be read back').not.toBeNull();
+      // The sky is painted, and stars and lines are drawn on it.
+      expect(pixels?.sky ?? 0).toBeGreaterThan((pixels?.total ?? 0) / 2);
+      expect(pixels?.lit ?? 0).toBeGreaterThan(100);
+    }
+
+    // The person at the centre is named over the drawing, and heads the list.
+    const focus = page.locator('.constellation-label[data-kind="focus"]');
+    await expect(focus).toBeVisible();
+    const people = page.getByRole('region', { name: /personnes de la constellation/ });
+    await expect(people).toContainText('Au centre');
+    await expect(people).toContainText((await focus.textContent()) ?? '');
+
+    const body = await page.content();
+    for (const name of LIVING) {
+      expect(body, `${name} must not appear in a public page`).not.toContain(name);
+    }
+  });
+
+  test('moves to someone else, and keeps the reach', async ({ page }) => {
+    await page.goto(`${CONSTELLATION}?liens=4`);
+    const people = page.getByRole('region', { name: /personnes de la constellation/ });
+    await people.getByRole('link', { name: /Centrer la constellation sur Émile MOREAU/ }).click();
+
+    await expect(page).toHaveURL(/focus=[0-9a-f-]{36}/);
+    await expect(page).toHaveURL(/liens=4/);
+    await expect(page.locator('.constellation-label[data-kind="focus"]')).toHaveText(
+      'Émile MOREAU',
+      { timeout: 15_000 },
+    );
+  });
+
+  test('looks into the centuries in depth', async ({ page }) => {
+    await page.goto(CONSTELLATION);
+    const sky = page.locator('[data-renderer]');
+    await expect(sky).toHaveAttribute('data-settled', 'true', { timeout: 15_000 });
+
+    await page.getByRole('button', { name: 'Profondeur' }).click();
+    await expect(page.getByRole('button', { name: 'Profondeur' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(sky).toHaveAttribute('data-mode', 'depth');
+    // Century planes, labelled with their year.
+    await expect(
+      page
+        .locator('.constellation-label[data-kind="guide"]')
+        .filter({ hasText: /^1[6-9]00$/ })
+        .first(),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('says so, above the same list, when it cannot draw', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, 'gpu', { get: () => undefined });
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (
+        this: HTMLCanvasElement,
+        type: string,
+        ...rest: unknown[]
+      ) {
+        if (type === 'webgl2' || type === 'webgl') return null;
+        return (original as (...args: unknown[]) => unknown).call(this, type, ...rest);
+      } as typeof HTMLCanvasElement.prototype.getContext;
+    });
+    await page.goto(CONSTELLATION);
+
+    await expect(page.locator('[data-renderer]')).toHaveAttribute('data-renderer', 'unsupported');
+    await expect(page.getByText(/ni de WebGPU ni de WebGL 2/)).toBeVisible();
+    await expect(page.getByRole('region', { name: /personnes de la constellation/ })).toContainText(
+      'Au centre',
+    );
+  });
+
+  test('has no detectable accessibility violations', async ({ page }) => {
+    await page.goto(CONSTELLATION);
+    await expect(page.locator('[data-renderer]')).toHaveAttribute('data-settled', 'true', {
+      timeout: 15_000,
+    });
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    expect(
+      results.violations.map((v) => `${v.id}: ${v.nodes.length} nodes`),
+      JSON.stringify(results.violations, null, 2),
+    ).toEqual([]);
   });
 });
 

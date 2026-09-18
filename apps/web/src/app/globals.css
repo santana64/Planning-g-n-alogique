@@ -116,6 +116,39 @@
 
 @layer components {
   /**
+   * Names over the constellation.
+   *
+   * Placed every frame by transform, never by top/left, so moving them does
+   * not trigger layout. The dark halo keeps a name legible where it crosses a
+   * line or a bright star — the sky behind is the same in both themes.
+   */
+  .constellation-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: none;
+    white-space: nowrap;
+    font-size: 12px;
+    line-height: 18px;
+    color: #e9e4d8;
+    text-shadow:
+      0 0 3px #0b1020,
+      0 0 6px #0b1020;
+    will-change: transform;
+  }
+
+  .constellation-label[data-kind='focus'] {
+    color: #f0b35a;
+    font-weight: 600;
+  }
+
+  .constellation-label[data-kind='guide'] {
+    color: #a9b0c0;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /**
    * Map markers.
    *
    * Sized by the square root of the record count, so twice the records reads

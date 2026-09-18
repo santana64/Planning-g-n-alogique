@@ -1,7 +1,7 @@
 # État du projet
 
 **Dernière mise à jour** : 2026-09-18
-**Phase courante** : 9 (vues de profondeur) — éventail temporel livré ; constellation et Récit à suivre
+**Phase courante** : 9 (vues de profondeur) — éventail et constellation livrés ; Récit à suivre
 
 Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
@@ -258,6 +258,35 @@ L'ascendance en éventail, dont le rayon est le **temps** et non la génération
 
 **Tests** : 483 unitaires + 160 d'intégration + 44 E2E.
 
+### Constellation (phase 9)
+
+La famille autour d'une personne, en points lumineux. Premier usage du moteur
+WebGPU (three.js r186, `WebGPURenderer`, matériaux en TSL).
+
+| Élément                     | Preuve                                                                           |
+| --------------------------- | -------------------------------------------------------------------------------- |
+| Disposition déterministe    | même image quel que soit l'ordre des données (propriété, 150 tirages)            |
+| Distance = liens            | un anneau par lien ; jamais deux personnes au même angle d'un anneau (propriété) |
+| Orientation                 | parents en haut, père à gauche comme Sosa ; fratrie de gauche à droite par âge   |
+| Tous les liens              | seconde filiation, unions et boucles d'implexe, pas seulement le parcours        |
+| Éclat = preuve              | part des événements de sa propre vie qu'une citation appuie                      |
+| Témoin, parrain             | aucun crédit pour l'acte d'un autre (intégration)                                |
+| Événement archivé, supprimé | exclu de la couverture (intégration)                                             |
+| Magnitude                   | une étoile mieux sourcée est aussi plus grande : l'écart se voit                 |
+| Profondeur                  | z = années depuis la naissance ; plans des siècles ; plage « vers » tracée       |
+| Vivant, vu de l'extérieur   | point anonyme : ni nom, ni dates, ni couverture ; jamais placé en profondeur     |
+| Ordre d'une fratrie         | calculé sans la date des vivants, qui le trahirait                               |
+| WebGPU, sinon WebGL 2       | sonde de l'adaptateur ; rastériseur logiciel reconnu et servi en BASSE           |
+| Qualité                     | AUTO / BASSE / MOYENNE / HAUTE / MAXIMALE ; baisse d'un cran si médiane > 22 ms  |
+| Rendu à la demande          | aucune image dessinée tant que rien ne bouge                                     |
+| Rendu vérifié au pixel      | canevas relu en WebGL 2 : ciel peint, étoiles et liens dessinés (E2E)            |
+| Sans GPU                    | une phrase au-dessus de la même liste, jamais un rectangle noir (E2E)            |
+| Accessibilité               | canevas masqué aux AT, liste par distance avec liens ; axe sans violation        |
+| Recentrage                  | l'étendue est conservée ; les étoiles partent de la personne choisie             |
+| Drapeau `constellation`     | 404 et onglet absent quand il est coupé                                          |
+
+**Tests** : 538 unitaires + 167 d'intégration + 49 E2E.
+
 ---
 
 ## Bugs réels trouvés et corrigés
@@ -373,6 +402,17 @@ L'ascendance en éventail, dont le rayon est le **temps** et non la génération
     donc lire la date corrigée. Trouvé en relisant le chargeur pour la
     constellation ; test de régression rouge puis vert.
 
+28. **Constellation vide au chargement.** three.js compile les pipelines en
+    arrière-plan et saute sans rien dire un objet dont le pipeline n'est pas
+    prêt. Avec un rendu à la demande, les premières images — vides — restaient
+    à l'écran jusqu'au premier geste. Établi en relisant le framebuffer :
+    zéro pixel, pas même la couleur du ciel. Compilation explicite, puis
+    rendu continu le temps que tout soit prêt ; l'état « stabilisé » est
+    exposé et attendu par les tests.
+
+29. **Lien distingué par la seule couleur.** « Élargir » dans une phrase :
+    contraste 1,36:1 avec le texte autour (axe `link-in-text-block`). Souligné.
+
 ---
 
 ## En cours
@@ -394,7 +434,7 @@ Rien. Point de reprise propre.
 | 6     | Carte MapLibre, migrations                                        | **fait** — arcs au curseur    |
 | 7     | Archives S3, visionneuse de documents                             | **fait** — sans visionneuse   |
 | 8     | Pipeline IA, propositions, assistant                              | **fait** — texte seul         |
-| 9     | Constellation, profondeur temporelle, mode Récit                  | **en cours** — éventail fait  |
+| 9     | Constellation, profondeur temporelle, mode Récit                  | **en cours** — reste le Récit |
 | 10    | Collaboration, confidentialité des vivants                        | rédaction faite ; reste l'UI  |
 | 11    | Durcissement production                                           | partiel                       |
 
@@ -468,8 +508,15 @@ assistant de recherche, visionneuse de documents page à page.
 - L'export GEDCOM existe au niveau moteur et n'a pas encore de bouton dans
   l'interface.
 
-- L'éventail charge le graphe entier de l'arbre à chaque requête, comme
-  l'ascendance. Sans objet sur la démonstration ; à mesurer au-delà de
+- **Le chemin WebGPU n'a pas été vu à l'écran.** Dans le navigateur intégré,
+  le rendu WebGPU est détecté et dessine (compteur d'images), mais le panneau
+  masqué empêche la capture et la relecture d'un canevas WebGPU. Les E2E
+  passent par WebGL 2 (Chromium headless n'a pas d'adaptateur WebGPU), et
+  c'est ce chemin qui est vérifié au pixel. À regarder sur une vraie machine.
+- Le module three.js pèse 919 Ko (248 Ko gzip), chargé seulement sur la
+  constellation et seulement après la sonde des capacités.
+- L'éventail et la constellation chargent le graphe entier de l'arbre à
+  chaque requête, comme l'ascendance. Sans objet sur la démonstration ; à mesurer au-delà de
   quelques dizaines de milliers de personnes.
 - Sourcer `.env` dans un shell exporte `NODE_ENV=development`, qui désactive
   la garde de déploiement. Pour la tester à la main, fixer
