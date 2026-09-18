@@ -1,0 +1,7 @@
+# Line endings are LF everywhere. The code runs in Linux containers, and a
+# file whose endings depend on who last saved it shows up as a whole-file diff.
+* text=auto eol=lf
+
+# An applied migration is checksummed byte for byte by Prisma. Converting its
+# line endings would make it look edited after it ran; never touch one.
+packages/db/prisma/migrations/**/*.sql -text
