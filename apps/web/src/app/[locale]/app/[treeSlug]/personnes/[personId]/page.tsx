@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { features } from '@/lib/env';
 import { SEVERITY_LABELS, findingMessage } from '@/lib/finding-messages';
 import { loadPersonDetail } from '@/server/people';
 import { DeletePerson } from '@/components/people/delete-person';
@@ -92,6 +93,14 @@ export default async function PersonPage({
             >
               Descendance →
             </Link>
+            {features.temporalDepth ? (
+              <Link
+                href={`/app/${treeSlug}/personnes/${person.personId}/eventail`}
+                className="text-accent text-sm hover:underline"
+              >
+                Éventail temporel →
+              </Link>
+            ) : null}
           </p>
         </div>
 

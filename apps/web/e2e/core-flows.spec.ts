@@ -300,6 +300,73 @@ test.describe('descent', () => {
   });
 });
 
+test.describe('the temporal fan', () => {
+  test('draws an ancestry in years, and says how sure each year is', async ({ page }) => {
+    await page.goto('/app/famille-chassagne-demo/personnes');
+    await page.keyboard.press('ControlOrMeta+k');
+    await page.getByRole('combobox', { name: /Chercher une personne/ }).fill('émile moreau');
+    await expect(page.getByRole('option').first()).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Émile MOREAU');
+
+    await page.getByRole('link', { name: 'Éventail temporel →' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Éventail temporel');
+    await page
+      .getByRole('navigation', { name: 'Profondeur' })
+      .getByRole('link', { name: '8' })
+      .click();
+    await expect(page).toHaveURL(/g=8/);
+
+    const chart = page.getByRole('figure', { name: /Éventail temporel de Émile MOREAU/ });
+    await expect(chart).toBeVisible();
+    // The centre is the year everything is measured from; the guides are
+    // calendar years, not generation numbers.
+    // The drawing itself is hidden from assistive technology — the caption
+    // and the table carry it — so it is reached by element, not by role.
+    const drawing = chart.locator('svg');
+    await expect(drawing.getByText('1884', { exact: true })).toBeVisible();
+    await expect(drawing.getByText('1850', { exact: true })).toBeVisible();
+    await expect(drawing.getByText('Paul MOREAU', { exact: true })).toBeVisible();
+
+    // The same positions as a table, for whoever cannot read the drawing.
+    await page.getByText('Le détail, position par position').click();
+    await expect(page.getByRole('row').filter({ hasText: 'Paul MOREAU' })).toContainText('34 ans');
+    // "Vers 1702" is a span of years, and the table says so instead of
+    // printing a single number the records do not support.
+    await expect(page.getByRole('row').filter({ hasText: 'vers 1702' }).first()).toContainText(
+      'entre',
+    );
+    // Cousins married here: an ancestor reached by two lines holds both places.
+    await expect(page.getByRole('row').filter({ hasText: 'Mathurin CHASSAGNE' })).toHaveCount(2);
+
+    // A drawing made of hundreds of links is where accessibility quietly
+    // breaks: nested controls inside an image, a tab order hundreds long.
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    expect(
+      results.violations.map((v) => `${v.id}: ${v.nodes.length} nodes`),
+      JSON.stringify(results.violations, null, 2),
+    ).toEqual([]);
+  });
+
+  test('draws nothing for a living person, whose birth year is the centre', async ({ page }) => {
+    await page.goto('/app/famille-chassagne-demo/personnes');
+    await page
+      .getByRole('link', { name: /Personne vivante/ })
+      .first()
+      .click();
+    await page.getByRole('link', { name: 'Éventail temporel →' }).click();
+
+    await expect(page.getByText('Cette personne est vivante.', { exact: false })).toBeVisible();
+    await expect(page.getByRole('figure')).toHaveCount(0);
+    const body = await page.content();
+    for (const name of ['Claire', 'Sylvie', 'Thomas', 'Valentina', 'Camille', 'Léa', 'Mateo']) {
+      expect(body).not.toContain(name);
+    }
+  });
+});
+
 test.describe('machine proposals', () => {
   test('are never shown to someone outside the tree, even on a public one', async ({ page }) => {
     // A pending proposal is a reading nobody has vouched for. Publishing it

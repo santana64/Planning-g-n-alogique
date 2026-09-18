@@ -1,7 +1,7 @@
 # État du projet
 
-**Dernière mise à jour** : 2026-09-15
-**Phase courante** : 11 (durcissement) en parallèle — GEDCOM et infrastructure livrés ; le CRUD de la phase 2 reste le principal manque
+**Dernière mise à jour** : 2026-09-18
+**Phase courante** : 9 (vues de profondeur) — éventail temporel livré ; constellation et Récit à suivre
 
 Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
@@ -236,6 +236,28 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
 **Tests** : 457 unitaires + 160 d'intégration + 41 E2E.
 
+### Éventail temporel (phase 9)
+
+L'ascendance en éventail, dont le rayon est le **temps** et non la génération.
+
+| Élément                            | Preuve                                                                  |
+| ---------------------------------- | ----------------------------------------------------------------------- |
+| Rayon = années avant le sujet      | père né 34 ans avant Émile MOREAU (1884), lu dans le tableau            |
+| Épaisseur = incertitude            | date exacte : un trait ; « vers 1702 » : « entre 176 et 187 ans »       |
+| Borne ouverte (« avant 1750 »)     | la bande dépasse son bord connu au lieu d'en inventer un                |
+| Ancêtre non daté                   | listé « naissance non datée », jamais placé — vérifié en E2E            |
+| Sujet non daté                     | aucun éventail : sans point de départ, ce serait des générations        |
+| Ancêtre né après le sujet          | dessiné en rouge et signalé, pas masqué                                 |
+| Implexe                            | Mathurin CHASSAGNE dessiné à ses deux places                            |
+| Vivant, vu de l'extérieur          | aucun éventail : le centre porterait son année ; aucun nom dans le HTML |
+| Vivant dans une ascendance publiée | non placé : le rayon publierait son année de naissance                  |
+| Noms sur les arcs                  | seulement s'ils tiennent entiers ; retournés dans la moitié basse       |
+| Accessibilité                      | dessin masqué aux AT, légende + tableau lié ; axe sans violation        |
+| Téléphone                          | noms masqués, années agrandies, aucun défilement horizontal             |
+| Drapeau `temporalDepth`            | 404 et lien absent quand il est coupé                                   |
+
+**Tests** : 483 unitaires + 160 d'intégration + 44 E2E.
+
 ---
 
 ## Bugs réels trouvés et corrigés
@@ -295,6 +317,56 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
     écrite en échappements Unicode, était réécrite en caractères littéraux —
     illisibles et fragiles. Remplacée par la propriété nommée `Diacritic`.
 
+14. **Événements d'un vivant exposés.** Le nom était masqué, mais la liste de
+    ses événements restait publiée. Vidée pour un visiteur extérieur.
+
+15. **Impossible d'effacer un champ facultatif.** Une chaîne vide devenait
+    `undefined` (« non fourni ») au lieu de `null` (« effacé ») : vider un
+    surnom le laissait en place.
+
+16. **Parent et enfant inversés dans les avertissements.** « Mère de 57 ans »
+    nommait l'enfant. Les rôles sont désormais nommés et testés.
+
+17. **Invalidation de cache trop large.** Un motif de route invalidait tous les
+    arbres, puis le tableau de bord toute l'application. Chemins concrets, par
+    locale.
+
+18. **Tests unitaires jamais exécutés.** Les fichiers sous `tests/` échappaient
+    au motif Vitest : verts parce qu'absents.
+
+19. **Course à la création d'arbre.** Deux arbres homonymes créés ensemble se
+    disputaient le même slug (P2002). Nouvelle tentative, testée à 4 en
+    parallèle.
+
+20. **Migration qui supprimait des index.** Les index trigramme et PostGIS,
+    créés à la main, n'étaient pas déclarés : `migrate dev` générait leur
+    suppression. Déclarés, migration corrigée, test de garde sur les 6 index.
+
+21. **Garde de déploiement jamais appelée.** `assertDeployable` existait sans
+    que rien l'invoque. Appelée au démarrage du web et du worker, avec sortie
+    non nulle.
+
+22. **Images Docker sans `packages/ai`.** Le build d'image aurait échoué. Test
+    de garde comparant les manifestes du dépôt aux deux Dockerfiles, vérifié
+    rouge sur l'état fautif.
+
+23. **Fiche et chronologie en désaccord.** Après acceptation d'une date, la
+    fiche lisait l'événement, la chronologie l'affirmation. Même projection
+    pour les deux ; le désaccord est affiché.
+
+24. **Liens de l'éventail non localisés.** Les ancres SVG brutes auraient
+    renvoyé un visiteur anglophone vers la version française. Chemins résolus
+    par `getPathname`.
+
+25. **Liens imbriqués dans une image.** Un `role="img"` contenant des liens
+    (axe `nested-interactive`), et jusqu'à 1 022 arrêts de tabulation à dix
+    générations. Le dessin est masqué aux technologies d'assistance ; le
+    tableau porte les liens.
+
+26. **`process.exit` compilé pour Edge.** Avertissement à chaque build : le
+    hook de démarrage est compilé pour tous les runtimes. La partie Node est
+    importée dynamiquement derrière la vérification du runtime.
+
 ---
 
 ## En cours
@@ -309,16 +381,20 @@ Rien. Point de reprise propre.
 | ----- | ----------------------------------------------------------------- | ----------------------------- |
 | 2     | Services CRUD personne / relation                                 | **fait**                      |
 | 2     | Formulaires d'édition, liste, éditeur de liens                    | **fait**                      |
-| 2     | Éditeur d'événements hors naissance / décès                       | à faire                       |
+| 2     | Éditeur d'événements hors naissance / décès                       | **fait**                      |
 | 3     | Import GEDCOM 7 + écran de revue                                  | **fait** — export sans bouton |
-| 4     | Services de graphe (ancêtres, descendants, branches), recherche   | à faire                       |
+| 4     | Services de graphe (ancêtres, descendants, branches), recherche   | **fait** — sans doublons      |
 | 5     | Moteur Chronolignée, Gantt, voyage temporel, « qui était vivant » | **fait**                      |
-| 6     | Carte MapLibre, migrations animées                                | à faire                       |
-| 7     | Archives S3, visionneuse de documents                             | à faire                       |
-| 8     | Pipeline IA, propositions, assistant                              | à faire                       |
-| 9     | Constellation, profondeur temporelle, mode Récit                  | à faire                       |
-| 10    | Collaboration, confidentialité des vivants                        | à faire                       |
-| 11    | Durcissement production                                           | à faire                       |
+| 6     | Carte MapLibre, migrations                                        | **fait** — arcs au curseur    |
+| 7     | Archives S3, visionneuse de documents                             | **fait** — sans visionneuse   |
+| 8     | Pipeline IA, propositions, assistant                              | **fait** — texte seul         |
+| 9     | Constellation, profondeur temporelle, mode Récit                  | **en cours** — éventail fait  |
+| 10    | Collaboration, confidentialité des vivants                        | rédaction faite ; reste l'UI  |
+| 11    | Durcissement production                                           | partiel                       |
+
+Manques identifiés hors phases : détection de doublons, bouton d'export
+GEDCOM, édition des coordonnées d'un lieu, lecture d'images par l'IA,
+assistant de recherche, visionneuse de documents page à page.
 
 ---
 
@@ -385,6 +461,13 @@ Rien. Point de reprise propre.
   Acceptable, pas optimal.
 - L'export GEDCOM existe au niveau moteur et n'a pas encore de bouton dans
   l'interface.
+
+- L'éventail charge le graphe entier de l'arbre à chaque requête, comme
+  l'ascendance. Sans objet sur la démonstration ; à mesurer au-delà de
+  quelques dizaines de milliers de personnes.
+- Sourcer `.env` dans un shell exporte `NODE_ENV=development`, qui désactive
+  la garde de déploiement. Pour la tester à la main, fixer
+  `NODE_ENV=production` explicitement — constaté en la vérifiant.
 
 - Les commandes Prisma bloquent sans TTY : préfixer par `CI=true`.
 - `packages/db/generated` est ignoré par git ; `pnpm db:generate` est requis

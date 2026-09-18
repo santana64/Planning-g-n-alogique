@@ -353,6 +353,43 @@ test.describe('manual editing', () => {
     await expect(page.getByText('Inconnu').first()).toBeVisible();
   });
 
+  test('places a dated ancestor in time and lists an undated one apart', async ({ page }) => {
+    await page.goto('/app');
+    await createTree(page, `Eventail ${Date.now()}`);
+
+    await addPerson(page, { given: 'Enfant', surname: 'Temps', birth: '1900' });
+    const subjectUrl = page.url();
+    await page.getByRole('link', { name: 'Toutes les personnes' }).click();
+    await addPerson(page, { given: 'Pere', surname: 'Temps', birth: '1870', sex: 'MALE' });
+    await page.getByRole('link', { name: 'Toutes les personnes' }).click();
+    // No birth date: the one thing the fan cannot place.
+    await addPerson(page, { given: 'Mere', surname: 'Temps', sex: 'FEMALE' });
+
+    await page.goto(subjectUrl);
+    for (const parent of ['Pere', 'Mere']) {
+      await page.getByLabel('Sens du lien').selectOption('CHILD_OF');
+      await fillStable(page, 'Le parent', parent);
+      await page.getByRole('option', { name: new RegExp(`${parent} TEMPS`) }).click();
+      await page.getByRole('button', { name: 'Créer le lien' }).click();
+      await expect(page.getByText('Le lien a été créé.')).toBeVisible();
+      await page.goto(subjectUrl);
+    }
+
+    await page.getByRole('link', { name: 'Éventail temporel →' }).click();
+    const chart = page.getByRole('figure', { name: /Éventail temporel de Enfant TEMPS/ });
+    await expect(chart).toBeVisible();
+    const drawing = chart.locator('svg');
+    await expect(drawing.getByText('Pere TEMPS', { exact: true })).toBeVisible();
+
+    // The mother is in the ancestry but has no year to stand on. Drawing her
+    // anyway would put her at a date nobody recorded.
+    await expect(drawing.getByText('Mere TEMPS', { exact: true })).toHaveCount(0);
+    const unplaced = page.getByRole('region', { name: 'Non placés' });
+    await expect(unplaced.getByRole('listitem').filter({ hasText: 'Mere TEMPS' })).toContainText(
+      'naissance non datée',
+    );
+  });
+
   test('sources a fact, and counts what is still unsourced', async ({ page }) => {
     await page.goto('/app');
     const treeName = `Sources ${Date.now()}`;
