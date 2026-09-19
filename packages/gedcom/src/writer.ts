@@ -1,4 +1,5 @@
 import { toGedcomDateValue, type GenealogicalDate } from '@chronolignee/domain';
+import type { RelationshipType } from '@chronolignee/genealogy';
 import type {
   ImportEvent,
   ImportName,
@@ -96,7 +97,24 @@ export function writeGedcom(plan: ImportPlan, options: WriteOptions = {}): strin
     }
 
     for (const family of families.spousalOf(person.xref)) write(1, 'FAMS', family);
-    for (const family of families.childOf(person.xref)) write(1, 'FAMC', family);
+    for (const link of families.childOf(person.xref)) {
+      write(1, 'FAMC', link.family);
+      // Without it every child reads back as born to the family: an adopted
+      // daughter exported and re-imported became a biological one.
+      const pedigree = PEDIGREE_OUT[link.type];
+      if (pedigree) {
+        write(2, 'PEDI', pedigree.value);
+        if (pedigree.phrase) write(3, 'PHRASE', pedigree.phrase);
+      }
+    }
+
+    // Links GEDCOM has no family for — a sibling or another tie recorded
+    // outright — are associations, not couples.
+    for (const link of families.associationsOf(person.xref)) {
+      write(1, 'ASSO', link.targetXref);
+      write(2, 'ROLE', 'OTHER');
+      write(3, 'PHRASE', link.type === 'SIBLING' ? 'Sibling' : 'Other');
+    }
 
     for (const note of person.notes) writeText(1, 'NOTE', note);
     for (const sourceXref of person.sourceXrefs) write(1, 'SOUR', sourceXref);
@@ -108,11 +126,21 @@ export function writeGedcom(plan: ImportPlan, options: WriteOptions = {}): strin
     write(0, 'FAM', undefined, family.xref);
     if (family.husband) write(1, 'HUSB', family.husband);
     if (family.wife) write(1, 'WIFE', family.wife);
-    for (const child of family.children) write(1, 'CHIL', child);
+    for (const child of new Set(family.children.map((link) => link.xref))) {
+      write(1, 'CHIL', child);
+    }
 
     for (const event of family.events) {
       writeEvent(write, writeText, writeDate, event);
     }
+    // The union's kind lives in its events. With none recorded, "Y" says the
+    // event happened without saying when — otherwise a marriage known only
+    // as a link reads back as a mere partnership.
+    const has = (type: string) => family.events.some((event) => event.type === type);
+    if ((family.union === 'SPOUSE' || family.union === 'DIVORCED_PARTNER') && !has('MARRIAGE')) {
+      write(1, 'MARR', 'Y');
+    }
+    if (family.union === 'DIVORCED_PARTNER' && !has('DIVORCE')) write(1, 'DIV', 'Y');
   }
 
   // --- Sources -------------------------------------------------------------
@@ -193,11 +221,30 @@ function sexLetter(sex: ImportPerson['recordedSex']): string {
   return sex === 'MALE' ? 'M' : sex === 'FEMALE' ? 'F' : sex === 'INTERSEX' ? 'X' : 'U';
 }
 
+/** How each kind of parentage is written under FAMC; birth needs nothing. */
+const PEDIGREE_OUT: Partial<Record<RelationshipType, { value: string; phrase?: string }>> = {
+  PARENT_ADOPTIVE: { value: 'ADOPTED' },
+  PARENT_FOSTER: { value: 'FOSTER' },
+  PARENT_STEP: { value: 'OTHER', phrase: 'Step-parent' },
+  PARENT_GUARDIAN: { value: 'OTHER', phrase: 'Guardian' },
+  PARENT_UNKNOWN: { value: 'OTHER', phrase: 'Unknown' },
+};
+
+const COUPLE_TYPES: ReadonlySet<string> = new Set(['SPOUSE', 'PARTNER', 'DIVORCED_PARTNER']);
+
+/** When a couple is linked twice, the most specific kind wins. */
+const UNION_RANK: Readonly<Record<string, number>> = {
+  PARTNER: 1,
+  SPOUSE: 2,
+  DIVORCED_PARTNER: 3,
+};
+
 interface AssembledFamily {
   readonly xref: string;
   husband: string | undefined;
   wife: string | undefined;
-  readonly children: string[];
+  union: RelationshipType | null;
+  readonly children: Array<{ readonly xref: string; readonly type: RelationshipType }>;
   readonly events: ImportEvent[];
 }
 
@@ -208,23 +255,37 @@ interface AssembledFamily {
  * land in one record rather than two. A single parent still gets a family —
  * GEDCOM has no other way to express a child with one recorded parent, and
  * dropping the link to avoid an odd-looking record would lose the parentage.
+ *
+ * A child's parents are grouped by kind of parentage, because GEDCOM records
+ * the kind once per child and family: a child with a biological mother and an
+ * adoptive father belongs to two families, one of each.
+ *
+ * Only unions make couples. A sibling link written as HUSB and WIFE came back
+ * as a marriage between brother and sister.
  */
 function assembleFamilies(
   relationships: readonly ImportRelationship[],
   events: readonly ImportEvent[],
 ) {
   const byParentSet = new Map<string, AssembledFamily>();
-  const parentsOfChild = new Map<string, Set<string>>();
+  const parentsOfChild = new Map<string, Map<RelationshipType, Set<string>>>();
   const partnerships: ImportRelationship[] = [];
+  const associations = new Map<string, ImportRelationship[]>();
 
   for (const relationship of relationships) {
     if (relationship.type.startsWith('PARENT_')) {
-      const set = parentsOfChild.get(relationship.targetXref) ?? new Set<string>();
+      const byType = parentsOfChild.get(relationship.targetXref) ?? new Map();
+      const set = byType.get(relationship.type) ?? new Set<string>();
       set.add(relationship.sourceXref);
-      parentsOfChild.set(relationship.targetXref, set);
-      continue;
+      byType.set(relationship.type, set);
+      parentsOfChild.set(relationship.targetXref, byType);
+    } else if (COUPLE_TYPES.has(relationship.type)) {
+      partnerships.push(relationship);
+    } else {
+      const list = associations.get(relationship.sourceXref) ?? [];
+      list.push(relationship);
+      associations.set(relationship.sourceXref, list);
     }
-    partnerships.push(relationship);
   }
 
   let counter = 0;
@@ -238,6 +299,7 @@ function assembleFamilies(
       xref: `@F${counter}@`,
       husband: parents[0],
       wife: parents[1],
+      union: null,
       children: [],
       events: [],
     };
@@ -248,11 +310,16 @@ function assembleFamilies(
   // Couples are created first, so a married couple's family exists before
   // their children look for it and cannot end up split across two records.
   for (const relationship of partnerships) {
-    ensure([relationship.sourceXref, relationship.targetXref]);
+    const family = ensure([relationship.sourceXref, relationship.targetXref]);
+    if ((UNION_RANK[relationship.type] ?? 0) > (UNION_RANK[family.union ?? ''] ?? 0)) {
+      family.union = relationship.type;
+    }
   }
 
-  for (const [child, parents] of parentsOfChild) {
-    ensure([...parents]).children.push(child);
+  for (const [child, byType] of parentsOfChild) {
+    for (const [type, parents] of byType) {
+      ensure([...parents]).children.push({ xref: child, type });
+    }
   }
 
   // Marriages and divorces belong on the FAM record. Matching them by the set
@@ -272,10 +339,13 @@ function assembleFamilies(
       [...byParentSet.values()]
         .filter((family) => family.husband === xref || family.wife === xref)
         .map((family) => family.xref),
-    childOf: (xref: string): string[] =>
-      [...byParentSet.values()]
-        .filter((family) => family.children.includes(xref))
-        .map((family) => family.xref),
+    childOf: (xref: string): Array<{ family: string; type: RelationshipType }> =>
+      [...byParentSet.values()].flatMap((family) =>
+        family.children
+          .filter((link) => link.xref === xref)
+          .map((link) => ({ family: family.xref, type: link.type })),
+      ),
+    associationsOf: (xref: string): readonly ImportRelationship[] => associations.get(xref) ?? [],
   };
 }
 

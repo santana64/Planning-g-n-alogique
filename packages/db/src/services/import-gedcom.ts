@@ -10,6 +10,7 @@ import {
   normaliseSurname,
 } from '../normalise';
 import { lifespanColumns, projectPersonLifespan } from '../projections/person-lifespan';
+import { recordRevision } from './audit';
 
 /**
  * Commit an import plan into a tree.
@@ -202,39 +203,75 @@ export async function importGedcomPlan(
       }
 
       // --- Relationships --------------------------------------------------
+      // What the database would refuse is refused here, before the statement
+      // is sent. In PostgreSQL a refused statement aborts the whole
+      // transaction: every write after it fails, and one impossible link in a
+      // file of twenty thousand cost the user the other nineteen thousand
+      // nine hundred and ninety-nine. The mapper already reports these cases
+      // at review; this is the backstop for a plan built any other way.
       let relationshipCount = 0;
+      const written = new Set<string>();
       for (const relationship of plan.relationships) {
         const sourceId = personIds.get(relationship.sourceXref);
         const targetId = personIds.get(relationship.targetXref);
         if (!sourceId || !targetId) continue;
 
-        try {
-          await tx.relationship.create({
-            data: {
-              treeId,
-              sourceId,
-              targetId,
-              type: relationship.type as 'SPOUSE',
-              ...(relationship.startJdn !== null ? { startJdn: relationship.startJdn } : {}),
-              ...(relationship.endJdn !== null ? { endJdn: relationship.endJdn } : {}),
-              confidence: 'MEDIUM',
-            },
-          });
-          relationshipCount += 1;
-        } catch (error) {
-          // A CHECK or uniqueness constraint refused it. The import continues:
-          // one impossible link in a file of twenty thousand should not cost
-          // the user the other nineteen thousand nine hundred and ninety-nine.
+        const key = `${sourceId}|${targetId}|${relationship.type}`;
+        const refusal =
+          sourceId === targetId
+            ? 'une personne ne peut pas être liée à elle-même'
+            : relationship.startJdn !== null &&
+                relationship.endJdn !== null &&
+                relationship.startJdn > relationship.endJdn
+              ? 'la fin du lien précède son début'
+              : written.has(key)
+                ? 'lien déclaré deux fois'
+                : null;
+        if (refusal) {
           rejected.push({
             detail: `${relationship.sourceXref} → ${relationship.targetXref} (${relationship.type})`,
-            reason: error instanceof Error ? (error.message.split('\n')[0] ?? 'refusé') : 'refusé',
+            reason: refusal,
           });
+          continue;
         }
+
+        await tx.relationship.create({
+          data: {
+            treeId,
+            sourceId,
+            targetId,
+            type: relationship.type as 'SPOUSE',
+            ...(relationship.startJdn !== null ? { startJdn: relationship.startJdn } : {}),
+            ...(relationship.endJdn !== null ? { endJdn: relationship.endJdn } : {}),
+            confidence: 'MEDIUM',
+          },
+        });
+        written.add(key);
+        relationshipCount += 1;
       }
 
       // --- Derived state ---------------------------------------------------
       await projectImportedLifespans(tx, treeId, [...personIds.values()], todayJdn);
       await tx.tree.update({ where: { id: treeId }, data: { revision: { increment: 1 } } });
+
+      // One entry for the whole file. Eighteen thousand "person created" lines
+      // would bury every other change in the history; none at all left an
+      // import of eighteen thousand people without a trace of who did it.
+      await recordRevision(tx, {
+        treeId,
+        entityType: 'Tree',
+        entityId: treeId,
+        action: 'IMPORT',
+        actorId: options.actorId,
+        after: {
+          people: personIds.size,
+          relationships: relationshipCount,
+          events: eventCount,
+          refused: rejected.length,
+        },
+        summary: `Import GEDCOM : ${personIds.size} personnes, ${relationshipCount} liens, ${eventCount} événements`,
+        ...(options.batchId ? { batchId: options.batchId } : {}),
+      });
 
       return {
         treeId,

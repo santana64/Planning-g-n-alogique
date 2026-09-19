@@ -292,6 +292,59 @@ describe('mapper', () => {
     expect(links).toHaveLength(1);
   });
 
+  it('keeps a union whose divorce predates its marriage, without the impossible window', () => {
+    const reversed = mapDocument(
+      parseGedcom(
+        [
+          '0 HEAD',
+          '1 GEDC',
+          '2 VERS 7.0',
+          '0 @I1@ INDI',
+          '1 NAME Jean /ROUX/',
+          '0 @I2@ INDI',
+          '1 NAME Anne /BRUN/',
+          '0 @F1@ FAM',
+          '1 HUSB @I1@',
+          '1 WIFE @I2@',
+          '1 MARR',
+          '2 DATE 1900',
+          '1 DIV',
+          '2 DATE 1890',
+          '0 TRLR',
+        ].join('\r\n'),
+      ),
+    );
+    expect(reversed.warnings.map((w) => w.code)).toContain('UNION_DATES_REVERSED');
+    expect(reversed.relationships).toEqual([
+      expect.objectContaining({ type: 'DIVORCED_PARTNER', startJdn: null, endJdn: null }),
+    ]);
+    // Both events keep the dates the file gave them.
+    expect(reversed.events.map((event) => event.date?.originalText).sort()).toEqual([
+      '1890',
+      '1900',
+    ]);
+  });
+
+  it('reports someone married to themselves instead of linking them', () => {
+    const self = mapDocument(
+      parseGedcom(
+        [
+          '0 HEAD',
+          '1 GEDC',
+          '2 VERS 7.0',
+          '0 @I1@ INDI',
+          '1 NAME Jean /ROUX/',
+          '0 @F1@ FAM',
+          '1 HUSB @I1@',
+          '1 WIFE @I1@',
+          '0 TRLR',
+        ].join('\r\n'),
+      ),
+    );
+    expect(self.warnings.map((w) => w.code)).toContain('SELF_UNION');
+    expect(self.relationships).toEqual([]);
+  });
+
   it('records tags it did not interpret rather than silently dropping them', () => {
     const custom = mapDocument(
       parseGedcom(
@@ -332,6 +385,80 @@ describe('round trip', () => {
     const key = (r: { sourceXref: string; targetXref: string; type: string }) =>
       `${r.sourceXref}|${r.targetXref}|${r.type}`;
     expect(twice.relationships.map(key).sort()).toEqual(once.relationships.map(key).sort());
+  });
+
+  it('keeps every kind of parentage, and does not marry siblings', () => {
+    const plan = mapDocument(parseGedcom(SAMPLE));
+    const extra = (xref: string, given: string): (typeof plan.people)[number] => ({
+      xref,
+      names: [
+        {
+          given,
+          surname: 'DUPONT',
+          prefix: undefined,
+          suffix: undefined,
+          nickname: undefined,
+          type: 'BIRTH',
+          isPreferred: true,
+          original: `${given} /DUPONT/`,
+        },
+      ],
+      recordedSex: 'UNKNOWN',
+      notes: [],
+      sourceXrefs: [],
+      unhandledTags: [],
+    });
+    const link = (
+      sourceXref: string,
+      targetXref: string,
+      type: (typeof plan.relationships)[number]['type'],
+    ) => ({ sourceXref, targetXref, type, startJdn: null, endJdn: null });
+
+    const rich = {
+      ...plan,
+      people: [
+        ...plan.people,
+        extra('@I10@', 'Adoptée'),
+        extra('@I11@', 'Placé'),
+        extra('@I12@', 'Beau-fils'),
+        extra('@I13@', 'Pupille'),
+        extra('@I14@', 'Incertain'),
+        extra('@I15@', 'Sœur'),
+        extra('@I16@', 'Épouse'),
+      ],
+      relationships: [
+        ...plan.relationships,
+        link('@I1@', '@I10@', 'PARENT_ADOPTIVE'),
+        link('@I2@', '@I11@', 'PARENT_FOSTER'),
+        link('@I1@', '@I12@', 'PARENT_STEP'),
+        link('@I2@', '@I13@', 'PARENT_GUARDIAN'),
+        link('@I1@', '@I14@', 'PARENT_UNKNOWN'),
+        link('@I3@', '@I15@', 'SIBLING'),
+        // A marriage known only as a link, with no event to date it.
+        link('@I3@', '@I16@', 'SPOUSE'),
+      ],
+    };
+
+    const back = mapDocument(parseGedcom(writeGedcom(rich)));
+    const typeOf = (source: string, target: string) =>
+      back.relationships.find((r) => r.sourceXref === source && r.targetXref === target)?.type;
+
+    expect(typeOf('@I1@', '@I10@')).toBe('PARENT_ADOPTIVE');
+    expect(typeOf('@I2@', '@I11@')).toBe('PARENT_FOSTER');
+    expect(typeOf('@I1@', '@I12@')).toBe('PARENT_STEP');
+    expect(typeOf('@I2@', '@I13@')).toBe('PARENT_GUARDIAN');
+    expect(typeOf('@I1@', '@I14@')).toBe('PARENT_UNKNOWN');
+    expect(typeOf('@I3@', '@I16@')).toBe('SPOUSE');
+    // Pierre's own parents are still his parents, by birth.
+    expect(typeOf('@I1@', '@I3@')).toBe('PARENT_BIOLOGICAL');
+    // A sister is an association, never a couple.
+    expect(
+      back.relationships.some(
+        (r) =>
+          [r.sourceXref, r.targetXref].includes('@I15@') &&
+          (r.type === 'SPOUSE' || r.type === 'PARTNER'),
+      ),
+    ).toBe(false);
   });
 
   it('keeps uncertainty rather than hardening it', () => {

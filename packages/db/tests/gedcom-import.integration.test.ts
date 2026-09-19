@@ -102,6 +102,13 @@ describe('importing a file', () => {
     expect(result.rejected).toEqual([]);
 
     expect(await db.person.count({ where: { treeId } })).toBe(4);
+
+    // One line in the history for the whole file.
+    const revisions = await db.revision.findMany({
+      where: { treeId, action: 'IMPORT' },
+      select: { summary: true },
+    });
+    expect(revisions).toEqual([{ summary: 'Import GEDCOM : 4 personnes, 5 liens, 6 événements' }]);
   });
 
   it('places the Republican birth date correctly in the database', async () => {
@@ -224,6 +231,76 @@ describe('a refused link does not cost the rest of the file', () => {
       const result = await importGedcomPlan(db, plan, { treeId: tree.id, actorId: null });
       expect(result.people).toBe(2);
       expect(await db.person.count({ where: { treeId: tree.id } })).toBe(2);
+    } finally {
+      await db.tree.delete({ where: { id: tree.id } }).catch(() => undefined);
+    }
+  });
+
+  it('keeps going after the database itself refuses a link', async () => {
+    // A divorce recorded before the marriage: a typing error the mapper
+    // passes on, and which only the ordered-window CHECK refuses. In
+    // PostgreSQL a refused statement aborts the whole transaction unless it
+    // ran inside its own savepoint — without one, every write after it
+    // failed and the file was lost.
+    const tree = await db.tree.create({
+      data: {
+        name: 'Fenêtre',
+        slug: `window-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      },
+    });
+
+    try {
+      const reversed = [
+        '0 HEAD',
+        '1 GEDC',
+        '2 VERS 7.0',
+        '0 @I1@ INDI',
+        '1 NAME Jean /Roux/',
+        '0 @I2@ INDI',
+        '1 NAME Anne /Brun/',
+        '0 @I3@ INDI',
+        '1 NAME Paul /Roux/',
+        '0 @F1@ FAM',
+        '1 HUSB @I1@',
+        '1 WIFE @I2@',
+        '1 MARR',
+        '2 DATE 1900',
+        '1 DIV',
+        '2 DATE 1890',
+        '1 CHIL @I3@',
+        '0 TRLR',
+      ].join('\r\n');
+
+      // Through the mapper: reported at review, imported without the window.
+      const plan = mapDocument(parseGedcom(reversed));
+      expect(plan.warnings.map((w) => w.code)).toContain('UNION_DATES_REVERSED');
+      const result = await importGedcomPlan(db, plan, { treeId: tree.id, actorId: null });
+      expect(result.people).toBe(3);
+      expect(result.rejected).toEqual([]);
+      expect(await db.relationship.count({ where: { treeId: tree.id } })).toBe(3);
+
+      // A plan built any other way: refused before the database sees it, and
+      // the links after it still arrive.
+      const handmade = {
+        ...plan,
+        relationships: plan.relationships.map((relationship) =>
+          relationship.type === 'DIVORCED_PARTNER'
+            ? { ...relationship, startJdn: 2_415_021, endJdn: 2_411_369 }
+            : relationship,
+        ),
+      };
+      const other = await db.tree.create({
+        data: { name: 'Fenêtre bis', slug: `window-bis-${Date.now()}` },
+      });
+      try {
+        const backstop = await importGedcomPlan(db, handmade, { treeId: other.id, actorId: null });
+        expect(backstop.rejected).toEqual([
+          expect.objectContaining({ reason: 'la fin du lien précède son début' }),
+        ]);
+        expect(await db.relationship.count({ where: { treeId: other.id } })).toBe(2);
+      } finally {
+        await db.tree.delete({ where: { id: other.id } }).catch(() => undefined);
+      }
     } finally {
       await db.tree.delete({ where: { id: tree.id } }).catch(() => undefined);
     }

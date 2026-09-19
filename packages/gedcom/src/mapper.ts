@@ -78,6 +78,8 @@ export type ImportWarningCode =
   | 'PERSON_WITHOUT_NAME'
   | 'FAMILY_WITHOUT_MEMBERS'
   | 'CHILD_IS_OWN_PARENT'
+  | 'SELF_UNION'
+  | 'UNION_DATES_REVERSED'
   | 'DUPLICATE_RELATIONSHIP'
   | 'UNHANDLED_RECORD'
   | 'AMBIGUOUS_NAME';
@@ -344,13 +346,31 @@ export function mapDocument(document: GedcomDocument): ImportPlan {
     const familySources = pointerValues(record, 'SOUR', knownXrefs, warnings);
 
     if (spouses.length === 2 && spouses[0] && spouses[1]) {
-      relationships.push({
-        sourceXref: spouses[0],
-        targetXref: spouses[1],
-        type: divorce ? 'DIVORCED_PARTNER' : marriage ? 'SPOUSE' : 'PARTNER',
-        startJdn: marriageDate?.interval.earliest ?? null,
-        endJdn: divorceDate?.interval.latest ?? null,
-      });
+      if (spouses[0] === spouses[1]) {
+        warnings.push({ code: 'SELF_UNION', lineNumber: record.lineNumber, detail: spouses[0] });
+      } else {
+        const startJdn = marriageDate?.interval.earliest ?? null;
+        const endJdn = divorceDate?.interval.latest ?? null;
+        // A divorce dated before the marriage is a typing error in one of the
+        // two dates, and nothing in the file says which. The union is kept
+        // and both events are imported as written; only the window, which
+        // would contradict itself, is left out — and the review says so.
+        const reversed = startJdn !== null && endJdn !== null && startJdn > endJdn;
+        if (reversed) {
+          warnings.push({
+            code: 'UNION_DATES_REVERSED',
+            lineNumber: record.lineNumber,
+            detail: record.xref ?? '(sans identifiant)',
+          });
+        }
+        relationships.push({
+          sourceXref: spouses[0],
+          targetXref: spouses[1],
+          type: divorce ? 'DIVORCED_PARTNER' : marriage ? 'SPOUSE' : 'PARTNER',
+          startJdn: reversed ? null : startJdn,
+          endJdn: reversed ? null : endJdn,
+        });
+      }
     }
 
     for (const node of [marriage, divorce]) {
@@ -517,8 +537,16 @@ function pedigreeFor(
   if (!child || !familyXref) return 'PARENT_BIOLOGICAL';
 
   const link = findChildren(child, 'FAMC').find((node) => node.value?.trim() === familyXref);
-  const pedigree = findChild(link, 'PEDI')?.value?.trim().toUpperCase();
+  const pedi = findChild(link, 'PEDI');
+  const pedigree = pedi?.value?.trim().toUpperCase();
   if (!pedigree) return 'PARENT_BIOLOGICAL';
+  if (pedigree === 'OTHER') {
+    // GEDCOM 7 has no step or guardian value: OTHER, and a phrase saying which.
+    const phrase = findChild(pedi, 'PHRASE')?.value?.toLowerCase() ?? '';
+    if (/step|beau|belle/.test(phrase)) return 'PARENT_STEP';
+    if (/guardian|tut(eur|rice)/.test(phrase)) return 'PARENT_GUARDIAN';
+    return 'PARENT_UNKNOWN';
+  }
 
   return PEDIGREE_TYPES[pedigree] ?? 'PARENT_UNKNOWN';
 }

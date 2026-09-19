@@ -38,6 +38,8 @@ const WARNING_LABELS: Record<string, string> = {
   PERSON_WITHOUT_NAME: 'Personne sans nom',
   FAMILY_WITHOUT_MEMBERS: 'Famille sans membre',
   CHILD_IS_OWN_PARENT: 'Enfant déclaré comme son propre parent',
+  SELF_UNION: 'Personne déclarée unie à elle-même : union ignorée',
+  UNION_DATES_REVERSED: 'Divorce daté avant le mariage : union importée sans ses dates',
   DUPLICATE_RELATIONSHIP: 'Relation déclarée deux fois',
   UNHANDLED_RECORD: 'Type de fiche non traité',
   AMBIGUOUS_NAME: 'Nom ambigu',
