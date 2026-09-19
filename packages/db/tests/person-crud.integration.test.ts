@@ -3,8 +3,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { dateToJdn, gregorianToJdn, isPresumedLiving } from '@chronolignee/domain';
 import {
   RelationshipRefused,
+  createCitation,
   createDatabase,
   createPerson,
+  createSource,
   createRelationship,
   deletePerson,
   deleteRelationship,
@@ -219,6 +221,52 @@ describe('editing a person', () => {
     expect(birth?.interval.latest).toBe(gregorianToJdn(1835, 3, 4));
   });
 
+  it('keeps a sourced birth when the form is saved for something else', async () => {
+    // The form always sends the vital fields. Replacing the birth on every
+    // save archived the event its citations point at: correcting a note left
+    // a sourced birth unsourced.
+    const created = await person('Rosalie', 'Chassagne', '12 JUN 1877');
+    const birth = await db.event.findFirstOrThrow({
+      where: {
+        treeId,
+        type: 'BIRTH',
+        deletedAt: null,
+        participants: { some: { personId: created.personId } },
+      },
+      select: { id: true },
+    });
+    const source = await createSource(db, { title: 'Registre des naissances, Tours, 1877' }, ctx);
+    await createCitation(
+      db,
+      { sourceId: source.sourceId, locator: 'acte 412', eventId: birth.id },
+      ctx,
+    );
+
+    await updatePerson(
+      db,
+      {
+        personId: created.personId,
+        birthDate: '12 JUN 1877',
+        birthPlace: '',
+        deathDate: '',
+        deathPlace: '',
+        notes: 'Chercher le mariage.',
+      },
+      ctx,
+    );
+
+    const births = await db.event.findMany({
+      where: {
+        treeId,
+        type: 'BIRTH',
+        deletedAt: null,
+        participants: { some: { personId: created.personId } },
+      },
+      select: { id: true, _count: { select: { citations: true } } },
+    });
+    expect(births).toEqual([{ id: birth.id, _count: { citations: 1 } }]);
+  });
+
   it('hands the privacy rule a recorded death, not an inferred one', async () => {
     // A GEDCOM import leaves most people UNKNOWN. Whether such a person is
     // presumed living depends on a death having been recorded, which the
@@ -272,6 +320,67 @@ describe('editing a person', () => {
     });
     expect(revision.after).toMatchObject({ recordedSex: 'FEMALE' });
     expect(Object.keys(revision.after as object)).toHaveLength(1);
+  });
+
+  it('records a corrected birth as the form showed it, before and after', async () => {
+    // "Noah changed the birth date from 1877 to 1878" needs both values in
+    // the revision: the archived event is not something the history re-reads.
+    const created = await person('Amand', 'Delorme', '1877');
+    await updatePerson(
+      db,
+      { personId: created.personId, birthDate: '1878', birthPlace: 'Tours' },
+      { ...ctx, actorId: null },
+    );
+
+    const revision = await db.revision.findFirstOrThrow({
+      where: { treeId, entityId: created.personId, action: 'UPDATE' },
+      select: { before: true, after: true },
+    });
+    expect(revision.before).toEqual({ birthDate: '1877', birthPlace: null });
+    expect(revision.after).toEqual({ birthDate: '1878', birthPlace: 'Tours' });
+  });
+
+  it('keeps a publication decision when only the status changes', async () => {
+    // An administrator published this person deliberately; recording a death
+    // must not quietly undo a choice only an administrator could make.
+    const created = await createPerson(
+      db,
+      {
+        livingStatus: 'LIVING',
+        privacy: 'VISIBLE',
+        names: [{ type: 'BIRTH', given: 'Lucien', surname: 'Arnaud', isPreferred: true }],
+      },
+      ctx,
+    );
+    await updatePerson(db, { personId: created.personId, livingStatus: 'DECEASED' }, ctx);
+    const published = await db.person.findUniqueOrThrow({
+      where: { id: created.personId },
+      select: { privacy: true },
+    });
+    expect(published.privacy).toBe('VISIBLE');
+
+    // Without such a decision, the status carries its default with it.
+    const plain = await person('Mathilde', 'Arnaud');
+    await updatePerson(db, { personId: plain.personId, livingStatus: 'LIVING' }, ctx);
+    const redacted = await db.person.findUniqueOrThrow({
+      where: { id: plain.personId },
+      select: { privacy: true },
+    });
+    expect(redacted.privacy).toBe('REDACTED');
+
+    // The form sends the setting back with every save. Sent unchanged, it is
+    // not a choice, and the new status still carries its default.
+    const resubmitted = await person('Gustave', 'Arnaud');
+    await updatePerson(
+      db,
+      { personId: resubmitted.personId, livingStatus: 'LIVING', privacy: 'INHERIT' },
+      ctx,
+    );
+    const followed = await db.person.findUniqueOrThrow({
+      where: { id: resubmitted.personId },
+      select: { privacy: true },
+    });
+    expect(followed.privacy).toBe('REDACTED');
   });
 
   it('writes no revision when nothing actually changed', async () => {

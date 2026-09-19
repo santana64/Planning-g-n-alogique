@@ -7,12 +7,17 @@ import {
   deleteCitation,
   type CreateCitationInput,
   type CreateSourceInput,
-  type PersonWriteContext,
 } from '@chronolignee/db';
 import { db } from '@/lib/db';
-import { getSession } from '@/lib/session';
 import type { ActionState } from './action-state';
 import { resolveTreeAccess } from './access';
+import {
+  NOT_FOUND,
+  authoriseWrite,
+  peopleOfCitation,
+  peopleOfEvent,
+  peopleWritable,
+} from './authorise';
 import { revalidateTree } from './revalidate';
 
 /**
@@ -22,25 +27,6 @@ import { revalidateTree } from './revalidate';
  * the database, because a Server Action is a public endpoint whatever the UI
  * chose to render.
  */
-
-async function authorise(
-  treeSlug: string,
-): Promise<{ context: PersonWriteContext } | { error: ActionState }> {
-  const session = await getSession();
-  if (!session) {
-    return { error: { status: 'error', message: 'Connectez-vous pour modifier cet arbre.' } };
-  }
-  const access = await resolveTreeAccess(treeSlug);
-  if (!access || !access.canEdit) {
-    return {
-      error: {
-        status: 'error',
-        message: "Cet arbre n'existe pas ou ne vous est pas ouvert en écriture.",
-      },
-    };
-  }
-  return { context: { treeId: access.treeId, actorId: session.user.id } };
-}
 
 function text(form: FormData, key: string): string {
   const value = form.get(key);
@@ -65,7 +51,7 @@ export async function createSourceAction(
   form: FormData,
 ): Promise<ActionState> {
   const treeSlug = text(form, 'treeSlug');
-  const authorised = await authorise(treeSlug);
+  const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
 
   try {
@@ -96,11 +82,15 @@ export async function createCitationAction(
   form: FormData,
 ): Promise<ActionState> {
   const treeSlug = text(form, 'treeSlug');
-  const authorised = await authorise(treeSlug);
+  const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
 
   const eventId = text(form, 'eventId');
   const documentId = text(form, 'documentId');
+  if (eventId) {
+    const people = await peopleOfEvent(authorised.access.treeId, eventId);
+    if (!people || !(await peopleWritable(authorised.access, people))) return NOT_FOUND;
+  }
 
   try {
     await createCitation(
@@ -129,11 +119,15 @@ export async function deleteCitationAction(
   form: FormData,
 ): Promise<ActionState> {
   const treeSlug = text(form, 'treeSlug');
-  const authorised = await authorise(treeSlug);
+  const authorised = await authoriseWrite(treeSlug, 'delete');
   if ('error' in authorised) return authorised.error;
 
+  const citationId = text(form, 'citationId');
+  const people = await peopleOfCitation(authorised.access.treeId, citationId);
+  if (!people || !(await peopleWritable(authorised.access, people))) return NOT_FOUND;
+
   try {
-    await deleteCitation(db, text(form, 'citationId'), authorised.context);
+    await deleteCitation(db, citationId, authorised.context);
     revalidateTree(treeSlug);
     return { status: 'success', message: 'La citation a été retirée.' };
   } catch (error) {

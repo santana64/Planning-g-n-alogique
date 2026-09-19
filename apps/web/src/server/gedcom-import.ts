@@ -5,6 +5,7 @@ import { buildObjectKey, checksum, safeDownloadName, validateGedcom } from '@chr
 import { db } from '@/lib/db';
 import { env } from '@/lib/env';
 import { objectStore } from '@/lib/storage';
+import { can } from '@chronolignee/domain';
 import { resolveTreeAccess } from './access';
 
 /**
@@ -53,7 +54,7 @@ export async function analyseUpload(
 ): Promise<AnalysisResult> {
   const access = await resolveTreeAccess(treeSlug);
   if (!access) return { ok: false, error: 'NOT_FOUND' };
-  if (!access.canEdit) return { ok: false, error: 'FORBIDDEN' };
+  if (!can(access.role, 'import')) return { ok: false, error: 'FORBIDDEN' };
 
   const validation = validateGedcom(file.bytes, env.MAX_UPLOAD_BYTES);
   if (!validation.ok) {
@@ -164,7 +165,7 @@ export async function commitImport(
 ): Promise<CommitResult> {
   const access = await resolveTreeAccess(treeSlug);
   if (!access) return { ok: false, error: 'NOT_FOUND' };
-  if (!access.canEdit) return { ok: false, error: 'FORBIDDEN' };
+  if (!can(access.role, 'import')) return { ok: false, error: 'FORBIDDEN' };
 
   const job = await db.importJob.findFirst({
     where: { id: jobId, treeId: access.treeId },

@@ -1,4 +1,10 @@
-import { dateToJdn, parseGenealogicalDate, type GenealogicalDate } from '@chronolignee/domain';
+import {
+  dateToJdn,
+  defaultPersonPrivacy,
+  parseGenealogicalDate,
+  type GenealogicalDate,
+  type PersonPrivacy,
+} from '@chronolignee/domain';
 import type { Database } from '../client';
 import { encodeDate } from '../date-codec';
 import { buildDisplayForm, buildSearchName, normaliseGiven, normaliseSurname } from '../normalise';
@@ -51,6 +57,29 @@ function nameFields(name: PersonNameValue) {
 }
 
 /** The name shown in lists, from whichever record is marked preferred. */
+/**
+ * The privacy a write leaves behind.
+ *
+ * A different setting is a decision, and wins. The same setting sent back is
+ * not one: the form always sends it. Then a change of status carries the
+ * default with it — someone now recorded as living becomes redacted, someone
+ * whose death is now recorded returns to the tree's rule — except where an
+ * administrator decided: a person deliberately published or restricted keeps
+ * that decision until someone allowed to make it makes another.
+ */
+function privacyChange(
+  current: PersonPrivacy,
+  requested: PersonPrivacy | undefined,
+  currentStatus: 'LIVING' | 'DECEASED' | 'UNKNOWN',
+  livingStatus: 'LIVING' | 'DECEASED' | 'UNKNOWN' | undefined,
+): { privacy?: PersonPrivacy } {
+  if (requested !== undefined && requested !== current) return { privacy: requested };
+  if (!livingStatus || livingStatus === currentStatus) return {};
+  if (current === 'VISIBLE' || current === 'RESTRICTED') return {};
+  const derived = defaultPersonPrivacy(livingStatus);
+  return derived === current ? {} : { privacy: derived };
+}
+
 function preferredOf(names: readonly PersonNameValue[]): PersonNameValue | undefined {
   return names.find((name) => name.isPreferred) ?? names[0];
 }
@@ -75,7 +104,7 @@ export async function createPerson(
         // Living people are redacted from shared views by default. Setting it
         // here rather than in a later pass means a person is never briefly
         // public between being created and being protected.
-        privacy: input.livingStatus === 'LIVING' ? 'REDACTED' : 'INHERIT',
+        privacy: input.privacy ?? defaultPersonPrivacy(input.livingStatus),
         displayName,
         searchName: buildSearchName(preferred ? nameFields(preferred) : {}),
         ...(input.notes ? { notes: input.notes } : {}),
@@ -171,11 +200,7 @@ export async function updatePerson(
       ...(input.livingStatus ? { livingStatus: input.livingStatus } : {}),
       ...(input.notes !== undefined ? { notes: input.notes ?? null } : {}),
       ...(preferred ? { displayName, searchName: buildSearchName(nameFields(preferred)) } : {}),
-      ...(input.livingStatus
-        ? {
-            privacy: input.livingStatus === 'LIVING' ? ('REDACTED' as const) : ('INHERIT' as const),
-          }
-        : {}),
+      ...privacyChange(existing.privacy, input.privacy, existing.livingStatus, input.livingStatus),
       ...(context.actorId ? { updatedById: context.actorId } : {}),
     };
 
@@ -204,30 +229,44 @@ export async function updatePerson(
       }
     }
 
-    if (input.birthDate !== undefined || input.birthPlace !== undefined) {
-      await replaceVitalEvent(
+    const vitalBefore: Record<string, unknown> = {};
+    const vitalAfter: Record<string, unknown> = {};
+    for (const [type, dateText, placeName, dateKey, placeKey] of [
+      ['BIRTH', input.birthDate, input.birthPlace, 'birthDate', 'birthPlace'],
+      ['DEATH', input.deathDate, input.deathPlace, 'deathDate', 'deathPlace'],
+    ] as const) {
+      if (dateText === undefined && placeName === undefined) continue;
+      const change = await replaceVitalEvent(
         tx,
         context.treeId,
         existing.id,
-        'BIRTH',
-        input.birthDate,
-        input.birthPlace,
+        type,
+        dateText,
+        placeName,
       );
-    }
-    if (input.deathDate !== undefined || input.deathPlace !== undefined) {
-      await replaceVitalEvent(
-        tx,
-        context.treeId,
-        existing.id,
-        'DEATH',
-        input.deathDate,
-        input.deathPlace,
-      );
+      if (!change) continue;
+      // Recorded as the form showed them, so the history can say "birth:
+      // 1877 → 1878" without re-reading archived events.
+      if (change.before.date !== change.after.date) {
+        vitalBefore[dateKey] = change.before.date || null;
+        vitalAfter[dateKey] = change.after.date || null;
+      }
+      if (change.before.place !== change.after.place) {
+        vitalBefore[placeKey] = change.before.place || null;
+        vitalAfter[placeKey] = change.after.place || null;
+      }
     }
 
     await refreshLifespan(tx, existing.id, todayJdn);
 
-    const diff = diffFields(existing as Record<string, unknown>, changes);
+    const columns = diffFields(existing as Record<string, unknown>, changes);
+    const diff =
+      columns || Object.keys(vitalAfter).length > 0
+        ? {
+            before: { ...columns?.before, ...vitalBefore },
+            after: { ...columns?.after, ...vitalAfter },
+          }
+        : null;
     if (diff) {
       await recordRevision(tx, {
         treeId: context.treeId,
@@ -316,30 +355,52 @@ async function writeVitalEvent(
   type: 'BIRTH' | 'DEATH',
   dateText: string | null | undefined,
   placeName: string | null | undefined,
+  /** The place already resolved, when it did not change: kept as the archive spelled it. */
+  keptPlace?: { readonly placeId: string; readonly placeOriginalText: string | null },
 ): Promise<void> {
   if (!dateText && !placeName) return;
 
   const date = parse(dateText);
+  const place = keptPlace
+    ? {
+        placeId: keptPlace.placeId,
+        ...(keptPlace.placeOriginalText ? { placeOriginalText: keptPlace.placeOriginalText } : {}),
+      }
+    : placeName
+      ? { placeId: await resolvePlace(tx, treeId, placeName), placeOriginalText: placeName }
+      : {};
   await tx.event.create({
     data: {
       treeId,
       type,
       ...(date ? encodeDate(date) : {}),
-      ...(placeName ? { placeId: await resolvePlace(tx, treeId, placeName) } : {}),
-      ...(placeName ? { placeOriginalText: placeName } : {}),
+      ...place,
       confidence: date?.unparsed ? 'LOW' : 'MEDIUM',
       participants: { create: { personId, role: 'PRINCIPAL' } },
     },
   });
 }
 
+/** A vital event as the form shows it: the date as written, the place by name. */
+export interface VitalValue {
+  readonly date: string;
+  readonly place: string;
+}
+
 /**
- * Replace a person's birth or death event.
+ * Replace a person's birth or death event, when it actually changed.
  *
  * Soft-deleting the old one rather than updating it keeps the previous value
  * in the record: a correction is a fact about the research, and the version
  * that was there before is exactly what someone will want when the correction
  * turns out to be the mistake.
+ *
+ * Only a correction, though. The form sends the vital fields on every save,
+ * and replacing the event regardless archived the one its citations point at:
+ * saving a note left a sourced birth unsourced. A field that is absent keeps
+ * its value; an empty one clears it.
+ *
+ * Returns what changed, in the form's own terms, for the revision.
  */
 async function replaceVitalEvent(
   tx: Tx,
@@ -348,18 +409,54 @@ async function replaceVitalEvent(
   type: 'BIRTH' | 'DEATH',
   dateText: string | null | undefined,
   placeName: string | null | undefined,
-): Promise<void> {
-  await tx.event.updateMany({
+): Promise<{ before: VitalValue; after: VitalValue } | null> {
+  const current = await tx.event.findMany({
     where: {
       treeId,
       type,
       deletedAt: null,
       participants: { some: { personId, role: 'PRINCIPAL' } },
     },
+    // The order the person page uses to choose which one the form shows.
+    orderBy: [{ dateSortJdn: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
+    select: {
+      id: true,
+      dateOriginalText: true,
+      placeId: true,
+      placeOriginalText: true,
+      place: { select: { name: true } },
+    },
+  });
+  const shown = current[0];
+  const before: VitalValue = {
+    date: shown?.dateOriginalText ?? '',
+    place: shown?.place?.name ?? shown?.placeOriginalText ?? '',
+  };
+  const after: VitalValue = {
+    date: dateText === undefined ? before.date : (dateText ?? ''),
+    place: placeName === undefined ? before.place : (placeName ?? ''),
+  };
+  const samePlace =
+    after.place === before.place ||
+    (!!shown?.placeOriginalText && after.place === shown.placeOriginalText);
+  if (after.date === before.date && samePlace) return null;
+
+  await tx.event.updateMany({
+    where: { id: { in: current.map((event) => event.id) } },
     data: { deletedAt: new Date() },
   });
-
-  await writeVitalEvent(tx, treeId, personId, type, dateText, placeName);
+  await writeVitalEvent(
+    tx,
+    treeId,
+    personId,
+    type,
+    after.date || null,
+    after.place || null,
+    samePlace && shown?.placeId
+      ? { placeId: shown.placeId, placeOriginalText: shown.placeOriginalText }
+      : undefined,
+  );
+  return { before, after: samePlace ? { ...after, place: before.place } : after };
 }
 
 /**

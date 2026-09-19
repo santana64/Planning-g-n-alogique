@@ -1,17 +1,17 @@
 'use server';
 
 import { ExtractionError } from '@chronolignee/ai';
-import {
-  acceptProposal,
-  recordProposals,
-  rejectProposal,
-  type PersonWriteContext,
-} from '@chronolignee/db';
+import { acceptProposal, recordProposals, rejectProposal } from '@chronolignee/db';
 import { db } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { getSession } from '@/lib/session';
 import type { ActionState } from './action-state';
-import { resolveTreeAccess } from './access';
+import {
+  NOT_FOUND,
+  authoriseWrite,
+  peopleOfCitation,
+  peopleOfProposal,
+  peopleWritable,
+} from './authorise';
 import { getAIProvider } from './ai';
 import { revalidateTree } from './revalidate';
 
@@ -23,25 +23,6 @@ import { revalidateTree } from './revalidate';
  * locator and the passage it was read from before anyone is asked to judge
  * it, and an accepted fact inherits that citation automatically.
  */
-
-async function authorise(
-  treeSlug: string,
-): Promise<{ context: PersonWriteContext } | { error: ActionState }> {
-  const session = await getSession();
-  if (!session) {
-    return { error: { status: 'error', message: 'Connectez-vous pour modifier cet arbre.' } };
-  }
-  const access = await resolveTreeAccess(treeSlug);
-  if (!access || !access.canEdit) {
-    return {
-      error: {
-        status: 'error',
-        message: "Cet arbre n'existe pas ou ne vous est pas ouvert en écriture.",
-      },
-    };
-  }
-  return { context: { treeId: access.treeId, actorId: session.user.id } };
-}
 
 function text(form: FormData, key: string): string {
   const value = form.get(key);
@@ -67,22 +48,30 @@ export async function extractFromCitationAction(
   form: FormData,
 ): Promise<ActionState> {
   const treeSlug = text(form, 'treeSlug');
-  const authorised = await authorise(treeSlug);
+  const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
-  const { context } = authorised;
+  const { access, context } = authorised;
 
   const provider = getAIProvider();
   if (!provider) return { status: 'error', message: EXTRACTION_MESSAGES['NOT_CONFIGURED'] };
 
+  // A transcription about someone this author may not see is not sent
+  // anywhere, and neither is the name used as a hint.
+  const citationId = text(form, 'citationId');
+  const personId = text(form, 'personId');
+  const concerned = await peopleOfCitation(access.treeId, citationId);
+  if (!concerned || !(await peopleWritable(access, [...concerned, personId]))) {
+    return { status: 'error', message: 'Citation introuvable dans cet arbre.' };
+  }
+
   const citation = await db.citation.findFirst({
-    where: { id: text(form, 'citationId'), treeId: context.treeId },
+    where: { id: citationId, treeId: context.treeId },
     select: { id: true, quotation: true },
   });
   if (!citation) return { status: 'error', message: 'Citation introuvable dans cet arbre.' };
   if (!citation.quotation?.trim())
     return { status: 'error', message: EXTRACTION_MESSAGES['EMPTY'] };
 
-  const personId = text(form, 'personId');
   const subject = personId
     ? await db.person.findFirst({
         where: { id: personId, treeId: context.treeId, deletedAt: null },
@@ -168,8 +157,14 @@ export async function acceptProposalAction(
   form: FormData,
 ): Promise<ActionState> {
   const treeSlug = text(form, 'treeSlug');
-  const authorised = await authorise(treeSlug);
+  const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
+
+  const proposalId = text(form, 'proposalId');
+  const people = await peopleOfProposal(authorised.access.treeId, proposalId);
+  if (!people || !(await peopleWritable(authorised.access, [...people, text(form, 'personId')]))) {
+    return NOT_FOUND;
+  }
 
   try {
     await acceptProposal(
@@ -199,8 +194,12 @@ export async function rejectProposalAction(
   form: FormData,
 ): Promise<ActionState> {
   const treeSlug = text(form, 'treeSlug');
-  const authorised = await authorise(treeSlug);
+  const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
+
+  const proposalId = text(form, 'proposalId');
+  const people = await peopleOfProposal(authorised.access.treeId, proposalId);
+  if (!people || !(await peopleWritable(authorised.access, people))) return NOT_FOUND;
 
   try {
     await rejectProposal(

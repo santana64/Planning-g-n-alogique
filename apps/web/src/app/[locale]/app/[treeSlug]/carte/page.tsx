@@ -31,7 +31,7 @@ export default async function CartePage({
         <TreeNav
           treeSlug={treeSlug}
           treeName={snapshot.access.treeName}
-          canEdit={snapshot.access.canEdit}
+          role={snapshot.access.role}
           current="map"
         />
 

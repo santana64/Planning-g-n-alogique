@@ -31,7 +31,12 @@ function messageKeyFor(mode: Mode, status: number | undefined, code: string | un
   return 'errors.unexpected';
 }
 
-export function AuthForm({ mode }: { mode: Mode }) {
+/**
+ * `next` is where to go once signed in — an invitation, typically. The page
+ * validates it (`safeReturnPath`) before passing it here; this form never
+ * reads it from the URL itself.
+ */
+export function AuthForm({ mode, next = null }: { mode: Mode; next?: string | null }) {
   const t = useTranslations('auth');
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -72,7 +77,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     }
 
     startTransition(() => {
-      router.push('/app');
+      router.push(next ?? '/app');
       router.refresh();
     });
   }

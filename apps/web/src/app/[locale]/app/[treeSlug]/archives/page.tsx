@@ -48,7 +48,7 @@ export default async function ArchivesPage({
         <TreeNav
           treeSlug={treeSlug}
           treeName={access.treeName}
-          canEdit={access.canEdit}
+          role={access.role}
           current="archive"
         />
 

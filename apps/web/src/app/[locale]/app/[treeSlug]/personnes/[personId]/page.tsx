@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
+import { can } from '@chronolignee/domain';
 import { Link } from '@/i18n/navigation';
 import { features } from '@/lib/env';
 import { SEVERITY_LABELS, findingMessage } from '@/lib/finding-messages';
@@ -9,6 +10,8 @@ import { EventEditor } from '@/components/people/event-editor';
 import { ProposalReview } from '@/components/ai/proposal-review';
 import { getAIStatus } from '@/server/ai';
 import { loadPendingForPerson } from '@/server/proposals';
+import { loadPersonHistory } from '@/server/history';
+import { HistoryList } from '@/components/history/history-list';
 import { PersonForm } from '@/components/people/person-form';
 import { RelationshipEditor } from '@/components/people/relationship-editor';
 import { TreeNav } from '@/components/people/tree-nav';
@@ -23,6 +26,13 @@ import { TreeNav } from '@/components/people/tree-nav';
  */
 export const dynamic = 'force-dynamic';
 
+/** Said to members only: the tree's rule needs no note, a decision does. */
+const PRIVACY_NOTES = {
+  REDACTED: 'Visible des seuls membres de l’arbre.',
+  RESTRICTED: 'Visible du seul propriétaire et des administrateurs.',
+  VISIBLE: 'Publiée, même de son vivant, par décision d’un administrateur.',
+} as const;
+
 export default async function PersonPage({
   params,
 }: {
@@ -36,7 +46,14 @@ export default async function PersonPage({
 
   const { access } = person;
   const ai = getAIStatus();
+  // From the permission table, as the actions check it: a contributor adds
+  // and corrects but is never offered a removal the server would refuse.
+  const canEdit = access.canEdit && !person.redacted;
+  const canDelete = can(access.role, 'delete') && !person.redacted;
   const proposals = person.redacted ? [] : await loadPendingForPerson(access, person.personId);
+  // Members only, and never for someone this reader may not see.
+  const history =
+    person.redacted || access.role === null ? [] : await loadPersonHistory(access, person.personId);
 
   return (
     <main id="main" className="bg-surface-0 min-h-dvh px-6 py-10">
@@ -44,7 +61,7 @@ export default async function PersonPage({
         <TreeNav
           treeSlug={treeSlug}
           treeName={access.treeName}
-          canEdit={access.canEdit}
+          role={access.role}
           current="people"
         />
 
@@ -61,6 +78,9 @@ export default async function PersonPage({
           <p className="tabular text-text-muted">
             {person.birthLabel} — {person.deathLabel}
           </p>
+          {person.privacy && person.privacy !== 'INHERIT' ? (
+            <p className="text-source text-xs">{PRIVACY_NOTES[person.privacy]}</p>
+          ) : null}
           {/* Two sources disagreeing is research information, not a glitch to
            * paper over. The accepted claim wins, and the page says what the
            * event on the form still records. */}
@@ -167,8 +187,12 @@ export default async function PersonPage({
         <div className="grid gap-12 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <section className="flex flex-col gap-6">
             <h2 className="text-text-faint text-xs tracking-wide uppercase">Fiche</h2>
-            {access.canEdit && !person.redacted ? (
-              <PersonForm treeSlug={treeSlug} person={person} />
+            {canEdit ? (
+              <PersonForm
+                treeSlug={treeSlug}
+                person={person}
+                canSteward={can(access.role, 'setPersonPrivacy')}
+              />
             ) : (
               <ReadOnlyPerson
                 birthLabel={person.birthLabel}
@@ -177,7 +201,7 @@ export default async function PersonPage({
               />
             )}
 
-            {access.canEdit ? (
+            {canDelete ? (
               <DeletePerson
                 treeSlug={treeSlug}
                 personId={person.personId}
@@ -194,7 +218,8 @@ export default async function PersonPage({
                 personId={person.personId}
                 personName={person.displayName}
                 links={person.links}
-                canEdit={access.canEdit && !person.redacted}
+                canEdit={canEdit}
+                canDelete={canDelete}
               />
             </section>
 
@@ -204,10 +229,20 @@ export default async function PersonPage({
                 treeSlug={treeSlug}
                 personId={person.personId}
                 events={person.events}
-                canEdit={access.canEdit && !person.redacted}
+                canEdit={canEdit}
+                canDelete={canDelete}
                 ai={ai}
               />
             </section>
+
+            {history.length > 0 ? (
+              <section aria-labelledby="record-history" className="flex flex-col gap-3">
+                <h2 id="record-history" className="text-text-faint text-xs tracking-wide uppercase">
+                  Historique de la fiche
+                </h2>
+                <HistoryList treeSlug={treeSlug} lines={history} linkPeople={false} />
+              </section>
+            ) : null}
           </div>
         </div>
       </div>

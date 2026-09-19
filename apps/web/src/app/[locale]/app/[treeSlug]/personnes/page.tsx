@@ -45,7 +45,7 @@ export default async function PeoplePage({
         <TreeNav
           treeSlug={treeSlug}
           treeName={listing.access.treeName}
-          canEdit={listing.access.canEdit}
+          role={listing.access.role}
           current="people"
         />
 

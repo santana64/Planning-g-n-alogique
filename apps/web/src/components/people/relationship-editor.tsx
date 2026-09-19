@@ -1,5 +1,6 @@
 'use client';
 
+import { RELATIONSHIP_LABELS } from '@/lib/labels';
 import { useActionState, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { IDLE, type ActionState } from '@/server/action-state';
@@ -40,19 +41,7 @@ const PEER_KINDS = [
   ['OTHER', 'Autre'],
 ] as const;
 
-export const RELATIONSHIP_LABELS: Record<string, string> = {
-  PARENT_BIOLOGICAL: 'Parent biologique',
-  PARENT_ADOPTIVE: 'Parent adoptif',
-  PARENT_FOSTER: 'Parent nourricier',
-  PARENT_STEP: 'Beau-parent',
-  PARENT_GUARDIAN: 'Tuteur',
-  PARENT_UNKNOWN: 'Parent, lien non précisé',
-  SPOUSE: 'Époux / épouse',
-  PARTNER: 'Partenaire',
-  DIVORCED_PARTNER: 'Ex-conjoint',
-  SIBLING: 'Frère / sœur',
-  OTHER: 'Autre',
-};
+export { RELATIONSHIP_LABELS } from '@/lib/labels';
 
 type Stance = 'PARENT_OF' | 'CHILD_OF' | 'PEER';
 
@@ -68,12 +57,14 @@ export function RelationshipEditor({
   personName,
   links,
   canEdit,
+  canDelete,
 }: {
   treeSlug: string;
   personId: string;
   personName: string;
   links: readonly PersonLinkRow[];
   canEdit: boolean;
+  canDelete: boolean;
 }) {
   const [createState, createAction, creating] = useActionState<ActionState, FormData>(
     createRelationshipAction,
@@ -95,21 +86,21 @@ export function RelationshipEditor({
         title="Parents"
         links={parents}
         treeSlug={treeSlug}
-        canEdit={canEdit}
+        canDelete={canDelete}
         action={deleteAction}
       />
       <LinkGroup
         title="Enfants"
         links={children}
         treeSlug={treeSlug}
-        canEdit={canEdit}
+        canDelete={canDelete}
         action={deleteAction}
       />
       <LinkGroup
         title="Unions et fratrie"
         links={peers}
         treeSlug={treeSlug}
-        canEdit={canEdit}
+        canDelete={canDelete}
         action={deleteAction}
       />
 
@@ -218,13 +209,13 @@ function LinkGroup({
   title,
   links,
   treeSlug,
-  canEdit,
+  canDelete,
   action,
 }: {
   title: string;
   links: readonly PersonLinkRow[];
   treeSlug: string;
-  canEdit: boolean;
+  canDelete: boolean;
   action: (formData: FormData) => void;
 }) {
   return (
@@ -255,7 +246,7 @@ function LinkGroup({
                 </span>
               </span>
 
-              {canEdit ? (
+              {canDelete ? (
                 <form action={action}>
                   <input type="hidden" name="treeSlug" value={treeSlug} />
                   <input type="hidden" name="relationshipId" value={link.relationshipId} />

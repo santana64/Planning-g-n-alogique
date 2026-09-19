@@ -1,7 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
-import { useRouter } from '@/i18n/navigation';
+import { useActionState, useState } from 'react';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { deletePersonAction } from '@/server/person-actions';
 import { SubmitButton } from './fields';
@@ -26,14 +25,11 @@ export function DeletePerson({
   personId: string;
   name: string;
 }) {
-  const router = useRouter();
+  // On success the action redirects to the list itself; only a refusal
+  // comes back here.
   const [state, action, pending] = useActionState<ActionState, FormData>(deletePersonAction, IDLE);
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
-
-  useEffect(() => {
-    if (state.status === 'success') router.push(`/app/${treeSlug}/personnes`);
-  }, [state, router, treeSlug]);
 
   if (!open) {
     return (

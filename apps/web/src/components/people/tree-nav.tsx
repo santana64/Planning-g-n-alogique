@@ -1,3 +1,4 @@
+import { can, type TreeRole } from '@chronolignee/domain';
 import { Link } from '@/i18n/navigation';
 import { features } from '@/lib/env';
 
@@ -12,12 +13,13 @@ import { features } from '@/lib/env';
 export function TreeNav({
   treeSlug,
   treeName,
-  canEdit,
+  role,
   current,
 }: {
   treeSlug: string;
   treeName: string;
-  canEdit: boolean;
+  /** Null for someone reading a public tree from outside. */
+  role: TreeRole | null;
   current:
     | 'people'
     | 'timeline'
@@ -26,8 +28,12 @@ export function TreeNav({
     | 'map'
     | 'archive'
     | 'proposals'
-    | 'import';
+    | 'import'
+    | 'history'
+    | 'sharing'
+    | 'settings';
 }) {
+  const canEdit = can(role, 'contribute');
   const tabs = [
     { key: 'people' as const, href: `/app/${treeSlug}/personnes`, label: 'Personnes' },
     { key: 'timeline' as const, href: `/app/${treeSlug}/chronologie`, label: 'Chronologie' },
@@ -53,10 +59,24 @@ export function TreeNav({
             href: `/app/${treeSlug}/propositions`,
             label: 'Propositions',
           },
-          { key: 'import' as const, href: `/app/${treeSlug}/import`, label: 'Importer' },
         ]
       : []),
+    ...(can(role, 'import')
+      ? [{ key: 'import' as const, href: `/app/${treeSlug}/import`, label: 'Importer' }]
+      : []),
   ];
+
+  // The tree itself rather than its content: members only.
+  const stewardship =
+    role === null
+      ? []
+      : [
+          { key: 'history' as const, href: `/app/${treeSlug}/historique`, label: 'Historique' },
+          { key: 'sharing' as const, href: `/app/${treeSlug}/partage`, label: 'Partage' },
+          ...(can(role, 'manageTree') || can(role, 'export') || can(role, 'deleteTree')
+            ? [{ key: 'settings' as const, href: `/app/${treeSlug}/reglages`, label: 'Réglages' }]
+            : []),
+        ];
 
   return (
     <header className="border-border-subtle flex flex-wrap items-baseline justify-between gap-4 border-b pb-4">
@@ -80,14 +100,34 @@ export function TreeNav({
         </nav>
       </div>
 
-      {canEdit ? (
-        <Link
-          href={`/app/${treeSlug}/personnes/nouvelle`}
-          className="bg-accent text-accent-contrast hover:bg-accent-hover rounded-[var(--radius-md)] px-3 py-1.5 text-sm font-medium transition-colors duration-[var(--duration-fast)]"
-        >
-          Ajouter une personne
-        </Link>
-      ) : null}
+      <div className="flex flex-wrap items-baseline gap-4">
+        {stewardship.length > 0 ? (
+          <nav aria-label="L’arbre" className="flex gap-4">
+            {stewardship.map((tab) => (
+              <Link
+                key={tab.key}
+                href={tab.href}
+                aria-current={tab.key === current ? 'page' : undefined}
+                className={
+                  tab.key === current
+                    ? 'text-text-primary border-accent border-b-2 pb-1 text-sm'
+                    : 'text-text-faint hover:text-text-primary pb-1 text-sm'
+                }
+              >
+                {tab.label}
+              </Link>
+            ))}
+          </nav>
+        ) : null}
+        {canEdit ? (
+          <Link
+            href={`/app/${treeSlug}/personnes/nouvelle`}
+            className="bg-accent text-accent-contrast hover:bg-accent-hover rounded-[var(--radius-md)] px-3 py-1.5 text-sm font-medium transition-colors duration-[var(--duration-fast)]"
+          >
+            Ajouter une personne
+          </Link>
+        ) : null}
+      </div>
     </header>
   );
 }

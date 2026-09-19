@@ -13,7 +13,15 @@ import type { Database } from '../client';
  */
 
 export type AuditAction =
-  'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'MERGE' | 'IMPORT' | 'ACCEPT_CLAIM' | 'REJECT_CLAIM';
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'RESTORE'
+  | 'MERGE'
+  | 'IMPORT'
+  | 'ACCEPT_CLAIM'
+  | 'REJECT_CLAIM'
+  | 'EXPORT';
 
 export interface AuditEntry {
   readonly treeId: string;

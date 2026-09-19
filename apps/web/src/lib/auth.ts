@@ -32,7 +32,9 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 12,
     maxPasswordLength: 256,
-    // Verification is required before a tree can be shared; see docs/SECURITY.md.
+    // No mail provider is configured by default, so addresses cannot be
+    // verified; invitations rest on a single-use link bound to an address
+    // instead. Turn this on with a provider — see docs/SECURITY.md.
     requireEmailVerification: false,
     autoSignIn: true,
   },

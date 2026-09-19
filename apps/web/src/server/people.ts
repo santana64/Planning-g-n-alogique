@@ -5,6 +5,7 @@ import {
   formatGenealogicalDate,
   formatYearOnly,
   type GenealogicalDate,
+  type PersonPrivacy,
 } from '@chronolignee/domain';
 import { decodeDate, foldName, loadGenealogyGraph, projectPersonLifespan } from '@chronolignee/db';
 import { auditPerson, sortBySeverity, type Finding } from '@chronolignee/genealogy';
@@ -17,6 +18,7 @@ import {
   type TreeAccess,
 } from './access';
 import { loadCitationsForPerson, type EventCitation } from './archive';
+import { EVENT_LABELS } from '@/lib/labels';
 
 /**
  * Reads for the editing screens.
@@ -126,13 +128,16 @@ export async function listPeople(
     return {
       personId: row.id,
       displayName: hidden ? REDACTED_LABEL : row.displayName,
-      recordedSex: row.recordedSex,
+      // Sex and status go with the name too: a ♀ and "living" beside a hidden
+      // row describe the person the row is hiding. The picker receives these
+      // rows as data, where no component decides what to show.
+      recordedSex: hidden ? 'UNKNOWN' : row.recordedSex,
       // The years go with the name. Publishing "1962 – " next to a hidden
       // name still says when that person was born.
       lifespanLabel: hidden
         ? '—'
         : lifespanLabelOf(row.lifespanEarliestJdn, row.lifespanLatestJdn, isLiving),
-      isLiving,
+      isLiving: hidden ? false : isLiving,
       redacted: hidden,
     };
   });
@@ -218,6 +223,8 @@ export interface PersonDetail {
   readonly displayName: string;
   readonly recordedSex: RecordedSex;
   readonly livingStatus: LivingStatus;
+  /** Who may see this person; null when this viewer may not. */
+  readonly privacy: PersonPrivacy | null;
   readonly notes: string;
   readonly names: readonly PersonNameRow[];
   readonly birthDateText: string;
@@ -240,29 +247,7 @@ export interface PersonDetail {
   readonly redacted: boolean;
 }
 
-export const EVENT_LABELS: Record<string, string> = {
-  BIRTH: 'Naissance',
-  BAPTISM: 'Baptême',
-  DEATH: 'Décès',
-  BURIAL: 'Inhumation',
-  CREMATION: 'Crémation',
-  MARRIAGE: 'Mariage',
-  MARRIAGE_BANN: 'Publication des bans',
-  MARRIAGE_CONTRACT: 'Contrat de mariage',
-  CIVIL_UNION: 'Union civile',
-  DIVORCE: 'Divorce',
-  RESIDENCE: 'Résidence',
-  OCCUPATION: 'Profession',
-  EDUCATION: 'Études',
-  MILITARY_SERVICE: 'Service militaire',
-  MIGRATION: 'Migration',
-  NATURALIZATION: 'Naturalisation',
-  CENSUS: 'Recensement',
-  PROBATE: 'Succession',
-  WILL: 'Testament',
-  RELIGIOUS_EVENT: 'Événement religieux',
-  CUSTOM: 'Autre',
-};
+export { EVENT_LABELS } from '@/lib/labels';
 
 const PARENT_TYPES = new Set([
   'PARENT_BIOLOGICAL',
@@ -440,8 +425,9 @@ export const loadPersonDetail = cache(
       // A member editing their own tree is never redacted; this branch covers
       // a public visitor who followed a link to a living person's page.
       displayName: hidden ? REDACTED_LABEL : person.displayName,
-      recordedSex: person.recordedSex,
-      livingStatus: person.livingStatus,
+      recordedSex: hidden ? 'UNKNOWN' : person.recordedSex,
+      livingStatus: hidden ? 'UNKNOWN' : person.livingStatus,
+      privacy: hidden ? null : person.privacy,
       notes: hidden ? '' : (person.notes ?? ''),
       names: hidden ? [] : person.names.map(toNameRow),
       // The form is seeded with the text the archive actually had, not with a

@@ -42,7 +42,7 @@ export default async function EventailPage({
         <TreeNav
           treeSlug={treeSlug}
           treeName={view.access.treeName}
-          canEdit={view.access.canEdit}
+          role={view.access.role}
           current="people"
         />
 

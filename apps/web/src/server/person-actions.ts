@@ -1,5 +1,6 @@
 'use server';
 
+import { getLocale } from 'next-intl/server';
 import { ZodError } from 'zod';
 import {
   RelationshipRefused,
@@ -10,14 +11,25 @@ import {
   updatePerson,
   type CreatePersonInput,
   type PersonNameInput,
-  type PersonWriteContext,
 } from '@chronolignee/db';
+import {
+  PERSON_PRIVACY_LEVELS,
+  canSetPersonPrivacy,
+  defaultPersonPrivacy,
+  type PersonPrivacy,
+} from '@chronolignee/domain';
 import type { Finding } from '@chronolignee/genealogy';
+import { redirect } from '@/i18n/navigation';
 import { db } from '@/lib/db';
 import { findingMessage } from '@/lib/finding-messages';
-import { getSession } from '@/lib/session';
 import type { ActionState } from './action-state';
-import { resolveTreeAccess } from './access';
+import {
+  NOT_FOUND,
+  authoriseWrite,
+  peopleOfRelationship,
+  peopleWritable,
+  refusal,
+} from './authorise';
 import { revalidateTree } from './revalidate';
 import { listPeople, type PersonSummary } from './people';
 
@@ -35,34 +47,17 @@ import { listPeople, type PersonSummary } from './people';
  * is information they need in the form, not a crash page.
  */
 
-/** Authorisation, from the database, for a write. */
-async function authorise(
-  treeSlug: string,
-): Promise<{ context: PersonWriteContext } | { error: ActionState }> {
-  const session = await getSession();
-  if (!session) {
-    return { error: { status: 'error', message: 'Connectez-vous pour modifier cet arbre.' } };
-  }
-
-  const access = await resolveTreeAccess(treeSlug);
-  // A tree the viewer may not see and a tree that does not exist give the same
-  // answer, so the existence of a private family archive is not leaked by the
-  // difference between two error messages.
-  if (!access || !access.canEdit) {
-    return {
-      error: {
-        status: 'error',
-        message: "Cet arbre n'existe pas ou ne vous est pas ouvert en écriture.",
-      },
-    };
-  }
-
-  return { context: { treeId: access.treeId, actorId: session.user.id } };
-}
-
 function text(form: FormData, key: string): string {
   const value = form.get(key);
   return typeof value === 'string' ? value.trim() : '';
+}
+
+/** The privacy setting submitted, or undefined when absent or not a setting at all. */
+function privacyFrom(form: FormData): PersonPrivacy | undefined {
+  const value = text(form, 'privacy');
+  return (PERSON_PRIVACY_LEVELS as readonly string[]).includes(value)
+    ? (value as PersonPrivacy)
+    : undefined;
 }
 
 /**
@@ -132,12 +127,25 @@ export async function createPersonAction(
   form: FormData,
 ): Promise<ActionState> {
   const treeSlug = text(form, 'treeSlug');
-  const authorised = await authorise(treeSlug);
+  const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
+
+  const livingStatus = (text(form, 'livingStatus') ||
+    'UNKNOWN') as CreatePersonInput['livingStatus'] & string;
+  // Checked against what the person would start with anyway: choosing the
+  // default is not a decision that needs an administrator.
+  const privacy = privacyFrom(form);
+  if (
+    privacy &&
+    !canSetPersonPrivacy(authorised.access.role, defaultPersonPrivacy(livingStatus), privacy)
+  ) {
+    return refusal('setPersonPrivacy');
+  }
 
   const input = {
     recordedSex: (text(form, 'recordedSex') || 'UNKNOWN') as CreatePersonInput['recordedSex'],
-    livingStatus: (text(form, 'livingStatus') || 'UNKNOWN') as CreatePersonInput['livingStatus'],
+    livingStatus,
+    ...(privacy ? { privacy } : {}),
     names: namesFrom(form),
     notes: text(form, 'notes'),
     birthDate: text(form, 'birthDate'),
@@ -172,10 +180,24 @@ export async function updatePersonAction(
   form: FormData,
 ): Promise<ActionState> {
   const treeSlug = text(form, 'treeSlug');
-  const authorised = await authorise(treeSlug);
+  const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
 
   const personId = text(form, 'personId');
+  if (!(await peopleWritable(authorised.access, [personId]))) return NOT_FOUND;
+
+  const privacy = privacyFrom(form);
+  if (privacy) {
+    const current = await db.person.findFirst({
+      where: { id: personId, treeId: authorised.access.treeId, deletedAt: null },
+      select: { privacy: true },
+    });
+    if (!current) return NOT_FOUND;
+    if (!canSetPersonPrivacy(authorised.access.role, current.privacy, privacy)) {
+      return refusal('setPersonPrivacy');
+    }
+  }
+
   const names = namesFrom(form);
   if (names.length === 0) {
     return {
@@ -193,6 +215,7 @@ export async function updatePersonAction(
         recordedSex: (text(form, 'recordedSex') || 'UNKNOWN') as CreatePersonInput['recordedSex'],
         livingStatus: (text(form, 'livingStatus') ||
           'UNKNOWN') as CreatePersonInput['livingStatus'],
+        ...(privacy ? { privacy } : {}),
         names,
         notes: text(form, 'notes'),
         birthDate: text(form, 'birthDate'),
@@ -214,16 +237,24 @@ export async function deletePersonAction(
   form: FormData,
 ): Promise<ActionState> {
   const treeSlug = text(form, 'treeSlug');
-  const authorised = await authorise(treeSlug);
+  const authorised = await authoriseWrite(treeSlug, 'delete');
   if ('error' in authorised) return authorised.error;
 
+  const personId = text(form, 'personId');
+  if (!(await peopleWritable(authorised.access, [personId]))) return NOT_FOUND;
+
   try {
-    await deletePerson(db, text(form, 'personId'), authorised.context);
-    revalidateTree(treeSlug);
-    return { status: 'success', message: 'La personne a été retirée de l’arbre.' };
+    await deletePerson(db, personId, authorised.context);
   } catch (error) {
     return failure(error);
   }
+  revalidateTree(treeSlug);
+  // From the server, in the same response. Left to the client, the
+  // revalidated record page — whose person no longer exists — rendered a 404
+  // before the client got round to leaving it.
+  redirect({ href: `/app/${treeSlug}/personnes`, locale: await getLocale() });
+  // Not reached: redirect throws. Typed as returning, so said explicitly.
+  return { status: 'success' };
 }
 
 export async function createRelationshipAction(
@@ -231,15 +262,19 @@ export async function createRelationshipAction(
   form: FormData,
 ): Promise<ActionState> {
   const treeSlug = text(form, 'treeSlug');
-  const authorised = await authorise(treeSlug);
+  const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
+
+  const sourceId = text(form, 'sourceId');
+  const targetId = text(form, 'targetId');
+  if (!(await peopleWritable(authorised.access, [sourceId, targetId]))) return NOT_FOUND;
 
   try {
     const result = await createRelationship(
       db,
       {
-        sourceId: text(form, 'sourceId'),
-        targetId: text(form, 'targetId'),
+        sourceId,
+        targetId,
         type: text(form, 'type') as 'PARENT_BIOLOGICAL',
         startDate: text(form, 'startDate'),
         endDate: text(form, 'endDate'),
@@ -267,11 +302,15 @@ export async function deleteRelationshipAction(
   form: FormData,
 ): Promise<ActionState> {
   const treeSlug = text(form, 'treeSlug');
-  const authorised = await authorise(treeSlug);
+  const authorised = await authoriseWrite(treeSlug, 'delete');
   if ('error' in authorised) return authorised.error;
 
+  const relationshipId = text(form, 'relationshipId');
+  const people = await peopleOfRelationship(authorised.access.treeId, relationshipId);
+  if (!people || !(await peopleWritable(authorised.access, people))) return NOT_FOUND;
+
   try {
-    await deleteRelationship(db, text(form, 'relationshipId'), authorised.context);
+    await deleteRelationship(db, relationshipId, authorised.context);
     revalidateTree(treeSlug);
     return { status: 'success', message: 'Le lien a été supprimé.' };
   } catch (error) {

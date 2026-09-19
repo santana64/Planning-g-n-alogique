@@ -1,10 +1,12 @@
 import 'server-only';
 import { cache } from 'react';
 import {
+  can,
   dateToJdn,
   isHiddenFrom as hiddenByRule,
   privacySubjectFromColumns,
   type PrivacySubject,
+  type TreeRole,
 } from '@chronolignee/domain';
 import type { GraphPerson } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
@@ -18,7 +20,7 @@ import { getSession } from '@/lib/session';
  * not authorisation; this is.
  */
 
-export type TreeRole = 'OWNER' | 'ADMIN' | 'EDITOR' | 'CONTRIBUTOR' | 'VIEWER';
+export type { TreeRole };
 
 export interface TreeAccess {
   readonly treeId: string;
@@ -26,6 +28,7 @@ export interface TreeAccess {
   readonly treeSlug: string;
   /** Null for an anonymous visitor reading a public tree. */
   readonly role: TreeRole | null;
+  /** May add and correct: the permission table's `contribute`. */
   readonly canEdit: boolean;
   /**
    * Whether living people must be redacted for this viewer.
@@ -37,8 +40,6 @@ export interface TreeAccess {
    */
   readonly redactLiving: boolean;
 }
-
-const EDIT_ROLES: readonly TreeRole[] = ['OWNER', 'ADMIN', 'EDITOR', 'CONTRIBUTOR'];
 
 /**
  * Resolve access to a tree, or null when the viewer may not see it at all.
@@ -69,7 +70,7 @@ export const resolveTreeAccess = cache(async (treeSlug: string): Promise<TreeAcc
       treeName: tree.name,
       treeSlug: tree.slug,
       role: membership.role,
-      canEdit: EDIT_ROLES.includes(membership.role),
+      canEdit: can(membership.role, 'contribute'),
       // Members see the family they are researching. Redaction protects the
       // tree from the outside, not its own collaborators from each other.
       redactLiving: false,

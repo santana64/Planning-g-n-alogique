@@ -41,6 +41,7 @@ const optionalText = (max: number) =>
 
 export const RECORDED_SEX = ['MALE', 'FEMALE', 'INTERSEX', 'UNKNOWN'] as const;
 export const LIVING_STATUS = ['LIVING', 'DECEASED', 'UNKNOWN'] as const;
+export const PERSON_PRIVACY = ['INHERIT', 'VISIBLE', 'REDACTED', 'RESTRICTED'] as const;
 export const CONFIDENCE = ['VERY_LOW', 'LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH'] as const;
 export const NAME_TYPE = [
   'BIRTH',
@@ -85,6 +86,12 @@ export type PersonNameValue = z.output<typeof personNameInput>;
 const personFields = {
   recordedSex: z.enum(RECORDED_SEX),
   livingStatus: z.enum(LIVING_STATUS),
+  /**
+   * Who may see this person. Absent means "what the status implies"; whether
+   * the author may choose a given setting is the caller's question, answered
+   * by the permission table before the write.
+   */
+  privacy: z.enum(PERSON_PRIVACY),
   names: z.array(personNameInput).min(1).max(12),
   notes: optionalText(10_000),
 
@@ -99,6 +106,7 @@ export const createPersonInput = z.object({
   ...personFields,
   recordedSex: personFields.recordedSex.default('UNKNOWN'),
   livingStatus: personFields.livingStatus.default('UNKNOWN'),
+  privacy: personFields.privacy.optional(),
   // At least one name, because a person with no name at all cannot be found
   // again and becomes an orphan row nobody knows how to fix.
   names: personFields.names,

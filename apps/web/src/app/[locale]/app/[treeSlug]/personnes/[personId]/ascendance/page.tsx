@@ -44,7 +44,7 @@ export default async function AscendancePage({
         <TreeNav
           treeSlug={treeSlug}
           treeName={access.treeName}
-          canEdit={access.canEdit}
+          role={access.role}
           current="people"
         />
 

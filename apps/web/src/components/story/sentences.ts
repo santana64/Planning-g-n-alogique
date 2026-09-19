@@ -8,6 +8,7 @@ import type {
   StoryScene,
   StorySource,
 } from '@chronolignee/engine';
+import { ofName } from '../../lib/french';
 import type { StoryViewPerson } from '@/server/story';
 
 /**
@@ -64,12 +65,7 @@ export interface StoryInput {
   readonly history: Readonly<Record<string, StoryHistoricalEvent>>;
 }
 
-const VOWEL = /^[aeiouyàâäéèêëîïôöùûüœæ]/i;
-
-/** "de Paul", "d’Émile". */
-export function ofName(name: string): string {
-  return VOWEL.test(name) ? `d’${name}` : `de ${name}`;
-}
+export { ofName };
 
 /** Gregorian and republican months: "mars 1884", "germinal an VII". */
 const MONTH_FIRST =

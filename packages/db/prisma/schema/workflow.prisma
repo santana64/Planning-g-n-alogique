@@ -75,6 +75,9 @@ enum RevisionAction {
   IMPORT
   ACCEPT_CLAIM
   REJECT_CLAIM
+  /// The whole tree taken away as a file. Recorded because an export carries
+  /// every living person in the tree, and who did it is worth knowing.
+  EXPORT
 }
 
 /// Append-only history of meaningful mutations.

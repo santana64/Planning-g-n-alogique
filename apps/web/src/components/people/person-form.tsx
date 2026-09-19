@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
+import { defaultPersonPrivacy, type PersonPrivacy } from '@chronolignee/domain';
 import { useRouter } from '@/i18n/navigation';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { createPersonAction, updatePersonAction } from '@/server/person-actions';
@@ -34,6 +35,38 @@ const STATUS_OPTIONS = [
   ['LIVING', 'Vivante'],
   ['DECEASED', 'Décédée'],
 ] as const;
+
+/**
+ * Who may see this person, in the words of the people it concerns.
+ *
+ * The last two reach beyond the tree's own rule — publishing a living person,
+ * hiding someone from the tree's own editors — and are offered only to those
+ * who run the tree; the server refuses them to anyone else whatever the form
+ * sends.
+ */
+const PRIVACY_OPTIONS: readonly (readonly [PersonPrivacy, string, string])[] = [
+  [
+    'INHERIT',
+    'Selon la règle de l’arbre',
+    'Masquée aux visiteurs tant qu’elle peut être en vie, si l’arbre le demande.',
+  ],
+  [
+    'REDACTED',
+    'Membres de l’arbre seulement',
+    'Masquée à toute personne extérieure à l’arbre : nom, dates et lieux, même après son décès.',
+  ],
+  [
+    'RESTRICTED',
+    'Propriétaire et administrateurs seulement',
+    'Masquée aussi aux éditeurs, contributeurs et lecteurs de l’arbre.',
+  ],
+  [
+    'VISIBLE',
+    'Publique, même de son vivant',
+    'Visible de quiconque peut lire l’arbre. À réserver à qui y a consenti.',
+  ],
+];
+const STEWARD_ONLY: ReadonlySet<PersonPrivacy> = new Set(['RESTRICTED', 'VISIBLE']);
 
 const NAME_TYPE_OPTIONS = [
   ['BIRTH', 'De naissance'],
@@ -75,9 +108,12 @@ function draftsFrom(person: PersonDetail | null): NameDraft[] {
 export function PersonForm({
   treeSlug,
   person,
+  canSteward,
 }: {
   treeSlug: string;
   person: PersonDetail | null;
+  /** May publish a living person or restrict someone to the administrators. */
+  canSteward: boolean;
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState<ActionState, FormData>(
@@ -86,6 +122,16 @@ export function PersonForm({
   );
   const [names, setNames] = useState<NameDraft[]>(() => draftsFrom(person));
   const [livingStatus, setLivingStatus] = useState(person?.livingStatus ?? 'UNKNOWN');
+  const [privacy, setPrivacy] = useState<PersonPrivacy>(
+    person?.privacy ?? defaultPersonPrivacy(person?.livingStatus ?? 'UNKNOWN'),
+  );
+  // Until the author chooses, the setting follows the status: someone marked
+  // as living starts hidden from outside the tree, and the form shows it.
+  const [privacyChosen, setPrivacyChosen] = useState(false);
+  const privacyLocked = !canSteward && STEWARD_ONLY.has(privacy);
+  const privacyChoices = PRIVACY_OPTIONS.filter(
+    ([value]) => canSteward || !STEWARD_ONLY.has(value),
+  );
 
   // A newly created person has no page yet, so the form navigates to the one
   // the write just produced. An edit stays where it is: being thrown somewhere
@@ -224,7 +270,13 @@ export function PersonForm({
             id="livingStatus"
             name="livingStatus"
             value={livingStatus}
-            onChange={(event) => setLivingStatus(event.target.value as typeof livingStatus)}
+            onChange={(event) => {
+              const next = event.target.value as typeof livingStatus;
+              setLivingStatus(next);
+              if (!privacyChosen && !STEWARD_ONLY.has(privacy)) {
+                setPrivacy(defaultPersonPrivacy(next));
+              }
+            }}
             className="border-border-default bg-surface-1 text-text-primary hover:border-border-strong focus:border-accent w-full rounded-[var(--radius-md)] border px-3 py-2 transition-colors duration-[var(--duration-fast)] focus:outline-none"
           >
             {STATUS_OPTIONS.map(([value, label]) => (
@@ -233,16 +285,51 @@ export function PersonForm({
               </option>
             ))}
           </select>
-          {livingStatus === 'LIVING' ? (
-            <p className="text-source text-xs">
-              Masquée pour toute personne extérieure à cet arbre : nom, dates et lieux.
-            </p>
-          ) : (
+          {livingStatus === 'LIVING' ? null : (
             <p className="text-text-faint text-xs">
               Sans date de décès, une durée de vie maximale de 123 ans borne la fiche. Cette borne
               est déduite, jamais enregistrée.
             </p>
           )}
+        </div>
+
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <label htmlFor="privacy" className="text-text-secondary text-sm font-medium">
+            Visibilité
+          </label>
+          {privacyLocked ? (
+            // Decided by someone who runs the tree. Sent back unchanged, so
+            // saving a corrected date does not undo a choice this author
+            // could not have made.
+            <>
+              <input type="hidden" name="privacy" value={privacy} />
+              <p id="privacy" className="text-text-primary text-sm">
+                {PRIVACY_OPTIONS.find(([value]) => value === privacy)?.[1]}
+                <span className="text-text-faint"> — choisi par un administrateur</span>
+              </p>
+            </>
+          ) : (
+            <select
+              id="privacy"
+              name="privacy"
+              value={privacy}
+              aria-describedby="privacy-hint"
+              onChange={(event) => {
+                setPrivacy(event.target.value as PersonPrivacy);
+                setPrivacyChosen(true);
+              }}
+              className="border-border-default bg-surface-1 text-text-primary hover:border-border-strong focus:border-accent w-full rounded-[var(--radius-md)] border px-3 py-2 transition-colors duration-[var(--duration-fast)] focus:outline-none"
+            >
+              {privacyChoices.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          )}
+          <p id="privacy-hint" className="text-source text-xs">
+            {PRIVACY_OPTIONS.find(([value]) => value === privacy)?.[2]}
+          </p>
         </div>
       </section>
 

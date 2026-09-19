@@ -62,12 +62,14 @@ export function EventEditor({
   personId,
   events,
   canEdit,
+  canDelete,
   ai,
 }: {
   treeSlug: string;
   personId: string;
   events: readonly PersonEventRow[];
   canEdit: boolean;
+  canDelete: boolean;
   ai: AIStatus;
 }) {
   const [createState, createAction, creating] = useActionState<ActionState, FormData>(
@@ -128,16 +130,18 @@ export function EventEditor({
                         >
                           Corriger
                         </button>
-                        <form action={deleteAction} className="inline">
-                          <input type="hidden" name="treeSlug" value={treeSlug} />
-                          <input type="hidden" name="eventId" value={event.eventId} />
-                          <button
-                            type="submit"
-                            className="text-text-faint hover:text-danger text-xs"
-                          >
-                            Retirer
-                          </button>
-                        </form>
+                        {canDelete ? (
+                          <form action={deleteAction} className="inline">
+                            <input type="hidden" name="treeSlug" value={treeSlug} />
+                            <input type="hidden" name="eventId" value={event.eventId} />
+                            <button
+                              type="submit"
+                              className="text-text-faint hover:text-danger text-xs"
+                            >
+                              Retirer
+                            </button>
+                          </form>
+                        ) : null}
                       </>
                     ) : canEdit ? (
                       // Vital events are corrected on the person form, where the
@@ -153,6 +157,7 @@ export function EventEditor({
                   eventLabel={event.label}
                   citations={event.citations}
                   canEdit={canEdit}
+                  canDelete={canDelete}
                   personId={personId}
                   ai={ai}
                 />

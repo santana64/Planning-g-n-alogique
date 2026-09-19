@@ -2,9 +2,14 @@ import { fileURLToPath } from 'node:url';
 import { Worker, type Job } from 'bullmq';
 import pino from 'pino';
 import { assertDeployable, getServerEnv } from '@chronolignee/config/server';
-import { createDatabase, importGedcomPlan } from '@chronolignee/db';
+import {
+  createDatabase,
+  importGedcomPlan,
+  purgeDeletedTree,
+  treesAwaitingPurge,
+} from '@chronolignee/db';
 import { mapDocument, parseGedcom } from '@chronolignee/gedcom';
-import { getObjectStore } from '@chronolignee/storage';
+import { getObjectStore, treePrefixes } from '@chronolignee/storage';
 import { QUEUE_NAMES, WORKER_RETENTION, assertPayload, redisConnection } from '@chronolignee/jobs';
 
 /**
@@ -131,6 +136,40 @@ gedcomWorker.on('failed', (job, error) => {
 
 const workers = [gedcomWorker];
 
+/**
+ * Finish erasing deleted trees.
+ *
+ * A deletion takes the tree out of use at once and purges it in the same
+ * request; this catches whatever that purge could not finish — storage down,
+ * a deploy mid-request. Idempotent: prefixes already emptied list nothing,
+ * and a tree already purged is simply not found.
+ */
+const SWEEP_EVERY_MS = 15 * 60 * 1000;
+let sweeping = false;
+async function sweepDeletedTrees(): Promise<void> {
+  if (sweeping) return;
+  sweeping = true;
+  try {
+    for (const treeId of await treesAwaitingPurge(db)) {
+      try {
+        let files = 0;
+        for (const prefix of treePrefixes(treeId)) files += await objectStore.deletePrefix(prefix);
+        await purgeDeletedTree(db, treeId);
+        logger.info({ treeId, files }, 'deleted tree purged');
+      } catch (error) {
+        logger.error(
+          { treeId, error: error instanceof Error ? error.name : typeof error },
+          'deleted tree purge failed, will retry',
+        );
+      }
+    }
+  } finally {
+    sweeping = false;
+  }
+}
+const sweeper = setInterval(() => void sweepDeletedTrees(), SWEEP_EVERY_MS);
+void sweepDeletedTrees();
+
 logger.info(
   { queues: workers.map((w) => w.name), env: env.NODE_ENV },
   'Chronolignée worker listening',
@@ -150,6 +189,7 @@ async function shutdown(signal: string): Promise<void> {
   shuttingDown = true;
 
   logger.info({ signal }, 'shutting down, finishing the job in flight');
+  clearInterval(sweeper);
   await Promise.all(workers.map((worker) => worker.close()));
   await db.$disconnect();
   logger.info('stopped');

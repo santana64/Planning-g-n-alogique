@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
+import { can } from '@chronolignee/domain';
 import { Link, redirect } from '@/i18n/navigation';
 import { getSession } from '@/lib/session';
 import { resolveTreeAccess } from '@/server/access';
@@ -38,7 +39,7 @@ export default async function NewPersonPage({
         <TreeNav
           treeSlug={treeSlug}
           treeName={access.treeName}
-          canEdit={access.canEdit}
+          role={access.role}
           current="people"
         />
 
@@ -58,7 +59,11 @@ export default async function NewPersonPage({
           </p>
         </div>
 
-        <PersonForm treeSlug={treeSlug} person={null} />
+        <PersonForm
+          treeSlug={treeSlug}
+          person={null}
+          canSteward={can(access.role, 'setPersonPrivacy')}
+        />
       </div>
     </main>
   );

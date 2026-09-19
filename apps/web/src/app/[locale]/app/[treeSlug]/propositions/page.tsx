@@ -37,7 +37,7 @@ export default async function PropositionsPage({
         <TreeNav
           treeSlug={treeSlug}
           treeName={pending.access.treeName}
-          canEdit={pending.access.canEdit}
+          role={pending.access.role}
           current="proposals"
         />
 

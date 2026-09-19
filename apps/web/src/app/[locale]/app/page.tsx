@@ -1,6 +1,6 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { listTreesForUser } from '@chronolignee/db';
-import { redirect } from '@/i18n/navigation';
+import { Link, redirect } from '@/i18n/navigation';
 import { db } from '@/lib/db';
 import { getSession } from '@/lib/session';
 import { SignOutButton } from '@/components/auth/sign-out-button';
@@ -43,7 +43,9 @@ export default async function AppPage({ params }: { params: Promise<{ locale: st
             Chronolignée
           </span>
           <div className="flex items-center gap-4">
-            <span className="text-text-muted text-sm">{session?.user.email}</span>
+            <Link href="/compte" className="text-text-muted hover:text-accent text-sm">
+              {session?.user.email}
+            </Link>
             <SignOutButton label={t('signOut')} />
           </div>
         </header>

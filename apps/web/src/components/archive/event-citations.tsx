@@ -41,6 +41,7 @@ export function EventCitations({
   eventLabel,
   citations,
   canEdit,
+  canDelete,
   personId,
   ai,
 }: {
@@ -49,6 +50,7 @@ export function EventCitations({
   eventLabel: string;
   citations: readonly EventCitation[];
   canEdit: boolean;
+  canDelete: boolean;
   /** The person whose record this is, as a hint for attributing statements. */
   personId: string;
   ai: AIStatus;
@@ -57,7 +59,10 @@ export function EventCitations({
     createCitationAction,
     IDLE,
   );
-  const [, deleteAction] = useActionState<ActionState, FormData>(deleteCitationAction, IDLE);
+  const [deleteState, deleteAction] = useActionState<ActionState, FormData>(
+    deleteCitationAction,
+    IDLE,
+  );
   const [adding, setAdding] = useState(false);
   const [sources, setSources] = useState<readonly SourceChoice[]>([]);
 
@@ -97,7 +102,7 @@ export function EventCitations({
                     document
                   </a>
                 ) : null}
-                {canEdit ? (
+                {canDelete ? (
                   <form action={deleteAction} className="inline">
                     <input type="hidden" name="treeSlug" value={treeSlug} />
                     <input type="hidden" name="citationId" value={citation.citationId} />
@@ -126,6 +131,12 @@ export function EventCitations({
           ))}
         </ul>
       )}
+
+      {deleteState.status === 'error' && deleteState.message ? (
+        <p role="status" className="text-danger text-xs">
+          {deleteState.message}
+        </p>
+      ) : null}
 
       {canEdit && !adding ? (
         <button

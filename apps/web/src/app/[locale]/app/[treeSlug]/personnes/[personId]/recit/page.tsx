@@ -84,7 +84,7 @@ export default async function RecitPage({
         <TreeNav
           treeSlug={treeSlug}
           treeName={view.access.treeName}
-          canEdit={view.access.canEdit}
+          role={view.access.role}
           current="people"
         />
 

@@ -26,10 +26,28 @@
  */
 
 import { MAX_PLAUSIBLE_LIFESPAN_YEARS } from '../date/types';
+import type { TreeRole } from '../permissions/index';
 
 export type PersonPrivacy = 'INHERIT' | 'VISIBLE' | 'REDACTED' | 'RESTRICTED';
+export const PERSON_PRIVACY_LEVELS: readonly PersonPrivacy[] = [
+  'INHERIT',
+  'REDACTED',
+  'RESTRICTED',
+  'VISIBLE',
+];
 export type LivingStatus = 'LIVING' | 'DECEASED' | 'UNKNOWN';
-export type ViewerRole = 'OWNER' | 'ADMIN' | 'EDITOR' | 'CONTRIBUTOR' | 'VIEWER';
+export type ViewerRole = TreeRole;
+
+/**
+ * The setting a person starts with, and returns to when their status changes
+ * and nobody chose otherwise.
+ *
+ * Someone recorded as living is hidden outside the tree whatever the tree's
+ * rule says: a tree made public later must not publish them in passing.
+ */
+export function defaultPersonPrivacy(livingStatus: LivingStatus): PersonPrivacy {
+  return livingStatus === 'LIVING' ? 'REDACTED' : 'INHERIT';
+}
 
 export interface PrivacySubject {
   readonly livingStatus: LivingStatus;

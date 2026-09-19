@@ -1,7 +1,7 @@
 # État du projet
 
 **Dernière mise à jour** : 2026-09-19
-**Phase courante** : 10 en cours — confidentialité faite ; droits par rôle, partage, historique, RGPD à suivre
+**Phase courante** : 10 terminée (confidentialité, droits, partage, historique, RGPD) ; phase 11 (durcissement) à suivre
 
 Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
@@ -361,6 +361,30 @@ propres champs ; aucune ne décide seule de masquer.
 
 **Tests** : 614 unitaires + 169 d'intégration + 54 E2E.
 
+### Droits, partage, historique, RGPD (phase 10)
+
+Une table de capacités dans `packages/domain/src/permissions`, lue par chaque
+action serveur et chaque écran ; détail dans `docs/SECURITY.md`, et ce que
+l'application fait des données personnelles dans `docs/PRIVACY.md`.
+
+| Élément                   | Preuve                                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------------------ |
+| Rôles                     | propriétaire, administrateur, éditeur, contributeur (ajoute, ne retire jamais), lecteur          |
+| Autorisation serveur      | `authoriseWrite(slug, capacité)` avant chaque écriture ; E2E : requête d'action rejouée, refusée |
+| Garde par personne        | une action visant une personne restreinte échoue comme pour une personne inexistante             |
+| Visibilité d'une fiche    | sélecteur ; publier (`VISIBLE`) et restreindre (`RESTRICTED`) réservés aux administrateurs       |
+| Invitations               | lien à usage unique, 7 jours, une adresse, haché en base, révocable ; aucun courriel envoyé      |
+| Adhésions                 | rôles inférieurs seulement pour un administrateur ; jamais d'arbre sans propriétaire (verrou)    |
+| Historique                | arbre et fiche, en phrases (« a changé le rôle d'Émile : contributeur → lecteur »), filtré       |
+| Membres dans l'historique | par compte, jamais par nom recopié ; « un ancien membre » une fois le compte effacé              |
+| Réglages                  | nom, lecture (privé, par lien, public), vivants masqués aux visiteurs (avertissement)            |
+| Export                    | GEDCOM 7 de tout l'arbre, propriétaire et administrateurs ; inscrit à l'historique               |
+| Suppression d'arbre       | nom à taper ; hors d'usage à l'instant ; fichiers puis lignes purgés ; balayeur du worker        |
+| Compte                    | export JSON ; effacement (connexion récente + adresse) ; bloqué par un arbre partagé orphelin    |
+| Traitements IA            | fournisseur et envoi expliqués sur « Mon compte » et avant chaque envoi                          |
+
+**Tests** : 648 unitaires + 200 d'intégration + 57 E2E.
+
 ---
 
 ## Bugs réels trouvés et corrigés
@@ -536,6 +560,41 @@ propres champs ; aucune ne décide seule de masquer.
     vivante » apprend à un inconnu qu'un parent est en vie aujourd'hui.
     Libellé et messages neutres : « Personne protégée ».
 
+40. **Enregistrer une fiche retirait les sources de sa naissance.** Le
+    formulaire envoie les dates à chaque enregistrement, et le service
+    archivait puis recréait l'événement de naissance ou de décès même
+    inchangé : ses citations restaient sur l'archive. Corriger une note
+    rendait une naissance sourcée « sans source ». Remplacé seulement quand la
+    date ou le lieu changent ; un champ absent garde sa valeur ; testé.
+
+41. **Un seul lien refusé faisait échouer tout un import GEDCOM.** Le
+    commentaire promettait l'inverse, mais une instruction refusée invalide
+    toute la transaction PostgreSQL (`25P02`) : un divorce daté avant le
+    mariage perdait le fichier entier. Le mapper le signale à la revue et
+    importe l'union sans ses dates ; le service écarte d'avance ce que la base
+    refuserait. Même traitement pour une personne unie à elle-même.
+
+42. **L'export GEDCOM perdait adoptions et placements, et mariait des frères
+    et sœurs.** Aucun `PEDI` sous `FAMC` : une adoption relue devenait une
+    naissance. Un lien frère/sœur devenait une famille HUSB/WIFE. Un mariage
+    sans événement daté se relisait en simple partenariat. Filiation écrite
+    (`ADOPTED`, `FOSTER`, `OTHER` + `PHRASE`), fratrie en `ASSO`, `MARR Y` ;
+    aller-retour testé type par type.
+
+43. **Un import ne laissait aucune trace dans l'historique.** Dix-huit mille
+    personnes ajoutées sans auteur ni date. Une révision par fichier.
+
+44. **Le sexe et le statut « vivant » d'une personne masquée partaient avec
+    sa ligne.** « ♀ Personne protégée » dans la liste, `isLiving` dans les
+    données du sélecteur de liens. Neutralisés.
+
+45. **Supprimer une fiche affichait une page 404.** L'action revalidait la
+    page de la personne supprimée avant que le client ne la quitte. Redirection
+    côté serveur, dans la même réponse ; vérifié en E2E.
+
+46. **Un contributeur pouvait supprimer.** Tout membre non lecteur passait le
+    même contrôle « peut éditer ». Chaque action exige désormais sa capacité.
+
 ---
 
 ## En cours
@@ -551,19 +610,20 @@ Rien. Point de reprise propre.
 | 2     | Services CRUD personne / relation                                 | **fait**                         |
 | 2     | Formulaires d'édition, liste, éditeur de liens                    | **fait**                         |
 | 2     | Éditeur d'événements hors naissance / décès                       | **fait**                         |
-| 3     | Import GEDCOM 7 + écran de revue                                  | **fait** — export sans bouton    |
+| 3     | Import GEDCOM 7 + écran de revue                                  | **fait**                         |
 | 4     | Services de graphe (ancêtres, descendants, branches), recherche   | **fait** — sans doublons         |
 | 5     | Moteur Chronolignée, Gantt, voyage temporel, « qui était vivant » | **fait**                         |
 | 6     | Carte MapLibre, migrations                                        | **fait** — arcs au curseur       |
 | 7     | Archives S3, visionneuse de documents                             | **fait** — sans visionneuse      |
 | 8     | Pipeline IA, propositions, assistant                              | **fait** — texte seul            |
 | 9     | Constellation, profondeur temporelle, mode Récit, Directeur       | **fait** — sans WebXR ni rivière |
-| 10    | Collaboration, confidentialité des vivants                        | **confidentialité faite**        |
+| 10    | Collaboration, confidentialité des vivants                        | **fait**                         |
 | 11    | Durcissement production                                           | partiel                          |
 
-Manques identifiés hors phases : détection de doublons, bouton d'export
-GEDCOM, édition des coordonnées d'un lieu, lecture d'images par l'IA,
-assistant de recherche, visionneuse de documents page à page.
+Manques identifiés hors phases : détection de doublons, édition des
+coordonnées d'un lieu, lecture d'images par l'IA, assistant de recherche,
+visionneuse de documents page à page, envoi des invitations par courriel (et
+vérification des adresses) une fois un fournisseur configuré.
 
 ---
 
@@ -610,10 +670,10 @@ assistant de recherche, visionneuse de documents page à page.
   Workers fixés à 1 en local, 2 en CI (avec reprises). Le nombre de workers ne
   change rien à ce que les tests vérifient.
 
-- La suite E2E consomme désormais **1 inscription par exécution** (au lieu de 3) :
-  le compte est créé dans `globalSetup`, avant tout worker. En le faisant dans
-  `beforeAll`, chaque worker réécrivait le même fichier de session pendant
-  qu'un autre le lisait.
+- La suite E2E consomme **environ 4 inscriptions par exécution** : le compte
+  partagé (`globalSetup`), le test d'inscription, l'invitée et le compte
+  effacé de la suite de collaboration. Au plafond de 20 par heure et par IP,
+  cela fait quatre exécutions complètes par heure.
 
 - La suite E2E consommait **3 inscriptions par exécution**, contre un plafond de
   20 par heure et par IP. Enchaîner plus de six exécutions complètes dans
@@ -628,8 +688,13 @@ assistant de recherche, visionneuse de documents page à page.
 
 - L'image du worker pèse 929 Mo, dominée par le SDK AWS et les moteurs Prisma.
   Acceptable, pas optimal.
-- L'export GEDCOM existe au niveau moteur et n'a pas encore de bouton dans
-  l'interface.
+- **Adresses non vérifiées** : faute de fournisseur de courriel, une
+  invitation repose sur son lien (usage unique, une adresse, 7 jours). Qui
+  détient le lien d'une adresse encore sans compte peut créer ce compte.
+- Les résumés de révision écrits avant la phase 10 contiennent des codes
+  (« BIRTH corrigé ») ; l'historique les traduit à la lecture.
+- La migration `20260919140000_revision_export` ajoute `EXPORT` aux actions
+  d'audit : `migrate deploy` avant de déployer ce code.
 
 - **Le chemin WebGPU n'a pas été vu à l'écran.** Dans le navigateur intégré,
   le rendu WebGPU est détecté et dessine (compteur d'images), mais le panneau

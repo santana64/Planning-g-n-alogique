@@ -4,7 +4,7 @@ import { useTransition } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { signOut } from '@/lib/auth-client';
 
-export function SignOutButton({ label }: { label: string }) {
+export function SignOutButton({ label, returnTo = '/' }: { label: string; returnTo?: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -15,7 +15,7 @@ export function SignOutButton({ label }: { label: string }) {
       onClick={async () => {
         await signOut();
         startTransition(() => {
-          router.push('/');
+          router.push(returnTo);
           // Without refresh the server components keep the cached session and
           // the user appears signed in until the next hard navigation.
           router.refresh();

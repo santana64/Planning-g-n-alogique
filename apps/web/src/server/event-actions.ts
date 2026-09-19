@@ -8,13 +8,11 @@ import {
   deleteEvent,
   updateEvent,
   type CreateEventInput,
-  type PersonWriteContext,
 } from '@chronolignee/db';
 import { findingMessage } from '@/lib/finding-messages';
 import { db } from '@/lib/db';
-import { getSession } from '@/lib/session';
 import type { ActionState } from './action-state';
-import { resolveTreeAccess } from './access';
+import { NOT_FOUND, authoriseWrite, peopleOfEvent, peopleWritable } from './authorise';
 import { revalidateTree } from './revalidate';
 
 /**
@@ -24,28 +22,6 @@ import { revalidateTree } from './revalidate';
  * the database here, because a Server Action is a public endpoint and the
  * button that renders it is a convenience rather than a permission.
  */
-
-async function authorise(
-  treeSlug: string,
-): Promise<{ context: PersonWriteContext } | { error: ActionState }> {
-  const session = await getSession();
-  if (!session) {
-    return { error: { status: 'error', message: 'Connectez-vous pour modifier cet arbre.' } };
-  }
-  const access = await resolveTreeAccess(treeSlug);
-  // A tree the viewer may not see and a tree that does not exist give the same
-  // answer, so the existence of a private archive is not leaked by the
-  // difference between two error messages.
-  if (!access || !access.canEdit) {
-    return {
-      error: {
-        status: 'error',
-        message: "Cet arbre n'existe pas ou ne vous est pas ouvert en écriture.",
-      },
-    };
-  }
-  return { context: { treeId: access.treeId, actorId: session.user.id } };
-}
 
 function text(form: FormData, key: string): string {
   const value = form.get(key);
@@ -79,11 +55,12 @@ export async function createEventAction(
   form: FormData,
 ): Promise<ActionState> {
   const treeSlug = text(form, 'treeSlug');
-  const authorised = await authorise(treeSlug);
+  const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
 
   const personId = text(form, 'personId');
   const secondId = text(form, 'secondId');
+  if (!(await peopleWritable(authorised.access, [personId, secondId]))) return NOT_FOUND;
 
   const participants: CreateEventInput['participants'] = [
     { personId, role: text(form, 'role') || 'PRINCIPAL' },
@@ -163,14 +140,18 @@ export async function updateEventAction(
   form: FormData,
 ): Promise<ActionState> {
   const treeSlug = text(form, 'treeSlug');
-  const authorised = await authorise(treeSlug);
+  const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
+
+  const eventId = text(form, 'eventId');
+  const people = await peopleOfEvent(authorised.access.treeId, eventId);
+  if (!people || !(await peopleWritable(authorised.access, people))) return NOT_FOUND;
 
   try {
     await updateEvent(
       db,
       {
-        eventId: text(form, 'eventId'),
+        eventId,
         date: text(form, 'date'),
         placeName: text(form, 'placeName'),
         description: text(form, 'description'),
@@ -189,11 +170,15 @@ export async function deleteEventAction(
   form: FormData,
 ): Promise<ActionState> {
   const treeSlug = text(form, 'treeSlug');
-  const authorised = await authorise(treeSlug);
+  const authorised = await authoriseWrite(treeSlug, 'delete');
   if ('error' in authorised) return authorised.error;
 
+  const eventId = text(form, 'eventId');
+  const people = await peopleOfEvent(authorised.access.treeId, eventId);
+  if (!people || !(await peopleWritable(authorised.access, people))) return NOT_FOUND;
+
   try {
-    await deleteEvent(db, text(form, 'eventId'), authorised.context);
+    await deleteEvent(db, eventId, authorised.context);
     revalidateTree(treeSlug);
     return { status: 'success', message: "L'événement a été retiré." };
   } catch (error) {
