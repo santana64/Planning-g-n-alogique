@@ -113,10 +113,11 @@ COPY --from=build --chown=chronolignee:chronolignee /app/apps/web/public ./apps/
 USER chronolignee
 EXPOSE 3000
 
-# An unauthenticated liveness endpoint. The landing page is static and cheap,
-# and it answers the only question a health check should ask: is this process
-# serving HTTP.
+# Liveness only: is this process serving HTTP. Readiness — database and
+# object store reachable — is /api/health/ready, for the orchestrator's
+# traffic decisions; tying it to restarts would restart every web container
+# during a database outage.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "apps/web/server.js"]

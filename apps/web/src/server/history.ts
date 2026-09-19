@@ -2,6 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { loadHistory, type HistoryEntry } from '@chronolignee/db';
 import { db } from '@/lib/db';
+import { isUuid } from '@/lib/ids';
 import { describeRevision, type Change } from '@/lib/history-sentences';
 import {
   isHiddenFrom,
@@ -35,15 +36,13 @@ export interface TreeHistory {
   readonly nextCursor: string | null;
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export const loadTreeHistory = cache(
   async (treeSlug: string, cursor: string | null): Promise<TreeHistory | null> => {
     const access = await resolveTreeAccess(treeSlug);
     if (!access || access.role === null) return null;
     const page = await loadHistory(db, {
       treeId: access.treeId,
-      ...(cursor && UUID.test(cursor) ? { cursor } : {}),
+      ...(isUuid(cursor) ? { cursor } : {}),
       limit: 50,
     });
     return { access, lines: await readable(access, page.entries), nextCursor: page.nextCursor };

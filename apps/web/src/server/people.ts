@@ -10,6 +10,7 @@ import {
 import { decodeDate, foldName, projectPersonLifespan } from '@chronolignee/db';
 import { auditPerson, sortBySeverity, type Finding } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
+import { isUuid } from '@/lib/ids';
 import { treeGraph } from './graph-cache';
 import {
   REDACTED_LABEL,
@@ -268,7 +269,7 @@ const PARENT_TYPES = new Set([
 export const loadPersonDetail = cache(
   async (treeSlug: string, personId: string): Promise<PersonDetail | null> => {
     const access = await resolveTreeAccess(treeSlug);
-    if (!access) return null;
+    if (!access || !isUuid(personId)) return null;
 
     const person = await db.person.findFirst({
       where: { id: personId, treeId: access.treeId, deletedAt: null },

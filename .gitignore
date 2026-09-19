@@ -51,3 +51,6 @@ infra/docker/volumes/
 docs/benchmarks/*.json
 !docs/benchmarks/.gitkeep
 next-env.d.ts
+
+# Database dumps from infra/scripts/backup-db.sh: never committed.
+backups/

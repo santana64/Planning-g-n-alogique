@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { objectStore } from '@/lib/storage';
+import { isUuid } from '@/lib/ids';
 import { resolveTreeAccess } from '@/server/access';
 
 /**
@@ -21,6 +22,7 @@ export async function GET(
   { params }: { params: Promise<{ treeSlug: string; documentId: string }> },
 ): Promise<NextResponse> {
   const { treeSlug, documentId } = await params;
+  if (!isUuid(documentId)) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
 
   const access = await resolveTreeAccess(treeSlug);
   if (!access) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });

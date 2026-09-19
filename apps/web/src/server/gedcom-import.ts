@@ -3,6 +3,7 @@ import { importGedcomPlan } from '@chronolignee/db';
 import { mapDocument, parseGedcom, type ImportPlan } from '@chronolignee/gedcom';
 import { buildObjectKey, checksum, safeDownloadName, validateGedcom } from '@chronolignee/storage';
 import { db } from '@/lib/db';
+import { isUuid } from '@/lib/ids';
 import { env } from '@/lib/env';
 import { objectStore } from '@/lib/storage';
 import { can } from '@chronolignee/domain';
@@ -166,6 +167,7 @@ export async function commitImport(
   const access = await resolveTreeAccess(treeSlug);
   if (!access) return { ok: false, error: 'NOT_FOUND' };
   if (!can(access.role, 'import')) return { ok: false, error: 'FORBIDDEN' };
+  if (!isUuid(jobId)) return { ok: false, error: 'NOT_FOUND' };
 
   const job = await db.importJob.findFirst({
     where: { id: jobId, treeId: access.treeId },

@@ -55,3 +55,5 @@ export function getFeatureFlags(source: NodeJS.ProcessEnv = process.env): Featur
 }
 
 export { assertDeployable, type ServerEnv, type FeatureFlags };
+
+export { scrubErrorReport, type ReportedEvent } from './error-report';

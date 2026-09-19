@@ -4,6 +4,7 @@ import {
   decideLod,
   jdnToX,
   temporalTicks,
+  type DetailLevel,
   type TemporalViewport,
 } from '@chronolignee/engine';
 import { branchColorForKey, EDGE_STYLES, type EdgeCertainty } from '@chronolignee/ui';
@@ -91,7 +92,7 @@ const LABEL_GUTTER = 10;
 export interface RenderResult {
   /** Rows actually drawn, so the caller can report what is on screen. */
   readonly visibleRows: number;
-  readonly detailLevel: string;
+  readonly detailLevel: DetailLevel;
 }
 
 export function renderTimeline(

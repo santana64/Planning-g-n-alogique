@@ -113,6 +113,18 @@ catalog:
   # --- Observability ------------------------------------------------------
   pino: 10.3.1
   pino-pretty: 13.1.3
+  # Traces, only when OTEL_ENABLED: @vercel/otel is the registration Next.js
+  # documents; the rest are its peer dependencies, pinned together.
+  '@vercel/otel': 2.1.3
+  '@opentelemetry/api': 1.9.1
+  '@opentelemetry/api-logs': 0.222.0
+  '@opentelemetry/sdk-logs': 0.222.0
+  '@opentelemetry/instrumentation': 0.222.0
+  '@opentelemetry/resources': 2.11.0
+  '@opentelemetry/sdk-metrics': 2.11.0
+  '@opentelemetry/sdk-trace-base': 2.11.0
+  # Errors, only when SENTRY_DSN is set.
+  '@sentry/node': 10.75.0
 
   # --- Testing ------------------------------------------------------------
   vitest: 5.0.1

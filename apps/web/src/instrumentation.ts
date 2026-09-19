@@ -17,6 +17,21 @@ export async function register(): Promise<void> {
   if (process.env['NEXT_RUNTIME'] !== 'nodejs') return;
   if (process.env['NEXT_PHASE'] === 'phase-production-build') return;
 
-  const { refuseUnsafeConfiguration } = await import('./instrumentation-node');
+  const { refuseUnsafeConfiguration, startObservability } = await import('./instrumentation-node');
   refuseUnsafeConfiguration();
+  await startObservability();
+}
+
+/**
+ * Every error Next catches while serving a request: rendering, a route
+ * handler, a server action.
+ */
+export async function onRequestError(
+  error: unknown,
+  request: { readonly method: string },
+  context: { readonly routePath: string; readonly routeType: string },
+): Promise<void> {
+  if (process.env['NEXT_RUNTIME'] !== 'nodejs') return;
+  const { reportRequestError } = await import('./instrumentation-node');
+  await reportRequestError(error, request.method, context);
 }

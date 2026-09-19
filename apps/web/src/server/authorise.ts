@@ -2,6 +2,7 @@ import 'server-only';
 import { can, type TreeCapability, type TreeRole } from '@chronolignee/domain';
 import type { PersonWriteContext } from '@chronolignee/db';
 import { db } from '@/lib/db';
+import { isUuid } from '@/lib/ids';
 import { getSession } from '@/lib/session';
 import type { ActionState } from './action-state';
 import {
@@ -88,8 +89,6 @@ export async function authoriseWrite(
   };
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /**
  * Whether every one of these people exists in the tree and is visible to the
  * author.
@@ -105,7 +104,7 @@ export async function peopleWritable(
 ): Promise<boolean> {
   const unique = [...new Set(personIds.filter((id): id is string => Boolean(id)))];
   if (unique.length === 0) return true;
-  if (!unique.every((id) => UUID.test(id))) return false;
+  if (!unique.every((id) => isUuid(id))) return false;
 
   const rows = await db.person.findMany({
     where: { id: { in: unique }, treeId: access.treeId, deletedAt: null },
@@ -125,7 +124,7 @@ export async function peopleWritable(
 
 /** The people an event concerns; null when it is not in this tree. */
 export async function peopleOfEvent(treeId: string, eventId: string): Promise<string[] | null> {
-  if (!UUID.test(eventId)) return null;
+  if (!isUuid(eventId)) return null;
   const event = await db.event.findFirst({
     where: { id: eventId, treeId, deletedAt: null },
     select: { participants: { select: { personId: true } } },
@@ -138,7 +137,7 @@ export async function peopleOfRelationship(
   treeId: string,
   relationshipId: string,
 ): Promise<string[] | null> {
-  if (!UUID.test(relationshipId)) return null;
+  if (!isUuid(relationshipId)) return null;
   const relationship = await db.relationship.findFirst({
     where: { id: relationshipId, treeId, deletedAt: null },
     select: { sourceId: true, targetId: true },
@@ -154,7 +153,7 @@ export async function peopleOfCitation(
   treeId: string,
   citationId: string,
 ): Promise<string[] | null> {
-  if (!UUID.test(citationId)) return null;
+  if (!isUuid(citationId)) return null;
   const citation = await db.citation.findFirst({
     where: { id: citationId, treeId },
     select: {
@@ -177,7 +176,7 @@ export async function peopleOfProposal(
   treeId: string,
   proposalId: string,
 ): Promise<string[] | null> {
-  if (!UUID.test(proposalId)) return null;
+  if (!isUuid(proposalId)) return null;
   const proposal = await db.aiProposal.findFirst({
     where: { id: proposalId, treeId },
     select: { personId: true, citationId: true },

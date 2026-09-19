@@ -15,6 +15,7 @@
     "@chronolignee/gedcom": "workspace:*",
     "@chronolignee/jobs": "workspace:*",
     "@chronolignee/storage": "workspace:*",
+    "@sentry/node": "catalog:",
     "bullmq": "catalog:",
     "ioredis": "catalog:",
     "pino": "catalog:",

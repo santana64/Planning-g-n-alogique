@@ -1,7 +1,8 @@
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { Worker, type Job } from 'bullmq';
 import pino from 'pino';
-import { assertDeployable, getServerEnv } from '@chronolignee/config/server';
+import { assertDeployable, getServerEnv, scrubErrorReport } from '@chronolignee/config/server';
 import {
   createDatabase,
   importGedcomPlan,
@@ -37,12 +38,42 @@ const env = getServerEnv();
 // configuration is no safer here for running without an HTTP port.
 assertDeployable(env);
 
+/**
+ * Readable lines in development, when the pretty-printer is there at all. It
+ * is a development dependency, absent from the production image: an image
+ * started with the development .env must log JSON, not crash on start.
+ */
+function prettyTransport(): { transport?: { target: string } } {
+  if (env.NODE_ENV !== 'development') return {};
+  try {
+    createRequire(import.meta.url).resolve('pino-pretty');
+    return { transport: { target: 'pino-pretty' } };
+  } catch {
+    return {};
+  }
+}
+
 const logger = pino({
   level: env.LOG_LEVEL,
   // Never log a payload wholesale: job data carries object keys and person
   // ids, and a document's contents must never reach a log line.
   redact: ['*.password', '*.token', '*.secret', 'data.bytes'],
-  ...(env.NODE_ENV === 'development' ? { transport: { target: 'pino-pretty' } } : {}),
+  ...prettyTransport(),
+});
+
+/**
+ * Error reports, only when SENTRY_DSN is set, scrubbed exactly as the web
+ * app's are: the error's type and stack, never its message, which can quote a
+ * value from the database.
+ */
+const sentry = env.SENTRY_DSN ? await import('@sentry/node') : null;
+sentry?.init({
+  dsn: env.SENTRY_DSN,
+  environment: env.NODE_ENV,
+  sendDefaultPii: false,
+  skipOpenTelemetrySetup: true,
+  tracesSampleRate: 0,
+  beforeSend: (event) => scrubErrorReport(event),
 });
 
 const db = createDatabase({ url: env.DATABASE_URL });
@@ -117,7 +148,11 @@ const gedcomWorker = new Worker(
 );
 
 gedcomWorker.on('failed', (job, error) => {
-  logger.error({ jobId: job?.id, err: error.message }, 'import failed');
+  // The error's class only: its message can quote a name or a date from the
+  // file. The full message goes to the import job, where only the tree's
+  // members read it.
+  logger.error({ jobId: job?.id, error: error.name }, 'import failed');
+  sentry?.captureException(error, { tags: { queue: QUEUE_NAMES.gedcomImport } });
 
   const importJobId = (job?.data as { importJobId?: string } | undefined)?.importJobId;
   if (!importJobId) return;
@@ -130,7 +165,10 @@ gedcomWorker.on('failed', (job, error) => {
       data: { status: 'FAILED', completedAt: new Date(), error: error.message.slice(0, 2000) },
     })
     .catch((updateError: unknown) => {
-      logger.error({ err: updateError }, 'could not record the failure');
+      logger.error(
+        { error: updateError instanceof Error ? updateError.name : typeof updateError },
+        'could not record the failure',
+      );
     });
 });
 
@@ -202,6 +240,10 @@ process.on('SIGINT', () => void shutdown('SIGINT'));
 // An unhandled rejection has already escaped every catch; carrying on would
 // mean running in a state nobody reasoned about.
 process.on('unhandledRejection', (reason) => {
-  logger.fatal({ err: reason }, 'unhandled rejection');
+  logger.fatal(
+    { error: reason instanceof Error ? reason.name : typeof reason },
+    'unhandled rejection',
+  );
+  sentry?.captureException(reason);
   void shutdown('unhandledRejection');
 });

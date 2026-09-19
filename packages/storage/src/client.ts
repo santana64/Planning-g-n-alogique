@@ -1,6 +1,7 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadBucketCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -82,6 +83,11 @@ export class ObjectStore {
     );
     if (!response.Body) throw new Error(`Objet vide ou introuvable : ${key}`);
     return new Uint8Array(await response.Body.transformToByteArray());
+  }
+
+  /** Whether the bucket answers, for a readiness probe. Throws when it does not. */
+  async ready(): Promise<void> {
+    await this.client.send(new HeadBucketCommand({ Bucket: this.config.bucket }));
   }
 
   async exists(key: string): Promise<boolean> {

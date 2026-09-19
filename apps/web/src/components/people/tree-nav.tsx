@@ -80,9 +80,11 @@ export function TreeNav({
 
   return (
     <header className="border-border-subtle flex flex-wrap items-baseline justify-between gap-4 border-b pb-4">
-      <div className="flex items-baseline gap-4">
+      {/* Everything wraps: on a phone eleven links in one row pushed the
+          whole page sideways, on every screen of a tree. */}
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-2">
         <span className="font-editorial text-text-primary text-lg tracking-tight">{treeName}</span>
-        <nav aria-label="Sections de l’arbre" className="flex gap-4">
+        <nav aria-label="Sections de l’arbre" className="flex flex-wrap gap-x-4 gap-y-1">
           {tabs.map((tab) => (
             <Link
               key={tab.key}
@@ -102,7 +104,7 @@ export function TreeNav({
 
       <div className="flex flex-wrap items-baseline gap-4">
         {stewardship.length > 0 ? (
-          <nav aria-label="L’arbre" className="flex gap-4">
+          <nav aria-label="L’arbre" className="flex flex-wrap gap-x-4 gap-y-1">
             {stewardship.map((tab) => (
               <Link
                 key={tab.key}
