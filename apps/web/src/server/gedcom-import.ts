@@ -1,5 +1,4 @@
 import 'server-only';
-import { importGedcomPlan } from '@chronolignee/db';
 import {
   decodeGedcom,
   mapDocument,
@@ -11,6 +10,7 @@ import { buildObjectKey, checksum, safeDownloadName, validateGedcom } from '@chr
 import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
 import { env } from '@/lib/env';
+import { enqueueGedcomImport } from '@/lib/queue';
 import { objectStore } from '@/lib/storage';
 import { can } from '@chronolignee/domain';
 import { resolveTreeAccess } from './access';
@@ -19,7 +19,8 @@ import { resolveTreeAccess } from './access';
  * GEDCOM import, in two deliberate halves.
  *
  * `analyseUpload` reads the file and writes nothing to the tree. `commitImport`
- * writes, and only runs once a human has seen what the first half found.
+ * queues the write for the worker, and only once a human has seen what the
+ * first half found; `importProgress` reports on it while it runs.
  *
  * The separation is the point. An import is the single most destructive thing
  * a genealogy application can do — it can silently add eighteen thousand
@@ -174,27 +175,32 @@ export async function analyseUpload(
 }
 
 export type CommitError =
-  'NOT_FOUND' | 'FORBIDDEN' | 'ALREADY_COMMITTED' | 'FILE_MISSING' | 'UNSUPPORTED_ENCODING';
-
-export interface CommitSummary {
-  readonly people: number;
-  readonly relationships: number;
-  readonly events: number;
-  readonly rejected: ReadonlyArray<{ detail: string; reason: string }>;
-}
+  'NOT_FOUND' | 'FORBIDDEN' | 'ALREADY_COMMITTED' | 'IN_PROGRESS' | 'QUEUE_UNAVAILABLE';
 
 export type CommitResult =
-  | { readonly ok: true; readonly summary: CommitSummary }
-  | { readonly ok: false; readonly error: CommitError };
+  { readonly ok: true } | { readonly ok: false; readonly error: CommitError };
+
+/** How long the queue gets to take the job before the request gives up. */
+const ENQUEUE_TIMEOUT_MS = 5_000;
+
+function within<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('timed out')), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 
 /**
- * Write a previously analysed file into the tree.
+ * Ask for a previously analysed file to be written into the tree.
  *
- * The file is re-read from storage and re-parsed rather than the plan being
- * carried across the request. A plan for twenty thousand people is megabytes
- * of JSON, and round-tripping it through a browser to come back as the
- * authority for a write is both wasteful and a place where a modified payload
- * would be trusted.
+ * The write itself happens in the worker: twenty thousand people take half a
+ * minute, which is no time to hold a request — or a proxy — open. This
+ * checks the right to import, moves the job from "analysed" to "queued" in a
+ * single statement, so two clicks or two tabs queue it once, and puts it on
+ * the queue. The worker re-reads the stored file rather than receiving a plan
+ * from here: a plan for twenty thousand people is megabytes, and one that has
+ * travelled through a browser is not one to trust for a write.
  */
 export async function commitImport(
   treeSlug: string,
@@ -215,57 +221,121 @@ export async function commitImport(
   // file into the tree, which is exactly the accident this guard exists for.
   if (!job.isDryRun) return { ok: false, error: 'ALREADY_COMMITTED' };
 
-  let bytes: Uint8Array;
-  try {
-    bytes = await objectStore.get(job.storageKey);
-  } catch {
-    return { ok: false, error: 'FILE_MISSING' };
-  }
-
-  // Decoded exactly as the analysis did: same bytes, same rules, same text.
-  const decoded = decodeGedcom(bytes);
-  if (!decoded.ok) return { ok: false, error: 'UNSUPPORTED_ENCODING' };
-  const plan = mapDocument(parseGedcom(decoded.value.text));
-
-  await db.importJob.update({
-    where: { id: job.id },
-    data: { status: 'PROCESSING', startedAt: new Date() },
+  // Analysed, or failed without writing anything (the write is one
+  // transaction): either may be queued. Queued or running may not.
+  const claimed = await db.importJob.updateMany({
+    where: { id: job.id, isDryRun: true, status: { in: ['COMPLETED', 'FAILED'] } },
+    data: {
+      status: 'QUEUED',
+      error: null,
+      startedAt: null,
+      completedAt: null,
+      processedRecords: 0,
+      totalRecords: 0,
+    },
   });
+  if (claimed.count === 0) return { ok: false, error: 'IN_PROGRESS' };
 
   try {
-    const result = await importGedcomPlan(db, plan, { treeId: access.treeId, actorId });
-
-    await db.importJob.update({
-      where: { id: job.id },
-      data: {
-        status: 'COMPLETED',
-        isDryRun: false,
-        completedAt: new Date(),
-        duplicateCandidateCount: result.rejected.length,
-      },
+    await within(
+      enqueueGedcomImport({
+        treeId: access.treeId,
+        importJobId: job.id,
+        storageKey: job.storageKey,
+        actorId,
+      }),
+      ENQUEUE_TIMEOUT_MS,
+    );
+  } catch {
+    // Back to "analysed", so the person can try again. Should the job reach
+    // the queue after all, the worker finds nothing queued to claim and
+    // writes nothing.
+    await db.importJob.updateMany({
+      where: { id: job.id, status: 'QUEUED' },
+      data: { status: 'COMPLETED' },
     });
-
-    return {
-      ok: true,
-      summary: {
-        people: result.people,
-        relationships: result.relationships,
-        events: result.events,
-        rejected: result.rejected,
-      },
-    };
-  } catch (error) {
-    // The import transaction rolled back, so the tree is untouched. The job
-    // records why, because "it failed" with no reason is not something a user
-    // can act on.
-    await db.importJob.update({
-      where: { id: job.id },
-      data: {
-        status: 'FAILED',
-        completedAt: new Date(),
-        error: error instanceof Error ? error.message.slice(0, 2000) : 'Erreur inconnue',
-      },
-    });
-    throw error;
+    return { ok: false, error: 'QUEUE_UNAVAILABLE' };
   }
+  return { ok: true };
+}
+
+export type ImportState = 'ANALYSED' | 'QUEUED' | 'PROCESSING' | 'DONE' | 'FAILED';
+
+export interface ImportProgress {
+  readonly state: ImportState;
+  /** Rows written so far, and rows to write: the worker's own count. */
+  readonly written: number;
+  readonly total: number;
+  readonly result: {
+    readonly people: number;
+    readonly relationships: number;
+    readonly events: number;
+    readonly rejected: number;
+  } | null;
+  /** Why it stopped, as a code: the job's own message stays on the server. */
+  readonly failure: 'UNSUPPORTED_ENCODING' | 'INTERRUPTED' | 'WRITE_FAILED' | null;
+}
+
+export type ProgressResult =
+  | { readonly ok: true; readonly progress: ImportProgress }
+  | { readonly ok: false; readonly error: 'NOT_FOUND' | 'FORBIDDEN' };
+
+function stateOf(status: string, isDryRun: boolean): ImportState {
+  if (status === 'QUEUED') return 'QUEUED';
+  if (status === 'PROCESSING') return 'PROCESSING';
+  if (status === 'FAILED') return 'FAILED';
+  return isDryRun ? 'ANALYSED' : 'DONE';
+}
+
+/** Where an import stands, for the page waiting on it. */
+export async function importProgress(treeSlug: string, jobId: string): Promise<ProgressResult> {
+  const access = await resolveTreeAccess(treeSlug);
+  if (!access) return { ok: false, error: 'NOT_FOUND' };
+  if (!can(access.role, 'import')) return { ok: false, error: 'FORBIDDEN' };
+  if (!isUuid(jobId)) return { ok: false, error: 'NOT_FOUND' };
+
+  const job = await db.importJob.findFirst({
+    where: { id: jobId, treeId: access.treeId },
+    select: {
+      status: true,
+      isDryRun: true,
+      processedRecords: true,
+      totalRecords: true,
+      result: true,
+      error: true,
+    },
+  });
+  if (!job) return { ok: false, error: 'NOT_FOUND' };
+
+  const state = stateOf(job.status, job.isDryRun);
+  const stored = (job.result ?? null) as {
+    people?: number;
+    relationships?: number;
+    events?: number;
+    rejected?: readonly unknown[];
+  } | null;
+
+  return {
+    ok: true,
+    progress: {
+      state,
+      written: job.processedRecords,
+      total: job.totalRecords,
+      result:
+        state === 'DONE' && stored
+          ? {
+              people: stored.people ?? 0,
+              relationships: stored.relationships ?? 0,
+              events: stored.events ?? 0,
+              rejected: stored.rejected?.length ?? 0,
+            }
+          : null,
+      failure:
+        state !== 'FAILED'
+          ? null
+          : job.error === 'UNSUPPORTED_ENCODING' || job.error === 'INTERRUPTED'
+            ? job.error
+            : 'WRITE_FAILED',
+    },
+  };
 }

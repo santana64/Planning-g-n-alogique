@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from '@/i18n/navigation';
-import type { ImportAnalysis } from '@/server/gedcom-import';
+import type { ImportAnalysis, ImportProgress } from '@/server/gedcom-import';
 
 /**
  * The import review.
@@ -15,10 +15,16 @@ import type { ImportAnalysis } from '@/server/gedcom-import';
  * Everything shown here is measured from the actual file. There is no
  * progress bar driven by a timer, because a progress bar that lies is worse
  * than none — it teaches the user that the numbers on this screen are
- * decoration.
+ * decoration. The write runs in the worker; the bar is its own count of the
+ * rows it has written, read back every second.
  */
 
 type Stage = 'choose' | 'analysing' | 'review' | 'committing' | 'done';
+
+/** How often the page asks where the write stands. */
+const POLL_MS = 1_000;
+/** Still queued after this long: say so, rather than let the page look stuck. */
+const QUEUE_PATIENCE_MS = 15_000;
 
 const ERROR_MESSAGES: Record<string, string> = {
   NOT_FOUND: "Cet arbre n'existe pas ou ne vous est pas accessible.",
@@ -30,6 +36,12 @@ const ERROR_MESSAGES: Record<string, string> = {
   EMPTY: 'Fichier vide.',
   NO_FILE: 'Aucun fichier sélectionné.',
   ALREADY_COMMITTED: 'Cet import a déjà été appliqué.',
+  IN_PROGRESS: 'Cet import est déjà en cours.',
+  QUEUE_UNAVAILABLE:
+    "Le service d'import ne répond pas. Rien n'a été écrit dans l'arbre : réessayez dans un instant.",
+  INTERRUPTED:
+    "L'import a été interrompu avant la fin. Rien n'a été écrit dans l'arbre : vous pouvez le relancer.",
+  WRITE_FAILED: "L'écriture a échoué. Rien n'a été écrit dans l'arbre : vous pouvez la relancer.",
   FILE_MISSING: "Le fichier d'origine est introuvable. Recommencez l'import.",
   UNAUTHENTICATED: 'Connectez-vous pour importer un fichier.',
 };
@@ -61,9 +73,54 @@ export function ImportReview({ treeSlug }: { treeSlug: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [stage, setStage] = useState<Stage>('choose');
   const [analysis, setAnalysis] = useState<ImportAnalysis | null>(null);
-  const [summary, setSummary] = useState<{ people: number; relationships: number } | null>(null);
+  const [progress, setProgress] = useState<ImportProgress | null>(null);
+  const [queuedAt, setQueuedAt] = useState<number | null>(null);
+  const [waitedLong, setWaitedLong] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const jobId = analysis?.jobId ?? null;
+
+  // While the worker writes, ask it how far it has got. A missed answer is
+  // simply asked again: the write goes on server-side either way.
+  useEffect(() => {
+    if (stage !== 'committing' || !jobId || queuedAt === null) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    async function poll() {
+      try {
+        const response = await fetch(`/api/trees/${treeSlug}/import/${jobId}`, {
+          cache: 'no-store',
+        });
+        if (response.ok) {
+          const next = (await response.json()) as ImportProgress;
+          if (cancelled) return;
+          setProgress(next);
+          if (next.state === 'DONE') {
+            setStage('done');
+            return;
+          }
+          if (next.state === 'FAILED') {
+            setError(next.failure ?? 'WRITE_FAILED');
+            setStage('review');
+            return;
+          }
+          if (next.state === 'QUEUED' && Date.now() - (queuedAt ?? 0) > QUEUE_PATIENCE_MS) {
+            setWaitedLong(true);
+          }
+        }
+      } catch {
+        // Offline for a moment: the next poll tries again.
+      }
+      if (!cancelled) timer = setTimeout(() => void poll(), POLL_MS);
+    }
+
+    timer = setTimeout(() => void poll(), POLL_MS / 2);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [stage, jobId, queuedAt, treeSlug]);
 
   async function handleFile(file: File) {
     setError(null);
@@ -87,23 +144,27 @@ export function ImportReview({ treeSlug }: { treeSlug: string }) {
 
   async function handleCommit() {
     if (!analysis) return;
+    setError(null);
+    setProgress(null);
+    setWaitedLong(false);
+    setQueuedAt(null);
     setStage('committing');
 
     const response = await fetch(`/api/trees/${treeSlug}/import/${analysis.jobId}`, {
       method: 'POST',
     });
-    const payload = (await response.json()) as
-      { people: number; relationships: number } | { error: string };
-
-    if (!response.ok || 'error' in payload) {
-      setError('error' in payload ? payload.error : 'NO_FILE');
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      setError(payload.error ?? 'WRITE_FAILED');
       setStage('review');
       return;
     }
-
-    setSummary(payload);
-    setStage('done');
+    setQueuedAt(Date.now());
   }
+
+  const writing = progress?.state === 'PROCESSING' && progress.total > 0;
+  const percent = writing ? Math.floor((progress.written / progress.total) * 100) : 0;
+  const result = progress?.state === 'DONE' ? progress.result : null;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
@@ -160,18 +221,44 @@ export function ImportReview({ treeSlug }: { treeSlug: string }) {
       )}
 
       {stage === 'committing' && (
-        <p className="text-text-muted mt-6 text-sm" role="status">
-          Écriture dans l&apos;arbre…
-        </p>
+        <div className="mt-6 flex flex-col gap-3">
+          {/* The phase alone is announced; the percentage would be read out
+              every second. The bar carries the number for whoever asks. */}
+          <p className="text-text-muted text-sm" role="status">
+            {progress?.state === 'PROCESSING' ? 'Écriture dans l’arbre…' : 'En file d’attente…'}
+          </p>
+          {writing ? (
+            <div className="flex items-center gap-3">
+              <progress
+                value={progress.written}
+                max={progress.total}
+                aria-label="Écriture dans l’arbre"
+                className="[&::-webkit-progress-bar]:bg-surface-2 [&::-webkit-progress-value]:bg-accent [&::-moz-progress-bar]:bg-accent h-1.5 w-full overflow-hidden rounded-full"
+              />
+              <span className="text-text-secondary tabular w-12 shrink-0 text-right text-sm">
+                {percent} %
+              </span>
+            </div>
+          ) : null}
+          {waitedLong ? (
+            <p className="text-text-faint text-sm">
+              Le service d&apos;import n&apos;a pas encore pris le fichier. L&apos;import partira
+              dès qu&apos;il sera disponible ; vous pouvez quitter cette page sans l&apos;annuler.
+            </p>
+          ) : null}
+        </div>
       )}
 
-      {stage === 'done' && summary && (
+      {stage === 'done' && result && (
         <div className="mt-6" role="status">
           <p className="font-editorial text-text-primary text-lg">
-            {summary.people} personnes ajoutées.
+            {result.people} personnes ajoutées.
           </p>
           <p className="text-text-muted mt-1 text-sm">
-            {summary.relationships} relations rétablies.
+            {result.relationships} relations rétablies.
+            {result.rejected > 0
+              ? ` ${result.rejected} lien${result.rejected > 1 ? 's' : ''} écarté${result.rejected > 1 ? 's' : ''}, comme annoncé à la revue.`
+              : ''}
           </p>
           <button
             type="button"

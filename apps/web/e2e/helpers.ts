@@ -40,6 +40,12 @@ export async function addPerson(
   },
 ): Promise<void> {
   await page.getByRole('link', { name: 'Ajouter une personne' }).click();
+  // On the new page before typing: a person's record carries an edit form
+  // with the very same labels. While a slower navigation was still in flight,
+  // this filled the previous person's form, and then submitted the new one
+  // empty — found by slowing that navigation down on purpose.
+  await page.waitForURL(/\/personnes\/nouvelle$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nouvelle personne');
   await fillStable(page, 'Prénom(s)', fields.given);
   await fillStable(page, 'Nom de famille', fields.surname);
   if (fields.sex) await page.getByLabel('Sexe inscrit à l’état civil').selectOption(fields.sex);

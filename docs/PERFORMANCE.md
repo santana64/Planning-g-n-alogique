@@ -92,10 +92,12 @@ Médiane (pire) en millisecondes ; les écritures sont mesurées une fois.
   Suspect principal, non vérifié : la maintenance des index trigrammes (GIN)
   sur les noms. Sur un PostgreSQL de production (disque local, sans WSL), à
   remesurer avant d'optimiser.
-- **L'import s'écrit dans la requête HTTP** : ~30 s de bout en bout à 20 000
-  personnes. Au-delà d'environ 50 000, ou derrière un proxy aux délais courts,
-  confier l'écriture au worker : la file `gedcom-import` et son consommateur
-  existent (`apps/worker`), l'écran de revue devra suivre l'état du travail.
+- **L'import s'écrit dans le worker**, plus dans la requête HTTP (qui tenait
+  ~30 s à 20 000 personnes) : la requête ne fait que l'analyse et la mise en
+  file, l'écran suit la progression réelle (lignes écrites / lignes à écrire).
+  Reste une transaction unique par fichier, bornée à 120 s : au-delà d'environ
+  80 000 personnes au débit mesuré ici, il faudra la découper ou relever la
+  borne — non mesuré.
 - **Rendu** : la frise et la constellation adaptent leur niveau de détail et
   leur qualité (`packages/engine/src/render/quality.ts`, niveaux de détail de
   la frise), mais les images par seconde ne sont pas mesurées automatiquement ;

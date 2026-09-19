@@ -80,6 +80,7 @@ const config: NextConfig = {
     '@chronolignee/genealogy',
     '@chronolignee/db',
     '@chronolignee/config',
+    '@chronolignee/jobs',
   ],
 
   experimental: {
@@ -87,7 +88,9 @@ const config: NextConfig = {
     serverActions: { bodySizeLimit: '8mb' },
   },
 
-  serverExternalPackages: ['@prisma/client', 'pg', 'pino'],
+  // BullMQ loads its Redis scripts and its client at run time; bundled, it
+  // would lose both. Kept external like the database driver.
+  serverExternalPackages: ['@prisma/client', 'pg', 'pino', 'bullmq'],
 
   async headers() {
     return [

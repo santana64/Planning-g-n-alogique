@@ -1,7 +1,7 @@
 import { dateToJdn } from '@chronolignee/domain';
 import type { ImportPlan } from '@chronolignee/gedcom';
 import type { Prisma } from '../../generated/client/client';
-import type { Database } from '../client';
+import type { Database, TransactionClient } from '../client';
 import { encodeDate } from '../date-codec';
 import {
   buildDisplayForm,
@@ -45,6 +45,21 @@ export interface ImportOptions {
   readonly actorId: string | null;
   /** Correlation id so the whole import reads as one action in the audit log. */
   readonly batchId?: string;
+  /**
+   * Called after every batch with the rows written so far and the rows there
+   * are to write — the only honest progress an import has. The rows only
+   * become visible when the transaction commits; the work they measure is
+   * already done.
+   */
+  readonly onProgress?: (written: number, total: number) => Promise<void> | void;
+  /**
+   * Runs last, inside the import's own transaction, with what was written.
+   * Whatever records that the import happened — the job's "done" — belongs
+   * here: written after the commit, a failure in between would leave the
+   * data in the tree and the job saying it failed, inviting a second import
+   * of the same file.
+   */
+  readonly finalise?: (tx: TransactionClient, result: ImportResult) => Promise<void>;
 }
 
 /**
@@ -264,22 +279,75 @@ export async function importGedcomPlan(
   // One transaction: a GEDCOM import that fails halfway leaves a tree with
   // people who have no parents and marriages with no spouses — a state the
   // user cannot see is wrong and cannot undo.
+  const total =
+    placeRows.length +
+    sourceRows.length +
+    personRows.length +
+    nameRows.length +
+    eventRows.length +
+    participantRows.length +
+    citationRows.length +
+    relationshipRows.length;
+  let rowsWritten = 0;
+  const counted =
+    <T>(write: (batch: T[]) => Promise<unknown>) =>
+    async (batch: T[]): Promise<void> => {
+      await write(batch);
+      rowsWritten += batch.length;
+      await options.onProgress?.(rowsWritten, total);
+    };
+
+  // Everything the result says is settled before anything is written.
+  const result: ImportResult = {
+    treeId,
+    people: personRows.length,
+    relationships: relationshipRows.length,
+    events: eventRows.length,
+    places: placeRows.length,
+    sources: sourceRows.length,
+    rejected,
+  };
+
   await db.$transaction(
     async (tx) => {
-      await inBatches(placeRows, (batch) => tx.place.createMany({ data: batch }));
+      await inBatches(
+        placeRows,
+        counted((batch) => tx.place.createMany({ data: batch })),
+      );
       // The spatial column, for every located place, in one statement.
       await tx.$executeRaw`
         UPDATE places
         SET geom = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography
         WHERE "treeId" = ${treeId}::uuid
           AND latitude IS NOT NULL AND longitude IS NOT NULL AND geom IS NULL`;
-      await inBatches(sourceRows, (batch) => tx.source.createMany({ data: batch }));
-      await inBatches(personRows, (batch) => tx.person.createMany({ data: batch }));
-      await inBatches(nameRows, (batch) => tx.personName.createMany({ data: batch }));
-      await inBatches(eventRows, (batch) => tx.event.createMany({ data: batch }));
-      await inBatches(participantRows, (batch) => tx.eventParticipant.createMany({ data: batch }));
-      await inBatches(citationRows, (batch) => tx.citation.createMany({ data: batch }));
-      await inBatches(relationshipRows, (batch) => tx.relationship.createMany({ data: batch }));
+      await inBatches(
+        sourceRows,
+        counted((batch) => tx.source.createMany({ data: batch })),
+      );
+      await inBatches(
+        personRows,
+        counted((batch) => tx.person.createMany({ data: batch })),
+      );
+      await inBatches(
+        nameRows,
+        counted((batch) => tx.personName.createMany({ data: batch })),
+      );
+      await inBatches(
+        eventRows,
+        counted((batch) => tx.event.createMany({ data: batch })),
+      );
+      await inBatches(
+        participantRows,
+        counted((batch) => tx.eventParticipant.createMany({ data: batch })),
+      );
+      await inBatches(
+        citationRows,
+        counted((batch) => tx.citation.createMany({ data: batch })),
+      );
+      await inBatches(
+        relationshipRows,
+        counted((batch) => tx.relationship.createMany({ data: batch })),
+      );
 
       await tx.tree.update({ where: { id: treeId }, data: { revision: { increment: 1 } } });
 
@@ -301,17 +369,11 @@ export async function importGedcomPlan(
         summary: `Import GEDCOM : ${personRows.length} personnes, ${relationshipRows.length} liens, ${eventRows.length} événements`,
         ...(options.batchId ? { batchId: options.batchId } : {}),
       });
+
+      await options.finalise?.(tx, result);
     },
     { timeout: TRANSACTION_TIMEOUT_MS, maxWait: 10_000 },
   );
 
-  return {
-    treeId,
-    people: personRows.length,
-    relationships: relationshipRows.length,
-    events: eventRows.length,
-    places: placeRows.length,
-    sources: sourceRows.length,
-    rejected,
-  };
+  return result;
 }

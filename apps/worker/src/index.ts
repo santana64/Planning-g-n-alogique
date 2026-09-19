@@ -1,17 +1,19 @@
+import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { Worker, type Job } from 'bullmq';
 import pino from 'pino';
 import { assertDeployable, getServerEnv, scrubErrorReport } from '@chronolignee/config/server';
-import {
-  createDatabase,
-  importGedcomPlan,
-  purgeDeletedTree,
-  treesAwaitingPurge,
-} from '@chronolignee/db';
-import { decodeGedcom, mapDocument, parseGedcom } from '@chronolignee/gedcom';
+import { createDatabase, purgeDeletedTree, treesAwaitingPurge } from '@chronolignee/db';
 import { getObjectStore, treePrefixes } from '@chronolignee/storage';
-import { QUEUE_NAMES, WORKER_RETENTION, assertPayload, redisConnection } from '@chronolignee/jobs';
+import {
+  QUEUE_NAMES,
+  WORKER_RETENTION,
+  assertPayload,
+  redisConnection,
+  reportConnectionErrors,
+} from '@chronolignee/jobs';
+import { runGedcomImport } from './gedcom-import';
 
 /**
  * The background worker.
@@ -92,10 +94,10 @@ const connection = redisConnection(env.REDIS_URL);
 /**
  * GEDCOM import.
  *
- * Progress is reported from work that actually happened. The brief is blunt
- * about this and it is right: a progress bar driven by a timer teaches the
- * user that the numbers are decoration, and then the honest ones are ignored
- * too.
+ * The web app analyses a file, shows the person what it holds, and on their
+ * say-so queues it here: twenty thousand people take half a minute to write,
+ * which is no time to hold a request open. Progress, outcome and failure are
+ * written on the import job as they happen (see gedcom-import.ts).
  */
 const gedcomWorker = new Worker(
   QUEUE_NAMES.gedcomImport,
@@ -104,44 +106,18 @@ const gedcomWorker = new Worker(
     const log = logger.child({ jobId: job.id, treeId: payload.treeId });
 
     log.info('import started');
-    await db.importJob.update({
-      where: { id: payload.importJobId },
-      data: { status: 'PROCESSING', startedAt: new Date() },
-    });
-
-    const bytes = await objectStore.get(payload.storageKey);
-    await job.updateProgress(20);
-
-    // The analysis already refused a file it could not read; one that got
-    // this far and still cannot be read fails the job rather than import
-    // garbled names.
-    const decoded = decodeGedcom(bytes);
-    if (!decoded.ok) throw new Error('UNSUPPORTED_ENCODING');
-    const document = parseGedcom(decoded.value.text);
-    await job.updateProgress(45);
-
-    const plan = mapDocument(document);
-    await job.updateProgress(60);
-
-    const result = await importGedcomPlan(db, plan, {
-      treeId: payload.treeId,
-      actorId: payload.actorId,
-    });
-    await job.updateProgress(100);
-
-    await db.importJob.update({
-      where: { id: payload.importJobId },
-      data: {
-        status: 'COMPLETED',
-        isDryRun: false,
-        completedAt: new Date(),
-        processedRecords: document.records.length,
-        totalRecords: document.records.length,
-      },
-    });
-
+    const result = await runGedcomImport(
+      { db, read: (storageKey) => objectStore.get(storageKey) },
+      payload,
+    );
+    if (!result) {
+      log.warn('import skipped: the job is no longer queued');
+      return null;
+    }
     log.info({ people: result.people, rejected: result.rejected.length }, 'import finished');
-    return result;
+    // Counts only: BullMQ keeps a job's return value in Redis, and the links
+    // the database refused are described with the people they concern.
+    return { people: result.people, relationships: result.relationships, events: result.events };
   },
   {
     connection,
@@ -152,22 +128,26 @@ const gedcomWorker = new Worker(
   },
 );
 
+reportConnectionErrors(gedcomWorker, (error, suppressed) =>
+  logger.error({ error: error.name, suppressed }, 'queue unavailable, retrying'),
+);
+
 gedcomWorker.on('failed', (job, error) => {
   // The error's class only: its message can quote a name or a date from the
-  // file. The full message goes to the import job, where only the tree's
+  // file. The job row already holds the full message, where only the tree's
   // members read it.
   logger.error({ jobId: job?.id, error: error.name }, 'import failed');
   sentry?.captureException(error, { tags: { queue: QUEUE_NAMES.gedcomImport } });
 
+  // A job that failed before it could say so — the process died mid-import,
+  // BullMQ gave up on a stalled job — would otherwise read "in progress"
+  // forever. Only a job still marked as running is touched.
   const importJobId = (job?.data as { importJobId?: string } | undefined)?.importJobId;
   if (!importJobId) return;
-
-  // The import transaction rolled back, so the tree is untouched. Recording
-  // why matters because "it failed" with no reason is not actionable.
   void db.importJob
-    .update({
-      where: { id: importJobId },
-      data: { status: 'FAILED', completedAt: new Date(), error: error.message.slice(0, 2000) },
+    .updateMany({
+      where: { id: importJobId, status: { in: ['QUEUED', 'PROCESSING'] } },
+      data: { status: 'FAILED', completedAt: new Date(), error: 'INTERRUPTED' },
     })
     .catch((updateError: unknown) => {
       logger.error(
@@ -213,8 +193,29 @@ async function sweepDeletedTrees(): Promise<void> {
 const sweeper = setInterval(() => void sweepDeletedTrees(), SWEEP_EVERY_MS);
 void sweepDeletedTrees();
 
+/**
+ * Liveness, over HTTP, only when a port is configured: 200 while the queue
+ * consumer runs, 503 once it has stopped. Nothing else is served.
+ */
+const health =
+  env.WORKER_HEALTH_PORT === undefined
+    ? null
+    : createServer((request, response) => {
+        if (request.method !== 'GET' || request.url !== '/health') {
+          response.writeHead(404).end();
+          return;
+        }
+        const running = workers.every((worker) => worker.isRunning());
+        response
+          .writeHead(running ? 200 : 503, {
+            'content-type': 'application/json',
+            'cache-control': 'no-store',
+          })
+          .end(JSON.stringify({ status: running ? 'ok' : 'unavailable' }));
+      }).listen(env.WORKER_HEALTH_PORT);
+
 logger.info(
-  { queues: workers.map((w) => w.name), env: env.NODE_ENV },
+  { queues: workers.map((w) => w.name), env: env.NODE_ENV, healthPort: env.WORKER_HEALTH_PORT },
   'Chronolignée worker listening',
 );
 
@@ -233,6 +234,7 @@ async function shutdown(signal: string): Promise<void> {
 
   logger.info({ signal }, 'shutting down, finishing the job in flight');
   clearInterval(sweeper);
+  health?.close();
   await Promise.all(workers.map((worker) => worker.close()));
   await db.$disconnect();
   logger.info('stopped');

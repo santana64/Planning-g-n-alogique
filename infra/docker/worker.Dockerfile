@@ -87,6 +87,11 @@ COPY --from=build --chown=chronolignee:chronolignee /deploy ./
 
 USER chronolignee
 
+# Liveness over HTTP: 200 while the queue consumer runs, 503 once it stopped.
+ENV WORKER_HEALTH_PORT=3001
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
 # tsx runs the TypeScript directly. The worker starts once and then waits on a
 # queue, so a compile step would add build time and a second artefact to keep
 # in step for nothing measurable at runtime.

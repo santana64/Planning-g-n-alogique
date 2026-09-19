@@ -1,5 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../generated/client/client';
+import { PrismaClient, type Prisma } from '../generated/client/client';
 
 /**
  * Database client.
@@ -59,8 +59,7 @@ export type Database = PrismaClient;
 /**
  * Transaction client: the subset of the API available inside `$transaction`.
  * Repositories accept this so they compose into a single atomic unit of work.
+ * Prisma's own definition, so the two can never disagree about what a
+ * transaction may call.
  */
-export type TransactionClient = Omit<
-  PrismaClient,
-  '$connect' | '$disconnect' | '$transaction' | '$extends'
->;
+export type TransactionClient = Prisma.TransactionClient;

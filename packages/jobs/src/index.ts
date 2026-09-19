@@ -116,6 +116,34 @@ export function redisConnection(url: string): ConnectionOptions {
   };
 }
 
+/**
+ * Report a lost Redis connection without flooding the log.
+ *
+ * While Redis is away the client retries every second or two, and every
+ * retry fails the same way; with no listener BullMQ prints each failure as a
+ * raw stack on stderr, outside the structured log. The first failure is
+ * reported, then at most one per interval with the count of those left out.
+ */
+export function reportConnectionErrors(
+  emitter: { on(event: 'error', listener: (error: Error) => void): unknown },
+  report: (error: Error, suppressed: number) => void,
+  everyMs = 60_000,
+  now: () => number = Date.now,
+): void {
+  let last = Number.NEGATIVE_INFINITY;
+  let suppressed = 0;
+  emitter.on('error', (error) => {
+    const at = now();
+    if (at - last < everyMs) {
+      suppressed += 1;
+      return;
+    }
+    report(error, suppressed);
+    last = at;
+    suppressed = 0;
+  });
+}
+
 export function createQueue(name: QueueName, redisUrl: string): Queue {
   return new Queue(name, {
     connection: redisConnection(redisUrl),

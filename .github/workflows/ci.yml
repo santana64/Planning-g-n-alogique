@@ -143,6 +143,16 @@ jobs:
     needs: [quality]
 
     services:
+      # The queue the web app puts imports on, for the worker the suite starts.
+      redis:
+        image: redis:8-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
       postgres:
         image: postgis/postgis:18-3.6
         env:

@@ -19,6 +19,7 @@
     "@chronolignee/engine": "workspace:*",
     "@chronolignee/gedcom": "workspace:*",
     "@chronolignee/genealogy": "workspace:*",
+    "@chronolignee/jobs": "workspace:*",
     "@chronolignee/storage": "workspace:*",
     "@chronolignee/ui": "workspace:*",
     "@opentelemetry/api": "catalog:",

@@ -46,6 +46,12 @@ export const serverEnvSchema = z
     DATABASE_POOL_URL: z.string().startsWith('postgres').optional(),
 
     REDIS_URL: z.string().startsWith('redis'),
+    /**
+     * Where the worker answers `GET /health`, when set. The worker serves no
+     * other HTTP; this exists so an orchestrator — and the end-to-end suite,
+     * which starts it — can tell a running worker from a crashed one.
+     */
+    WORKER_HEALTH_PORT: positiveInt.max(65_535).optional(),
 
     // 32 bytes base64url is 43 chars. Anything shorter is not a real secret.
     BETTER_AUTH_SECRET: z

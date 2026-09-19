@@ -385,6 +385,9 @@ importers:
       '@chronolignee/genealogy':
         specifier: workspace:*
         version: link:../../packages/genealogy
+      '@chronolignee/jobs':
+        specifier: workspace:*
+        version: link:../../packages/jobs
       '@chronolignee/storage':
         specifier: workspace:*
         version: link:../../packages/storage

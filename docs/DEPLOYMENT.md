@@ -9,9 +9,9 @@ risque acceptable, et ce document commence donc par ce qui la prévient.
 | Composant      | Rôle                                                                       | Image / service                                         |
 | -------------- | -------------------------------------------------------------------------- | ------------------------------------------------------- |
 | Web            | Next.js : pages, actions serveur, routes d'API                             | `infra/docker/web.Dockerfile` (utilisateur non root)    |
-| Worker         | Import GEDCOM en file, purge des arbres supprimés                          | `infra/docker/worker.Dockerfile` (utilisateur non root) |
+| Worker         | Écriture des imports GEDCOM, purge des arbres supprimés                    | `infra/docker/worker.Dockerfile` (utilisateur non root) |
 | PostgreSQL 18  | Toutes les données ; extensions `citext`, `pg_trgm`, `postgis`, `unaccent` | géré ou `postgis/postgis:18-3.6`                        |
-| Redis          | Files de travaux du worker                                                 | Redis 8                                                 |
+| Redis          | File des imports, du web vers le worker                                    | Redis 8                                                 |
 | Stockage objet | Documents numérisés, fichiers GEDCOM importés                              | S3 ou compatible (MinIO en local)                       |
 
 ```bash
@@ -59,10 +59,14 @@ pnpm db:migrate:deploy   # avant chaque mise en service d'une nouvelle version
 
 ## Santé
 
-| Point               | Question                                       | Usage                          |
-| ------------------- | ---------------------------------------------- | ------------------------------ |
-| `/api/health`       | Le processus répond-il ?                       | vivacité, `HEALTHCHECK` Docker |
-| `/api/health/ready` | La base et le stockage répondent-ils (≤ 3 s) ? | disponibilité, routage         |
+| Point                         | Question                                       | Usage                          |
+| ----------------------------- | ---------------------------------------------- | ------------------------------ |
+| `/api/health`                 | Le processus web répond-il ?                   | vivacité, `HEALTHCHECK` Docker |
+| `/api/health/ready`           | La base et le stockage répondent-ils (≤ 3 s) ? | disponibilité, routage         |
+| worker `:3001/health` (image) | Le consommateur de la file tourne-t-il ?       | vivacité, `HEALTHCHECK` Docker |
+
+Le worker ne sert rien d'autre en HTTP ; son port de santé n'existe que si
+`WORKER_HEALTH_PORT` est défini (l'image fixe 3001).
 
 `/api/health/ready` répond 503 en disant quelle dépendance manque, sans hôte
 ni message d'erreur. Ne pas le brancher sur les redémarrages : une panne de la
@@ -77,6 +81,9 @@ base ferait redémarrer tous les conteneurs web en boucle.
 - **Traces** : `OTEL_ENABLED=true` et `OTEL_EXPORTER_OTLP_ENDPOINT` (collecteur
   OTLP/HTTP). Vérifié contre un collecteur local : les traces de requêtes
   arrivent sur `/v1/traces`.
+- **File** : une connexion Redis perdue est journalisée une fois, puis au plus
+  une fois par minute avec le nombre de tentatives tues — pas une pile par
+  reconnexion.
 - **Erreurs** : `SENTRY_DSN` active les rapports d'erreurs du web et du
   worker. Seuls partent le type de l'erreur et sa pile : ni requête, ni
   utilisateur, ni fil d'Ariane, ni message (un message de base de données peut
@@ -88,12 +95,19 @@ base ferait redémarrer tous les conteneurs web en boucle.
   l'arbre, donc correct à plusieurs instances). L'adhésion et le rôle sont
   relus en base à chaque requête ; la session est gardée 5 minutes dans un
   cookie signé (révocation effective en 5 minutes au plus).
-- Worker : un import à la fois (transaction longue). Le balayeur termine toutes
-  les 15 minutes les purges d'arbres supprimés restées inachevées ; plusieurs
-  workers peuvent tourner, la purge est idempotente.
-- Les écritures d'un import de 20 000 personnes prennent environ 30 s dans la
-  requête (`docs/PERFORMANCE.md`) : prévoir des délais de proxy supérieurs à
-  60 s sur `/api/trees/*/import/*`.
+- Worker : **indispensable aux imports**. Le web analyse le fichier dans la
+  requête (lecture, revue, rien n'est écrit), puis met l'écriture en file ;
+  sans worker, un import reste « en file d'attente » et l'écran le dit. Un
+  import à la fois (une transaction longue par fichier, ~30 s pour 20 000
+  personnes, `docs/PERFORMANCE.md`). L'état « terminé » est écrit dans la même
+  transaction que les données, et seul un import réellement en file est
+  écrit : une double livraison par la file n'écrit qu'une fois.
+- Web : a besoin de Redis pour mettre un import en file ; s'il ne répond pas
+  en 5 s, l'import revient à l'état « analysé » et l'écran propose de
+  réessayer.
+- Le balayeur du worker termine toutes les 15 minutes les purges d'arbres
+  supprimés restées inachevées ; plusieurs workers peuvent tourner, la purge
+  est idempotente.
 
 ## Sauvegardes
 

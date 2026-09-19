@@ -170,6 +170,10 @@ model ImportJob {
   warnings Json?
   /// Tags the parser did not recognise, kept so export can round-trip them.
   unknownTags Json?
+  /// What the commit wrote — counts and the links the database refused —
+  /// kept on the job because the write happens in the worker, after the
+  /// request that asked for it has returned.
+  result      Json?
   error       String?
 
   startedAt   DateTime?

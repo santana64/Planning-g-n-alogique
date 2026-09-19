@@ -19,6 +19,7 @@ try {
  */
 const PORT = Number(process.env['E2E_PORT'] ?? 3100);
 const BASE_URL = `http://localhost:${PORT}`;
+const WORKER_HEALTH_PORT = Number(process.env['E2E_WORKER_PORT'] ?? 3101);
 
 export default defineConfig({
   testDir: fileURLToPath(new URL('./e2e', import.meta.url)),
@@ -83,24 +84,37 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    // Against the production build, not the dev server: the things E2E is
-    // meant to catch — a broken static generation, a missing environment
-    // variable at build time, a client bundle that fails to hydrate — only
-    // happen in the built app.
-    command: `pnpm --filter @chronolignee/web exec next start --port ${PORT}`,
-    url: BASE_URL,
-    env: {
-      APP_URL: BASE_URL,
-      BETTER_AUTH_URL: BASE_URL,
-      TRUSTED_ORIGINS: BASE_URL,
-      // Experimental surfaces are off by default and on here: a flag that is
-      // never switched on in a test is a feature nobody has run.
-      FEATURE_STORY_DIRECTOR: 'true',
+  webServer: [
+    {
+      // Against the production build, not the dev server: the things E2E is
+      // meant to catch — a broken static generation, a missing environment
+      // variable at build time, a client bundle that fails to hydrate — only
+      // happen in the built app.
+      command: `pnpm --filter @chronolignee/web exec next start --port ${PORT}`,
+      url: BASE_URL,
+      env: {
+        APP_URL: BASE_URL,
+        BETTER_AUTH_URL: BASE_URL,
+        TRUSTED_ORIGINS: BASE_URL,
+        // Experimental surfaces are off by default and on here: a flag that is
+        // never switched on in a test is a feature nobody has run.
+        FEATURE_STORY_DIRECTOR: 'true',
+      },
+      reuseExistingServer: !process.env['CI'],
+      timeout: 120_000,
+      stdout: 'pipe',
+      stderr: 'pipe',
     },
-    reuseExistingServer: !process.env['CI'],
-    timeout: 120_000,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
+    {
+      // The worker writes imports. Without it an import stays queued, which
+      // is what production would do too — so it runs, as it would there.
+      command: 'pnpm --filter @chronolignee/worker exec tsx src/index.ts',
+      url: `http://localhost:${WORKER_HEALTH_PORT}/health`,
+      env: { WORKER_HEALTH_PORT: String(WORKER_HEALTH_PORT) },
+      reuseExistingServer: !process.env['CI'],
+      timeout: 60_000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+  ],
 });
