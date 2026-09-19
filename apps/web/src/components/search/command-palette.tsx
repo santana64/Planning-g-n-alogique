@@ -24,9 +24,19 @@ interface Command {
   readonly hint: string;
   readonly href: string;
   readonly requiresEdit: boolean;
+  /** Importing is an editor's right, not a contributor's. */
+  readonly requiresImport?: boolean;
 }
 
-export function CommandPalette({ treeSlug, canEdit }: { treeSlug: string; canEdit: boolean }) {
+export function CommandPalette({
+  treeSlug,
+  canEdit,
+  canImport,
+}: {
+  treeSlug: string;
+  canEdit: boolean;
+  canImport: boolean;
+}) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -73,10 +83,14 @@ export function CommandPalette({ treeSlug, canEdit }: { treeSlug: string; canEdi
       hint: 'action',
       href: `/app/${treeSlug}/import`,
       requiresEdit: true,
+      requiresImport: true,
     },
   ];
 
-  const visibleCommands = commands.filter((command) => canEdit || !command.requiresEdit);
+  const visibleCommands = commands.filter(
+    (command) =>
+      (canEdit || !command.requiresEdit) && (canImport || command.requiresImport !== true),
+  );
   const showCommands = query.trim().length < 2;
   const rowCount = showCommands ? visibleCommands.length : results.length;
 

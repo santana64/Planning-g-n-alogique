@@ -9,7 +9,7 @@ import {
   purgeDeletedTree,
   treesAwaitingPurge,
 } from '@chronolignee/db';
-import { mapDocument, parseGedcom } from '@chronolignee/gedcom';
+import { decodeGedcom, mapDocument, parseGedcom } from '@chronolignee/gedcom';
 import { getObjectStore, treePrefixes } from '@chronolignee/storage';
 import { QUEUE_NAMES, WORKER_RETENTION, assertPayload, redisConnection } from '@chronolignee/jobs';
 
@@ -112,7 +112,12 @@ const gedcomWorker = new Worker(
     const bytes = await objectStore.get(payload.storageKey);
     await job.updateProgress(20);
 
-    const document = parseGedcom(new TextDecoder('utf-8', { fatal: false }).decode(bytes));
+    // The analysis already refused a file it could not read; one that got
+    // this far and still cannot be read fails the job rather than import
+    // garbled names.
+    const decoded = decodeGedcom(bytes);
+    if (!decoded.ok) throw new Error('UNSUPPORTED_ENCODING');
+    const document = parseGedcom(decoded.value.text);
     await job.updateProgress(45);
 
     const plan = mapDocument(document);

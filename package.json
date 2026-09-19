@@ -30,6 +30,7 @@
     "db:generate": "pnpm --filter @chronolignee/db generate",
     "db:migrate": "pnpm --filter @chronolignee/db migrate",
     "db:migrate:deploy": "pnpm --filter @chronolignee/db migrate:deploy",
+    "db:drift": "pnpm --filter @chronolignee/db drift",
     "db:reset": "pnpm --filter @chronolignee/db reset",
     "db:seed": "pnpm --filter @chronolignee/db seed",
     "db:studio": "pnpm --filter @chronolignee/db studio",

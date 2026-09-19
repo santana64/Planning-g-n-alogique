@@ -25,11 +25,22 @@ const ERROR_MESSAGES: Record<string, string> = {
   FORBIDDEN: "Vous n'avez pas le droit de modifier cet arbre.",
   TOO_LARGE: 'Fichier trop volumineux.',
   NOT_GEDCOM: "Ce fichier ne commence pas par « 0 HEAD » : ce n'est pas un GEDCOM.",
+  UNSUPPORTED_ENCODING:
+    'Ce fichier est écrit dans un encodage DOS (IBMPC) qui ne peut pas être lu sans abîmer les accents. Réexportez-le en UTF-8 depuis votre logiciel de généalogie.',
   EMPTY: 'Fichier vide.',
   NO_FILE: 'Aucun fichier sélectionné.',
   ALREADY_COMMITTED: 'Cet import a déjà été appliqué.',
   FILE_MISSING: "Le fichier d'origine est introuvable. Recommencez l'import.",
   UNAUTHENTICATED: 'Connectez-vous pour importer un fichier.',
+};
+
+const ENCODING_LABELS: Record<ImportAnalysis['encoding']['used'], string> = {
+  'UTF-8': 'UTF-8',
+  'UTF-16LE': 'UTF-16',
+  'UTF-16BE': 'UTF-16',
+  'WINDOWS-1252': 'Windows-1252',
+  MACINTOSH: 'Mac Roman',
+  ANSEL: 'ANSEL',
 };
 
 const WARNING_LABELS: Record<string, string> = {
@@ -114,15 +125,22 @@ export function ImportReview({ treeSlug }: { treeSlug: string }) {
           <p className="text-text-muted text-sm">
             Rien ne sera écrit dans votre arbre avant que vous ayez vu ce que contient le fichier.
           </p>
+          <label
+            htmlFor="gedcom-file"
+            className="text-text-secondary mt-4 block text-sm font-medium"
+          >
+            Fichier GEDCOM
+          </label>
           <input
             ref={inputRef}
+            id="gedcom-file"
             type="file"
             accept=".ged,.gedcom,text/plain"
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) void handleFile(file);
             }}
-            className="border-border-default bg-surface-1 text-text-secondary file:bg-surface-2 file:text-text-primary mt-4 w-full rounded-[var(--radius-md)] border px-3 py-2.5 text-sm file:mr-3 file:rounded-[var(--radius-sm)] file:border-0 file:px-3 file:py-1.5"
+            className="border-border-default bg-surface-1 text-text-secondary file:bg-surface-2 file:text-text-primary mt-1.5 w-full rounded-[var(--radius-md)] border px-3 py-2.5 text-sm file:mr-3 file:rounded-[var(--radius-sm)] file:border-0 file:px-3 file:py-1.5"
           />
         </div>
       )}
@@ -190,7 +208,26 @@ function ReviewPanel({
         {analysis.filename} · {(analysis.byteSize / 1024).toFixed(0)} Ko
         {analysis.detectedVersion && ` · GEDCOM ${analysis.detectedVersion}`}
         {analysis.generator && ` · produit par ${analysis.generator}`}
+        {` · encodage ${ENCODING_LABELS[analysis.encoding.used]}`}
+        {analysis.encoding.declared &&
+          analysis.encoding.declared.toUpperCase() !== analysis.encoding.used &&
+          ` (déclaré « ${analysis.encoding.declared} »)`}
       </p>
+
+      {analysis.encoding.guessed && (
+        <p className="text-approximate mt-3 text-sm">
+          Le fichier ne dit pas correctement dans quel encodage il est écrit : il a été lu en{' '}
+          {ENCODING_LABELS[analysis.encoding.used]}, le cas le plus courant. Vérifiez les accents
+          dans les noms ci-dessous avant d&apos;importer.
+        </p>
+      )}
+
+      {analysis.sampleNames.length > 0 && (
+        <p className="text-text-secondary mt-3 text-sm">
+          <span className="text-text-faint">Aperçu des noms : </span>
+          {analysis.sampleNames.join(' · ')}
+        </p>
+      )}
 
       <dl className="border-border-subtle bg-border-subtle mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-lg)] border sm:grid-cols-4">
         <Count label="personnes" value={counts.people} />

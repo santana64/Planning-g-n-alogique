@@ -28,5 +28,11 @@ export default defineConfig({
   },
   datasource: {
     url: process.env['DATABASE_URL'] ?? '',
+    // Only for comparing the migrations with the schema (CI's drift check),
+    // which replays every migration into this scratch database. Never the
+    // main database: Prisma empties a shadow database before using it.
+    ...(process.env['SHADOW_DATABASE_URL']
+      ? { shadowDatabaseUrl: process.env['SHADOW_DATABASE_URL'] }
+      : {}),
   },
 });

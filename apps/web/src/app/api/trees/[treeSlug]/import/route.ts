@@ -17,6 +17,7 @@ const ERROR_STATUS: Record<string, number> = {
   FORBIDDEN: 403,
   TOO_LARGE: 413,
   NOT_GEDCOM: 415,
+  UNSUPPORTED_ENCODING: 415,
   EMPTY: 400,
 };
 

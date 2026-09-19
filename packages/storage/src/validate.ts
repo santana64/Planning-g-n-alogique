@@ -122,8 +122,15 @@ export function validateGedcom(bytes: Uint8Array, maxBytes: number): ValidationR
     return { ok: false, reason: 'TOO_LARGE', detectedMime: undefined };
   }
 
-  // Enough to see the header without decoding a 40 MB file twice.
-  const head = new TextDecoder('utf-8', { fatal: false }).decode(bytes.subarray(0, 512));
+  // Enough to see the header without decoding a 40 MB file twice. The
+  // header is ASCII in every encoding GEDCOM has used except UTF-16 ("UNICODE"
+  // in 5.5), which has to be read as such, with or without its byte-order mark.
+  const littleEndian =
+    (bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0x30 && bytes[1] === 0x00);
+  const bigEndian =
+    (bytes[0] === 0xfe && bytes[1] === 0xff) || (bytes[0] === 0x00 && bytes[1] === 0x30);
+  const encoding = littleEndian ? 'utf-16le' : bigEndian ? 'utf-16be' : 'utf-8';
+  const head = new TextDecoder(encoding, { fatal: false }).decode(bytes.subarray(0, 1024));
   const withoutBom = head.charCodeAt(0) === 0xfeff ? head.slice(1) : head;
 
   if (!/^\s*0\s+HEAD\b/m.test(withoutBom)) {

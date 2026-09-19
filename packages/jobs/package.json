@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "bullmq": "catalog:",
-    "ioredis": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

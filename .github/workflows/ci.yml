@@ -72,18 +72,6 @@ jobs:
           --health-timeout 5s
           --health-retries 20
 
-      minio:
-        image: quay.io/minio/minio:latest
-        env:
-          MINIO_ROOT_USER: chronolignee
-          MINIO_ROOT_PASSWORD: chronolignee_ci
-        ports: ['9000:9000']
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-
     env:
       DATABASE_URL: postgresql://chronolignee:chronolignee_ci@localhost:5432/chronolignee?schema=public
       REDIS_URL: redis://localhost:6379
@@ -109,13 +97,24 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Create the bucket
+      - name: Generate Prisma client
+        # The seed, the tests and the build all import the generated client,
+        # which is not committed.
+        run: pnpm db:generate
+
+      - name: Start the object store
+        # A step rather than a service container: services cannot be given a
+        # command, and the MinIO image does nothing without `server /data`.
         run: |
-          curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
-          chmod +x /usr/local/bin/mc
-          mc alias set ci http://localhost:9000 chronolignee chronolignee_ci
-          mc mb --ignore-existing ci/chronolignee-archives
-          mc anonymous set none ci/chronolignee-archives
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=chronolignee -e MINIO_ROOT_PASSWORD=chronolignee_ci \
+            quay.io/minio/minio:latest server /data
+          timeout 60 bash -c 'until curl -sf http://localhost:9000/minio/health/live; do sleep 1; done'
+          curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o "$RUNNER_TEMP/mc"
+          chmod +x "$RUNNER_TEMP/mc"
+          "$RUNNER_TEMP/mc" alias set ci http://localhost:9000 chronolignee chronolignee_ci
+          "$RUNNER_TEMP/mc" mb --ignore-existing ci/chronolignee-archives
+          "$RUNNER_TEMP/mc" anonymous set none ci/chronolignee-archives
 
       - name: Apply migrations
         # `migrate deploy`, never `db push`. The migrations are the schema, and
@@ -124,13 +123,15 @@ jobs:
 
       - name: Check for schema drift
         # Fails when the Prisma schema and the migrations disagree — the state
-        # that produces a database nobody can reproduce from the repository.
-        run: pnpm --filter @chronolignee/db exec prisma migrate diff
-          --from-migrations prisma/migrations
-          --to-schema-datamodel prisma/schema
-          --shadow-database-url "$DATABASE_URL"
-          --exit-code
-        continue-on-error: false
+        # that produces a database nobody can reproduce from the repository,
+        # and the one in which the next `migrate dev` drops an index. The
+        # migrations are replayed into a scratch database, never this one:
+        # Prisma empties a shadow database before using it.
+        run: |
+          PGPASSWORD=chronolignee_ci psql -h localhost -U chronolignee -d chronolignee -c 'CREATE DATABASE chronolignee_shadow'
+          pnpm db:drift
+        env:
+          SHADOW_DATABASE_URL: postgresql://chronolignee:chronolignee_ci@localhost:5432/chronolignee_shadow
 
       - run: pnpm db:seed
       - run: pnpm test:integration
@@ -179,6 +180,26 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        # The seed, the tests and the build all import the generated client,
+        # which is not committed.
+        run: pnpm db:generate
+
+      - name: Start the object store
+        # A step rather than a service container: services cannot be given a
+        # command, and the MinIO image does nothing without `server /data`.
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=chronolignee -e MINIO_ROOT_PASSWORD=chronolignee_ci \
+            quay.io/minio/minio:latest server /data
+          timeout 60 bash -c 'until curl -sf http://localhost:9000/minio/health/live; do sleep 1; done'
+          curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o "$RUNNER_TEMP/mc"
+          chmod +x "$RUNNER_TEMP/mc"
+          "$RUNNER_TEMP/mc" alias set ci http://localhost:9000 chronolignee chronolignee_ci
+          "$RUNNER_TEMP/mc" mb --ignore-existing ci/chronolignee-archives
+          "$RUNNER_TEMP/mc" anonymous set none ci/chronolignee-archives
+
       - run: pnpm db:migrate:deploy
       - run: pnpm db:seed
 

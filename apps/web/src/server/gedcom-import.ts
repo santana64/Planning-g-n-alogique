@@ -1,6 +1,12 @@
 import 'server-only';
 import { importGedcomPlan } from '@chronolignee/db';
-import { mapDocument, parseGedcom, type ImportPlan } from '@chronolignee/gedcom';
+import {
+  decodeGedcom,
+  mapDocument,
+  parseGedcom,
+  type GedcomEncoding,
+  type ImportPlan,
+} from '@chronolignee/gedcom';
 import { buildObjectKey, checksum, safeDownloadName, validateGedcom } from '@chronolignee/storage';
 import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
@@ -26,7 +32,8 @@ import { resolveTreeAccess } from './access';
  * imported, not against what we think we imported.
  */
 
-export type ImportAnalysisError = 'NOT_FOUND' | 'FORBIDDEN' | 'TOO_LARGE' | 'NOT_GEDCOM' | 'EMPTY';
+export type ImportAnalysisError =
+  'NOT_FOUND' | 'FORBIDDEN' | 'TOO_LARGE' | 'NOT_GEDCOM' | 'EMPTY' | 'UNSUPPORTED_ENCODING';
 
 export interface ImportAnalysis {
   readonly jobId: string;
@@ -34,6 +41,17 @@ export interface ImportAnalysis {
   readonly byteSize: number;
   readonly detectedVersion: string | null;
   readonly generator: string | null;
+  /** How the bytes were read, what the header claimed, and whether it was a guess. */
+  readonly encoding: {
+    readonly used: GedcomEncoding;
+    readonly declared: string | null;
+    readonly guessed: boolean;
+  };
+  /**
+   * A few names as they will be written, accented ones first: the quickest
+   * way for a person to see that the file was read in the right encoding.
+   */
+  readonly sampleNames: readonly string[];
   readonly counts: ImportPlan['counts'];
   readonly warnings: ImportPlan['warnings'];
   readonly unknownTags: readonly string[];
@@ -47,6 +65,17 @@ export type AnalysisResult =
 
 /** Warnings shown in the review. Beyond this the list stops being readable. */
 const MAX_REVIEWED_WARNINGS = 200;
+
+const SAMPLE_NAMES = 5;
+
+function sampleNames(plan: ImportPlan): string[] {
+  const names = plan.people
+    .map((person) => person.names[0])
+    .map((name) => [name?.given, name?.surname].filter(Boolean).join(' '))
+    .filter((name) => name.length > 0);
+  const accented = names.filter((name) => /[^\u0020-\u007e]/.test(name));
+  return [...new Set([...accented, ...names])].slice(0, SAMPLE_NAMES);
+}
 
 export async function analyseUpload(
   treeSlug: string,
@@ -79,8 +108,9 @@ export async function analyseUpload(
     checksum: checksum(file.bytes),
   });
 
-  const text = new TextDecoder('utf-8', { fatal: false }).decode(file.bytes);
-  const document = parseGedcom(text);
+  const decoded = decodeGedcom(file.bytes);
+  if (!decoded.ok) return { ok: false, error: 'UNSUPPORTED_ENCODING' };
+  const document = parseGedcom(decoded.value.text);
   const plan = mapDocument(document);
 
   const job = await db.importJob.create({
@@ -93,7 +123,7 @@ export async function analyseUpload(
       originalFilename: file.name.slice(0, 255),
       byteSize: file.bytes.byteLength,
       storageKey,
-      detectedEncoding: document.declaredEncoding ?? 'UTF-8',
+      detectedEncoding: decoded.value.encoding,
       detectedVersion: document.version,
       peopleCount: plan.counts.people,
       familyCount: plan.counts.families,
@@ -118,6 +148,12 @@ export async function analyseUpload(
       byteSize: file.bytes.byteLength,
       detectedVersion: document.version,
       generator: document.generator,
+      encoding: {
+        used: decoded.value.encoding,
+        declared: decoded.value.declared,
+        guessed: decoded.value.guessed,
+      },
+      sampleNames: sampleNames(plan),
       counts: plan.counts,
       warnings: plan.warnings.slice(0, MAX_REVIEWED_WARNINGS),
       unknownTags: plan.unknownTags,
@@ -137,7 +173,8 @@ export async function analyseUpload(
   };
 }
 
-export type CommitError = 'NOT_FOUND' | 'FORBIDDEN' | 'ALREADY_COMMITTED' | 'FILE_MISSING';
+export type CommitError =
+  'NOT_FOUND' | 'FORBIDDEN' | 'ALREADY_COMMITTED' | 'FILE_MISSING' | 'UNSUPPORTED_ENCODING';
 
 export interface CommitSummary {
   readonly people: number;
@@ -185,7 +222,10 @@ export async function commitImport(
     return { ok: false, error: 'FILE_MISSING' };
   }
 
-  const plan = mapDocument(parseGedcom(new TextDecoder('utf-8', { fatal: false }).decode(bytes)));
+  // Decoded exactly as the analysis did: same bytes, same rules, same text.
+  const decoded = decodeGedcom(bytes);
+  if (!decoded.ok) return { ok: false, error: 'UNSUPPORTED_ENCODING' };
+  const plan = mapDocument(parseGedcom(decoded.value.text));
 
   await db.importJob.update({
     where: { id: job.id },

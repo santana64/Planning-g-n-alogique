@@ -10,6 +10,7 @@ const ERROR_STATUS: Record<string, number> = {
   FORBIDDEN: 403,
   ALREADY_COMMITTED: 409,
   FILE_MISSING: 410,
+  UNSUPPORTED_ENCODING: 415,
 };
 
 export async function POST(

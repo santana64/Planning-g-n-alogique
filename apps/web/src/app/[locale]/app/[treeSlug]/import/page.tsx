@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { can } from '@chronolignee/domain';
 import { setRequestLocale } from 'next-intl/server';
 import { redirect } from '@/i18n/navigation';
 import { getSession } from '@/lib/session';
@@ -27,10 +28,11 @@ export default async function ImportPage({
   if (!session) redirect({ href: '/sign-in', locale });
 
   // Authorisation from the database, not from the presence of a link. A
-  // viewer who reaches this URL directly must not get the form.
+  // viewer — or a contributor, who adds but never imports — who reaches this
+  // URL directly must not get a form the upload would then refuse.
   const access = await resolveTreeAccess(treeSlug);
   if (!access) notFound();
-  if (!access.canEdit) notFound();
+  if (!can(access.role, 'import')) notFound();
 
   return (
     <main id="main" className="bg-surface-0 min-h-dvh">

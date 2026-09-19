@@ -13,6 +13,7 @@
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "migrate:status": "prisma migrate status",
+    "drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema --exit-code",
     "reset": "prisma migrate reset --force",
     "studio": "prisma studio",
     "seed": "tsx src/seed/index.ts",

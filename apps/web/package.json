@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "lint": "next lint",
+    "lint": "eslint . --max-warnings=0",
     "basemap": "node scripts/build-basemap.mjs"
   },
   "dependencies": {
@@ -28,23 +28,11 @@
     "@opentelemetry/sdk-logs": "catalog:",
     "@opentelemetry/sdk-metrics": "catalog:",
     "@opentelemetry/sdk-trace-base": "catalog:",
-    "@radix-ui/react-dialog": "catalog:",
-    "@radix-ui/react-dropdown-menu": "catalog:",
-    "@radix-ui/react-label": "catalog:",
-    "@radix-ui/react-popover": "catalog:",
-    "@radix-ui/react-select": "catalog:",
-    "@radix-ui/react-slider": "catalog:",
-    "@radix-ui/react-switch": "catalog:",
-    "@radix-ui/react-tabs": "catalog:",
-    "@radix-ui/react-tooltip": "catalog:",
-    "@radix-ui/react-visually-hidden": "catalog:",
     "@sentry/node": "catalog:",
-    "@tanstack/react-query": "catalog:",
     "@vercel/otel": "catalog:",
     "better-auth": "catalog:",
     "clsx": "catalog:",
     "maplibre-gl": "catalog:",
-    "motion": "catalog:",
     "next": "catalog:",
     "next-intl": "catalog:",
     "pino": "catalog:",
@@ -52,8 +40,7 @@
     "react-dom": "catalog:",
     "tailwind-merge": "catalog:",
     "three": "catalog:",
-    "zod": "catalog:",
-    "zustand": "catalog:"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@axe-core/playwright": "catalog:",

@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { can } from '@chronolignee/domain';
 import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { PEOPLE_PAGE_SIZE, listPeople } from '@/server/people';
@@ -65,6 +66,7 @@ export default async function PeoplePage({
           <EmptyState
             treeSlug={treeSlug}
             canEdit={listing.access.canEdit}
+            canImport={can(listing.access.role, 'import')}
             filtered={Boolean(listing.query)}
           />
         ) : (
@@ -115,10 +117,12 @@ export default async function PeoplePage({
 function EmptyState({
   treeSlug,
   canEdit,
+  canImport,
   filtered,
 }: {
   treeSlug: string;
   canEdit: boolean;
+  canImport: boolean;
   filtered: boolean;
 }) {
   if (filtered) {
@@ -136,12 +140,14 @@ function EmptyState({
           >
             Saisir la première personne
           </Link>
-          <Link
-            href={`/app/${treeSlug}/import`}
-            className="border-border-default text-text-primary hover:border-border-strong rounded-[var(--radius-md)] border px-4 py-2 text-sm"
-          >
-            Importer un GEDCOM
-          </Link>
+          {canImport ? (
+            <Link
+              href={`/app/${treeSlug}/import`}
+              className="border-border-default text-text-primary hover:border-border-strong rounded-[var(--radius-md)] border px-4 py-2 text-sm"
+            >
+              Importer un GEDCOM
+            </Link>
+          ) : null}
         </div>
       ) : null}
     </div>
