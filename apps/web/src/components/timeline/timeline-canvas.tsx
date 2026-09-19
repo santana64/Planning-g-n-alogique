@@ -349,9 +349,11 @@ export function TimelineCanvas({
         >
           <p className="font-editorial text-text-primary text-sm">{hovered.displayName}</p>
           <p className="text-text-muted mt-0.5 text-xs">
-            {hovered.birthLabel} — {hovered.isLiving ? 'vivant' : hovered.deathLabel}
+            {hovered.redacted
+              ? 'Rien n’est publié à son sujet.'
+              : `${hovered.birthLabel} — ${hovered.isLiving ? 'vivant' : hovered.deathLabel}`}
           </p>
-          {hovered.endCertainty === 'INFERRED' && (
+          {!hovered.redacted && hovered.endCertainty === 'INFERRED' && (
             <p className="text-text-faint mt-1 max-w-56 text-xs">
               Aucun décès enregistré : cette limite vient de la durée de vie maximale, pas
               d&apos;une source.

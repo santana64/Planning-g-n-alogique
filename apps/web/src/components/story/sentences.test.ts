@@ -314,7 +314,7 @@ describe('what the record says, and no more', () => {
       history: {},
     });
     expect(scene?.sentences[0]?.text).toBe(
-      'La mère d’Émile MOREAU est une personne vivante : rien n’est publié à son sujet, et le récit s’arrête avant.',
+      'La mère d’Émile MOREAU est une personne protégée : rien n’est publié à son sujet, et le récit s’arrête avant.',
     );
   });
 });

@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { dateToJdn, isHiddenFrom, type PrivacySubject } from '@chronolignee/domain';
 import { createDatabase, createEvent, createPerson, loadAtlas, type Database } from '../src/index';
 
 /**
@@ -21,6 +22,11 @@ let treeId: string;
 let ctx: { treeId: string; actorId: string | null };
 let traveller = '';
 let livingTraveller = '';
+
+/** A member of the tree sees everyone; a stranger, what the tree publishes. */
+const member = () => false;
+const stranger = (person: PrivacySubject) =>
+  isHiddenFrom(person, { role: null, redactLiving: true }, dateToJdn(new Date()));
 
 beforeAll(async () => {
   const url = process.env['DATABASE_URL'];
@@ -109,12 +115,12 @@ describe('places', () => {
     await db.place.create({
       data: { treeId, name: 'Lieu-dit sans carte', normalisedName: 'lieu-dit sans carte' },
     });
-    const atlas = await loadAtlas(db, { treeId, redactLiving: false });
+    const atlas = await loadAtlas(db, { treeId, isHidden: member });
     expect(atlas.places.map((place) => place.name)).not.toContain('Lieu-dit sans carte');
   });
 
   it('carries the span of what was recorded there', async () => {
-    const atlas = await loadAtlas(db, { treeId, redactLiving: false });
+    const atlas = await loadAtlas(db, { treeId, isHidden: member });
     const tours = atlas.places.find((place) => place.name === 'Tours');
     expect(tours?.eventCount).toBeGreaterThanOrEqual(3);
     // Numbers, not bigints: "59n" on screen is how this leaks.
@@ -126,7 +132,7 @@ describe('places', () => {
 
 describe('journeys', () => {
   it('pairs consecutive places into a move', async () => {
-    const atlas = await loadAtlas(db, { treeId, redactLiving: false });
+    const atlas = await loadAtlas(db, { treeId, isHidden: member });
     const legs = atlas.legs.filter((leg) => leg.personId === traveller);
     expect(legs).toHaveLength(1);
     expect(legs[0]?.arrivalJdn).toBeGreaterThan(legs[0]?.departureJdn ?? 0);
@@ -135,21 +141,33 @@ describe('journeys', () => {
   it('does not turn a long stay into a string of migrations', async () => {
     // Three records at Tours before the departure. Naively pairing every
     // consecutive event would draw two arcs from Tours to itself.
-    const atlas = await loadAtlas(db, { treeId, redactLiving: false });
+    const atlas = await loadAtlas(db, { treeId, isHidden: member });
     const selfLoops = atlas.legs.filter((leg) => leg.fromPlaceId === leg.toPlaceId);
     expect(selfLoops).toEqual([]);
   });
 
   it('withholds a living person’s path and says how many', async () => {
-    const atlas = await loadAtlas(db, { treeId, redactLiving: true });
+    const atlas = await loadAtlas(db, { treeId, isHidden: stranger });
     expect(atlas.legs.some((leg) => leg.personId === livingTraveller)).toBe(false);
     // Reported rather than silently dropped: a map that quietly omits people
     // is a map that lies about the family's shape.
     expect(atlas.withheldPeople).toBeGreaterThanOrEqual(1);
   });
 
+  it('leaves a hidden person out of a place’s totals too', async () => {
+    // The living traveller's 2010 record at Buenos Aires would otherwise
+    // stretch the place's span to 2010: a year that says who was there.
+    const forMembers = await loadAtlas(db, { treeId, isHidden: member });
+    const forStrangers = await loadAtlas(db, { treeId, isHidden: stranger });
+    const members = forMembers.places.find((place) => place.name === 'Buenos Aires');
+    const strangers = forStrangers.places.find((place) => place.name === 'Buenos Aires');
+    expect(members?.personCount).toBe(2);
+    expect(strangers?.personCount).toBe(1);
+    expect(strangers?.latestJdn).toBeLessThan(members?.latestJdn ?? 0);
+  });
+
   it('shows the same path to a member of the tree', async () => {
-    const atlas = await loadAtlas(db, { treeId, redactLiving: false });
+    const atlas = await loadAtlas(db, { treeId, isHidden: member });
     expect(atlas.legs.some((leg) => leg.personId === livingTraveller)).toBe(true);
     expect(atlas.withheldPeople).toBe(0);
   });

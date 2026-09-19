@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { dateToJdn, gregorianToJdn } from '@chronolignee/domain';
+import { dateToJdn, gregorianToJdn, isPresumedLiving } from '@chronolignee/domain';
 import {
   RelationshipRefused,
   createDatabase,
@@ -217,6 +217,49 @@ describe('editing a person', () => {
     const birth = graph.people.get(created.personId)?.birth;
     expect(birth?.interval.earliest).toBe(gregorianToJdn(1835, 3, 4));
     expect(birth?.interval.latest).toBe(gregorianToJdn(1835, 3, 4));
+  });
+
+  it('hands the privacy rule a recorded death, not an inferred one', async () => {
+    // A GEDCOM import leaves most people UNKNOWN. Whether such a person is
+    // presumed living depends on a death having been recorded, which the
+    // lifespan columns alone cannot say: the maximum-lifespan rule gives a
+    // man born in 1990 an "end" too.
+    const recent = await person('Noé', 'Brunel', '1990');
+    const dead = await createPerson(
+      db,
+      {
+        recordedSex: 'UNKNOWN',
+        livingStatus: 'UNKNOWN',
+        names: [
+          {
+            type: 'BIRTH',
+            given: 'Ange',
+            surname: 'Brunel',
+            isPreferred: true,
+            confidence: 'MEDIUM',
+          },
+        ],
+        birthDate: '1990',
+        deathDate: '2019',
+      },
+      ctx,
+    );
+
+    const graph = await loadGenealogyGraph(db, treeId, TODAY_JDN);
+    const subject = (id: string) => {
+      const found = graph.people.get(id);
+      return {
+        livingStatus: found?.livingStatus ?? 'UNKNOWN',
+        privacy: found?.privacy ?? 'INHERIT',
+        birthEarliestJdn: found?.birth?.interval.earliest ?? null,
+        deathRecorded: found?.deathRecorded ?? false,
+      };
+    };
+
+    expect(subject(recent.personId)).toMatchObject({ privacy: 'INHERIT', deathRecorded: false });
+    expect(isPresumedLiving(subject(recent.personId), TODAY_JDN)).toBe(true);
+    expect(subject(dead.personId).deathRecorded).toBe(true);
+    expect(isPresumedLiving(subject(dead.personId), TODAY_JDN)).toBe(false);
   });
 
   it('records what changed, not the whole row', async () => {

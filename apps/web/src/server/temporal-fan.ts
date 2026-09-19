@@ -5,7 +5,7 @@ import { loadGenealogyGraph } from '@chronolignee/db';
 import { layoutTemporalFan, type FanRing, type FanSector } from '@chronolignee/engine';
 import { sosaNumbers } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
-import { REDACTED_LABEL, isHiddenFrom, resolveTreeAccess, type TreeAccess } from './access';
+import { REDACTED_LABEL, hiddenInGraph, resolveTreeAccess, type TreeAccess } from './access';
 
 /**
  * The temporal fan, ready to draw.
@@ -56,11 +56,7 @@ export const loadTemporalFan = cache(
     const subject = graph.people.get(subjectId);
     if (!subject) return null;
 
-    const hidden = (personId: string) =>
-      isHiddenFrom(
-        { isLiving: graph.people.get(personId)?.isDeceased === false },
-        access.redactLiving,
-      );
+    const hidden = hiddenInGraph(graph, access);
 
     const base = {
       access,

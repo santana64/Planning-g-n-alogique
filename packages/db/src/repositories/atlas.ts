@@ -1,3 +1,9 @@
+import {
+  privacySubjectFromColumns,
+  type LivingStatus,
+  type PersonPrivacy,
+  type PrivacySubject,
+} from '@chronolignee/domain';
 import { sql } from '../../generated/client/internal/prismaNamespace';
 import type { Database } from '../client';
 
@@ -45,54 +51,56 @@ export interface AtlasData {
   readonly withheldPeople: number;
 }
 
-interface PlaceRow {
-  id: string;
+interface ParticipationRow {
+  placeId: string;
   name: string;
   latitude: number;
   longitude: number;
   countryCode: string | null;
   type: string;
-  eventCount: bigint;
-  personCount: bigint;
-  earliestJdn: number | null;
-  latestJdn: number | null;
-}
-
-interface StopRow {
+  eventId: string;
+  dateSortJdn: number | null;
   personId: string;
-  placeId: string;
-  dateSortJdn: number;
-  livingStatus: string;
+  livingStatus: LivingStatus;
+  privacy: PersonPrivacy;
+  lifespanEarliestJdn: number | null;
+  lifespanLatestJdn: number | null;
+  lifespanLatestInferred: boolean;
 }
 
 export interface AtlasOptions {
   readonly treeId: string;
   /**
-   * Whether living people must be left out of the journey layer.
+   * Whether this viewer may not see a person — the application's single
+   * privacy rule, supplied by the caller.
    *
-   * A single arc from one commune to one city, dated, is identifying even
-   * without a name attached to it. Place totals stay aggregate and are safe;
-   * an individual's path is not.
+   * A hidden person contributes nothing: not their journey, which is
+   * identifying even without a name — a single dated arc from one commune to
+   * one city — and not a place's totals either, whose last year alone can
+   * say that someone was recorded there in 2018.
    */
-  readonly redactLiving: boolean;
+  readonly isHidden: (person: PrivacySubject) => boolean;
 }
 
 export async function loadAtlas(db: Database, options: AtlasOptions): Promise<AtlasData> {
-  const placeRows = await db.$queryRaw<PlaceRow[]>(sql`
+  const rows = await db.$queryRaw<ParticipationRow[]>(sql`
     SELECT
-      pl."id",
+      pl."id" AS "placeId",
       pl."name",
       pl."latitude",
       pl."longitude",
       pl."countryCode",
       pl."type"::text AS "type",
-      COUNT(DISTINCT e."id")            AS "eventCount",
-      COUNT(DISTINCT ep."personId")     AS "personCount",
-      MIN(e."dateSortJdn")              AS "earliestJdn",
-      MAX(e."dateSortJdn")              AS "latestJdn"
+      e."id" AS "eventId",
+      e."dateSortJdn",
+      ep."personId",
+      p."livingStatus"::text AS "livingStatus",
+      p."privacy"::text AS "privacy",
+      p."lifespanEarliestJdn",
+      p."lifespanLatestJdn",
+      p."lifespanLatestInferred"
     FROM "places" pl
-    JOIN "events" e
-      ON e."placeId" = pl."id" AND e."deletedAt" IS NULL
+    JOIN "events" e ON e."placeId" = pl."id" AND e."deletedAt" IS NULL
     JOIN "event_participants" ep ON ep."eventId" = e."id"
     JOIN "people" p ON p."id" = ep."personId" AND p."deletedAt" IS NULL
     WHERE pl."treeId" = ${options.treeId}::uuid
@@ -100,47 +108,62 @@ export async function loadAtlas(db: Database, options: AtlasOptions): Promise<At
       -- its name is precisely the fake precision this product refuses.
       AND pl."latitude" IS NOT NULL
       AND pl."longitude" IS NOT NULL
-    GROUP BY pl."id", pl."name", pl."latitude", pl."longitude", pl."countryCode", pl."type"
-    ORDER BY COUNT(DISTINCT e."id") DESC
+    ORDER BY ep."personId", e."dateSortJdn" ASC NULLS LAST
   `);
 
-  const stopRows = await db.$queryRaw<StopRow[]>(sql`
-    SELECT
-      ep."personId",
-      e."placeId",
-      e."dateSortJdn",
-      p."livingStatus"::text AS "livingStatus"
-    FROM "events" e
-    JOIN "event_participants" ep ON ep."eventId" = e."id"
-    JOIN "people" p ON p."id" = ep."personId" AND p."deletedAt" IS NULL
-    JOIN "places" pl
-      ON pl."id" = e."placeId" AND pl."latitude" IS NOT NULL AND pl."longitude" IS NOT NULL
-    WHERE e."treeId" = ${options.treeId}::uuid
-      AND e."deletedAt" IS NULL
-      AND e."placeId" IS NOT NULL
-      AND e."dateSortJdn" IS NOT NULL
-    ORDER BY ep."personId", e."dateSortJdn" ASC
-  `);
+  const hiddenPeople = new Set<string>();
+  const visible: ParticipationRow[] = [];
+  for (const row of rows) {
+    if (hiddenPeople.has(row.personId)) continue;
+    if (options.isHidden(privacySubjectFromColumns(row))) {
+      hiddenPeople.add(row.personId);
+      continue;
+    }
+    visible.push(row);
+  }
 
+  // Places, aggregated over what may be shown.
+  const byPlace = new Map<
+    string,
+    { row: ParticipationRow; events: Set<string>; people: Set<string>; dates: number[] }
+  >();
+  for (const row of visible) {
+    let entry = byPlace.get(row.placeId);
+    if (!entry) {
+      entry = { row, events: new Set(), people: new Set(), dates: [] };
+      byPlace.set(row.placeId, entry);
+    }
+    if (!entry.events.has(row.eventId) && row.dateSortJdn !== null)
+      entry.dates.push(row.dateSortJdn);
+    entry.events.add(row.eventId);
+    entry.people.add(row.personId);
+  }
+  const places: AtlasPlace[] = [...byPlace.values()]
+    .map(({ row, events, people, dates }) => ({
+      placeId: row.placeId,
+      name: row.name,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      countryCode: row.countryCode,
+      type: row.type,
+      eventCount: events.size,
+      personCount: people.size,
+      earliestJdn: dates.length > 0 ? Math.min(...dates) : null,
+      latestJdn: dates.length > 0 ? Math.max(...dates) : null,
+    }))
+    .sort((a, b) => b.eventCount - a.eventCount || (a.name < b.name ? -1 : 1));
+
+  // Journeys: one person's dated, placed events in order, paired into moves.
   const legs: AtlasLeg[] = [];
-  const withheld = new Set<string>();
-
   let currentPerson: string | null = null;
   let lastPlace: string | null = null;
   let lastJdn = 0;
-
-  for (const stop of stopRows) {
+  for (const stop of visible) {
+    if (stop.dateSortJdn === null) continue;
     if (stop.personId !== currentPerson) {
       currentPerson = stop.personId;
       lastPlace = null;
     }
-
-    if (options.redactLiving && stop.livingStatus === 'LIVING') {
-      withheld.add(stop.personId);
-      lastPlace = null;
-      continue;
-    }
-
     // Consecutive events at the same place are a stay, not a move. Drawing an
     // arc from a place to itself would turn sixty parish records into sixty
     // migrations.
@@ -153,27 +176,9 @@ export async function loadAtlas(db: Database, options: AtlasOptions): Promise<At
         arrivalJdn: stop.dateSortJdn,
       });
     }
-
     lastPlace = stop.placeId;
     lastJdn = stop.dateSortJdn;
   }
 
-  return {
-    places: placeRows.map((row) => ({
-      placeId: row.id,
-      name: row.name,
-      latitude: row.latitude,
-      longitude: row.longitude,
-      countryCode: row.countryCode,
-      type: row.type,
-      // COUNT comes back as bigint over the wire; leaving it would put "59n"
-      // on screen and break JSON serialisation to the client.
-      eventCount: Number(row.eventCount),
-      personCount: Number(row.personCount),
-      earliestJdn: row.earliestJdn,
-      latestJdn: row.latestJdn,
-    })),
-    legs,
-    withheldPeople: withheld.size,
-  };
+  return { places, legs, withheldPeople: hiddenPeople.size };
 }

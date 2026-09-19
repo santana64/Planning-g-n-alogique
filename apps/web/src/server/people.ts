@@ -9,7 +9,13 @@ import {
 import { decodeDate, foldName, loadGenealogyGraph, projectPersonLifespan } from '@chronolignee/db';
 import { auditPerson, sortBySeverity, type Finding } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
-import { REDACTED_LABEL, isHiddenFrom, resolveTreeAccess, type TreeAccess } from './access';
+import {
+  REDACTED_LABEL,
+  isHiddenFrom,
+  privacySubjectFromColumns,
+  resolveTreeAccess,
+  type TreeAccess,
+} from './access';
 import { loadCitationsForPerson, type EventCitation } from './archive';
 
 /**
@@ -46,6 +52,15 @@ export interface PeopleListing {
 
 export const PEOPLE_PAGE_SIZE = 60;
 
+/** What the privacy rule reads from a person row. */
+const PRIVACY_COLUMNS = {
+  livingStatus: true,
+  privacy: true,
+  lifespanEarliestJdn: true,
+  lifespanLatestJdn: true,
+  lifespanLatestInferred: true,
+} as const;
+
 /**
  * The person list, optionally filtered.
  *
@@ -69,31 +84,44 @@ export async function listPeople(
     ...(folded ? { searchName: { contains: folded } } : {}),
   };
 
-  const [rows, total] = await Promise.all([
-    db.person.findMany({
-      where,
-      select: {
-        id: true,
-        displayName: true,
-        recordedSex: true,
-        livingStatus: true,
-        birthSortJdn: true,
-        lifespanEarliestJdn: true,
-        lifespanLatestJdn: true,
-      },
-      // Chronological, because a genealogy list sorted alphabetically tells
-      // you nothing about the family; sorted by birth it reads as generations.
-      // Nulls last so people with no date do not head the list.
-      orderBy: [{ birthSortJdn: { sort: 'asc', nulls: 'last' } }, { displayName: 'asc' }],
-      take: PEOPLE_PAGE_SIZE + 1,
-    }),
-    db.person.count({ where }),
-  ]);
+  const select = {
+    id: true,
+    displayName: true,
+    recordedSex: true,
+    birthSortJdn: true,
+    ...PRIVACY_COLUMNS,
+  } as const;
+  // Chronological, because a genealogy list sorted alphabetically tells you
+  // nothing about the family; sorted by birth it reads as generations. Nulls
+  // last so people with no date do not head the list.
+  const orderBy = [
+    { birthSortJdn: { sort: 'asc' as const, nulls: 'last' as const } },
+    { displayName: 'asc' as const },
+  ];
+  const hiddenRow = (row: Parameters<typeof privacySubjectFromColumns>[0]) =>
+    isHiddenFrom(privacySubjectFromColumns(row), access);
+
+  let rows;
+  let total;
+  if (folded) {
+    // A search by name only looks among the names this viewer may read. A
+    // protected row among the results for "valentina" would say a Valentina
+    // is in the tree — the one thing the protection is there to keep.
+    const matches = await db.person.findMany({ where, select, orderBy });
+    const readable = matches.filter((row) => !hiddenRow(row));
+    rows = readable.slice(0, PEOPLE_PAGE_SIZE + 1);
+    total = readable.length;
+  } else {
+    [rows, total] = await Promise.all([
+      db.person.findMany({ where, select, orderBy, take: PEOPLE_PAGE_SIZE + 1 }),
+      db.person.count({ where }),
+    ]);
+  }
 
   const truncated = rows.length > PEOPLE_PAGE_SIZE;
   const people = rows.slice(0, PEOPLE_PAGE_SIZE).map((row): PersonSummary => {
     const isLiving = row.livingStatus === 'LIVING';
-    const hidden = isHiddenFrom({ isLiving }, access.redactLiving);
+    const hidden = hiddenRow(row);
 
     return {
       personId: row.id,
@@ -262,8 +290,8 @@ export const loadPersonDetail = cache(
         id: true,
         displayName: true,
         recordedSex: true,
-        livingStatus: true,
         notes: true,
+        ...PRIVACY_COLUMNS,
         names: {
           orderBy: [{ isPreferred: 'desc' }, { createdAt: 'asc' }],
           select: {
@@ -282,8 +310,7 @@ export const loadPersonDetail = cache(
     });
     if (!person) return null;
 
-    const isLiving = person.livingStatus === 'LIVING';
-    const hidden = isHiddenFrom({ isLiving }, access.redactLiving);
+    const hidden = isHiddenFrom(privacySubjectFromColumns(person), access);
 
     const eventRows = await db.event.findMany({
       where: {
@@ -322,16 +349,15 @@ export const loadPersonDetail = cache(
         type: true,
         sourceId: true,
         targetId: true,
-        source: { select: { id: true, displayName: true, livingStatus: true } },
-        target: { select: { id: true, displayName: true, livingStatus: true } },
+        source: { select: { id: true, displayName: true, ...PRIVACY_COLUMNS } },
+        target: { select: { id: true, displayName: true, ...PRIVACY_COLUMNS } },
       },
     });
 
     const links = relationshipRows.map((row): PersonLinkRow => {
       const isSource = row.sourceId === person.id;
       const other = isSource ? row.target : row.source;
-      const otherLiving = other.livingStatus === 'LIVING';
-      const otherHidden = isHiddenFrom({ isLiving: otherLiving }, access.redactLiving);
+      const otherHidden = isHiddenFrom(privacySubjectFromColumns(other), access);
 
       return {
         relationshipId: row.id,

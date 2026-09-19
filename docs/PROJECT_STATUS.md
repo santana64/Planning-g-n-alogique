@@ -1,7 +1,7 @@
 # État du projet
 
-**Dernière mise à jour** : 2026-09-18
-**Phase courante** : 9 terminée (éventail, constellation, Récit, Directeur) ; phase 10 (collaboration) à suivre
+**Dernière mise à jour** : 2026-09-19
+**Phase courante** : 10 en cours — confidentialité faite ; droits par rôle, partage, historique, RGPD à suivre
 
 Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
@@ -341,6 +341,26 @@ des candidats dans la suite.
 
 **Tests** : 597 unitaires + 167 d'intégration + 54 E2E.
 
+### Confidentialité (phase 10)
+
+Une seule règle, dans `packages/domain/src/privacy` : chaque vue demande
+« cette personne est-elle masquée pour ce lecteur ? » et n'efface que ses
+propres champs ; aucune ne décide seule de masquer.
+
+| Élément                      | Preuve                                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------------------ |
+| Réglage de la personne       | `RESTRICTED` : propriétaire et administrateurs ; `REDACTED` : membres ; `VISIBLE` : publié |
+| Règle de l'arbre (`INHERIT`) | personne **présumée vivante** masquée aux non-membres si l'arbre le demande                |
+| Présumée vivante             | vivante déclarée, ou sans décès enregistré et née il y a moins de 123 ans, ou non datée    |
+| Décès enregistré             | événement décès/inhumation ou affirmation acceptée — jamais la borne déduite               |
+| Libellé neutre               | « Personne protégée » : la raison du masquage est elle-même protégée                       |
+| Recherche par nom            | liste et palette ne cherchent que parmi les noms lisibles : aucun résultat « protégé »     |
+| Carte                        | une personne masquée ne compte ni dans les trajets, ni dans les totaux d'un lieu           |
+| Frise                        | ligne masquée sans année, sans précision de date, sans « vivant » ; axe borné au visible   |
+| Vues                         | ascendance, descendance, éventail, constellation, Récit, Directeur, frise, carte, fiches   |
+
+**Tests** : 614 unitaires + 169 d'intégration + 54 E2E.
+
 ---
 
 ## Bugs réels trouvés et corrigés
@@ -486,6 +506,36 @@ des candidats dans la suite.
     de montage : un Entrée réflexe refermait le récit. Focus donné après
     `showModal()` ; vérifié en E2E.
 
+34. **Les vivants importés par GEDCOM n'étaient jamais masqués.** La
+    rédaction ne regardait que le statut `LIVING` ; un import laisse presque
+    tout le monde `UNKNOWN`. Une personne née en 1990 sans décès enregistré
+    était publiée avec son nom et sa date. Désormais : présumée vivante tant
+    qu'aucun décès n'est enregistré et qu'elle a pu vivre jusqu'à aujourd'hui.
+
+35. **Le réglage de confidentialité d'une personne n'était lu nulle part.**
+    `REDACTED` et `RESTRICTED` étaient stockés, jamais appliqués : seule la
+    règle des vivants l'était. Appliqués par toutes les vues.
+
+36. **Une recherche par nom révélait l'existence d'une personne masquée.**
+    Liste (`?q=`) et palette renvoyaient une ligne « protégée » sous la
+    recherche « valentina » — soit exactement ce que la protection cache. Les
+    personnes masquées ne sont plus des résultats.
+
+37. **Les totaux d'un lieu comptaient les personnes masquées.** Trajets
+    retirés, mais une présence à Buenos Aires en 2010 étirait encore la
+    période du lieu jusqu'à 2010. Totaux calculés sur le visible ; testé.
+
+38. **La frise transmettait l'année de naissance d'une ligne masquée.** Nom
+    et dates effacés, mais `lifespanLabel` (« 1962 – »), la précision des
+    bornes et « Vivant » partaient dans la page : invisibles à l'écran,
+    lisibles dans le code source. Trouvé en relisant ce que le rédacteur
+    oubliait ; la liste des champs effacés est désormais testée champ par
+    champ, et l'axe n'est plus borné par une personne masquée.
+
+39. **Le libellé disait pourquoi quelqu'un était masqué.** « Personne
+    vivante » apprend à un inconnu qu'un parent est en vie aujourd'hui.
+    Libellé et messages neutres : « Personne protégée ».
+
 ---
 
 ## En cours
@@ -508,7 +558,7 @@ Rien. Point de reprise propre.
 | 7     | Archives S3, visionneuse de documents                             | **fait** — sans visionneuse      |
 | 8     | Pipeline IA, propositions, assistant                              | **fait** — texte seul            |
 | 9     | Constellation, profondeur temporelle, mode Récit, Directeur       | **fait** — sans WebXR ni rivière |
-| 10    | Collaboration, confidentialité des vivants                        | rédaction faite ; reste l'UI     |
+| 10    | Collaboration, confidentialité des vivants                        | **confidentialité faite**        |
 | 11    | Durcissement production                                           | partiel                          |
 
 Manques identifiés hors phases : détection de doublons, bouton d'export
@@ -594,6 +644,13 @@ assistant de recherche, visionneuse de documents page à page.
 - Sourcer `.env` dans un shell exporte `NODE_ENV=development`, qui désactive
   la garde de déploiement. Pour la tester à la main, fixer
   `NODE_ENV=production` explicitement — constaté en la vérifiant.
+
+- **Incident Docker Desktop (2026-09-19)** : démarrage impossible
+  (`dockerInference … The file cannot be accessed by the system`). Réparé en
+  renommant `%LOCALAPPDATA%\Docker\run` en `run.stale-20260919-084145` — la
+  socket n'était pas supprimable. Jamais « Reset to factory defaults », qui
+  efface les volumes : données intactes. Le dossier renommé peut être supprimé
+  après un redémarrage de Windows.
 
 - Les commandes Prisma bloquent sans TTY : préfixer par `CI=true`.
 - `packages/db/generated` est ignoré par git ; `pnpm db:generate` est requis

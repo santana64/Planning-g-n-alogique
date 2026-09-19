@@ -26,6 +26,7 @@ export async function loadGenealogyGraph(
         id: true,
         displayName: true,
         livingStatus: true,
+        privacy: true,
         recordedSex: true,
         lifespanEarliestJdn: true,
         lifespanLatestJdn: true,
@@ -94,6 +95,17 @@ export async function loadGenealogyGraph(
       },
       isDeceased:
         person.livingStatus === 'DECEASED' ? true : person.livingStatus === 'LIVING' ? false : null,
+      livingStatus: person.livingStatus,
+      privacy: person.privacy,
+      deathRecorded:
+        person.eventRoles.some(
+          (role) => role.event.type === 'DEATH' || role.event.type === 'BURIAL',
+        ) ||
+        person.claims.some(
+          (claim) =>
+            claim.status === 'ACCEPTED' &&
+            (claim.predicate === 'DEATH_DATE' || claim.predicate === 'BURIAL_DATE'),
+        ),
     };
   });
 

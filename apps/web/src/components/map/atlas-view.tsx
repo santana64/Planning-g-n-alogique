@@ -136,9 +136,11 @@ export function AtlasView({ snapshot }: { snapshot: AtlasSnapshot }) {
 
         {snapshot.withheldPeople > 0 ? (
           <p className="text-source text-sm">
-            Les déplacements de {snapshot.withheldPeople}{' '}
-            {snapshot.withheldPeople === 1 ? 'personne vivante' : 'personnes vivantes'} ne sont pas
-            affichés.
+            {snapshot.withheldPeople}{' '}
+            {snapshot.withheldPeople === 1
+              ? 'personne protégée ne figure'
+              : 'personnes protégées ne figurent'}{' '}
+            pas sur la carte : ni leurs déplacements, ni leur présence dans les lieux.
           </p>
         ) : null}
 

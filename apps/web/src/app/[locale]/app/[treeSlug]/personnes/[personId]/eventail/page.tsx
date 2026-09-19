@@ -83,7 +83,7 @@ export default async function EventailPage({
 
         {view.subjectHidden ? (
           <p className="border-source/30 bg-source/10 text-source rounded-[var(--radius-md)] border px-4 py-3">
-            Cette personne est vivante. Son éventail n’est pas affiché : son centre porterait son
+            Cette personne est protégée. Son éventail n’est pas affiché : son centre porterait son
             année de naissance.
           </p>
         ) : view.referenceYear === null ? (
@@ -145,7 +145,7 @@ export default async function EventailPage({
                   </span>
                   <span className="text-text-faint text-xs">
                     {entry.reason === 'PROTECTED'
-                      ? 'personne vivante, non publiée'
+                      ? 'personne protégée, non publiée'
                       : 'naissance non datée'}
                   </span>
                 </li>

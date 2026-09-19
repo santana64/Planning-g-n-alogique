@@ -105,7 +105,7 @@ export default async function ConstellationPage({
 
         {view.focusHidden ? (
           <p className="border-source/30 bg-source/10 text-source rounded-[var(--radius-md)] border px-4 py-3">
-            Cette personne est vivante. Sa constellation n’est pas affichée : elle serait centrée
+            Cette personne est protégée. Sa constellation n’est pas affichée : elle serait centrée
             sur quelqu’un dont rien n’est publié.
           </p>
         ) : view.focusId === null ? (
@@ -140,7 +140,7 @@ export default async function ConstellationPage({
               {hasHidden ? (
                 <li className="flex items-center gap-2">
                   <Swatch color={SKY.hidden} glow={0.6} />
-                  personne vivante, non publiée
+                  personne protégée, non publiée
                 </li>
               ) : null}
               <li className="flex items-center gap-2">

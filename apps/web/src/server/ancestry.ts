@@ -10,7 +10,7 @@ import {
   type PedigreeCompleteness,
 } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
-import { REDACTED_LABEL, isHiddenFrom, resolveTreeAccess, type TreeAccess } from './access';
+import { REDACTED_LABEL, hiddenInGraph, resolveTreeAccess, type TreeAccess } from './access';
 
 /**
  * The pedigree, as a researcher reads it.
@@ -76,6 +76,7 @@ export const loadPedigree = cache(
     // depth it draws, and never once show the wall the research has hit.
     const lastGeneration = Math.min(generations, sosa.generationsReached + 1);
     const completeness = pedigreeCompleteness(sosa, lastGeneration);
+    const isHidden = hiddenInGraph(graph, access);
 
     let collapsedCount = 0;
     for (const numbers of sosa.numbersById.values()) {
@@ -91,7 +92,7 @@ export const loadPedigree = cache(
         const personId = sosa.personByNumber.get(sosaNumber) ?? null;
         const person = personId ? graph.people.get(personId) : undefined;
         const isLiving = person?.isDeceased === false;
-        const hidden = isHiddenFrom({ isLiving }, access.redactLiving);
+        const hidden = personId !== null && isHidden(personId);
         const numbers = personId ? (sosa.numbersById.get(personId) ?? []) : [];
 
         slots.push({
@@ -178,9 +179,7 @@ export async function loadKinship(
   const nameOf = (id: string): string => {
     const person = graph.people.get(id);
     if (!person) return '';
-    return isHiddenFrom({ isLiving: person.isDeceased === false }, access.redactLiving)
-      ? REDACTED_LABEL
-      : person.displayName;
+    return hiddenInGraph(graph, access)(id) ? REDACTED_LABEL : person.displayName;
   };
 
   return {

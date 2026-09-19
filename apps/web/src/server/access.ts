@@ -1,5 +1,12 @@
 import 'server-only';
 import { cache } from 'react';
+import {
+  dateToJdn,
+  isHiddenFrom as hiddenByRule,
+  privacySubjectFromColumns,
+  type PrivacySubject,
+} from '@chronolignee/domain';
+import type { GraphPerson } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
 import { getSession } from '@/lib/session';
 
@@ -86,62 +93,48 @@ export async function requireTreeAccess(treeSlug: string): Promise<TreeAccess | 
   return resolveTreeAccess(treeSlug);
 }
 
-/**
- * Apply redaction to a person's visible fields.
- *
- * The person keeps their row. Removing them would change the shape of the
- * family and make the tree a quiet lie about who exists; what disappears is
- * everything that identifies them — name, dates, places.
- *
- * With no dates there is no position, so no bar can be drawn. Rather than
- * leaving a silent empty row, the record is flagged `redacted` and the
- * timeline draws an explicit marker: "someone is here, and their details are
- * protected" is information, while a blank row is a bug.
- */
-export interface RedactablePerson {
-  readonly displayName: string;
-  readonly isLiving: boolean;
-  readonly birthLabel: string;
-  readonly deathLabel: string;
-  readonly earliestJdn: number | null;
-  readonly latestJdn: number | null;
-  readonly birthEarliestJdn: number | null;
-  readonly birthLatestJdn: number | null;
-  readonly deathEarliestJdn: number | null;
-  readonly deathLatestJdn: number | null;
-  readonly redacted: boolean;
-}
-
-export const REDACTED_LABEL = 'Personne vivante';
+export { REDACTED_LABEL, redactPerson, type RedactablePerson } from './redaction';
 
 /**
  * Whether this viewer must not see who this is.
  *
- * The single rule. Each projection blanks its own fields, because a timeline
- * row and a list entry genuinely carry different ones — but none of them
- * decides *whether* to blank. Three redaction leaks have already been caused
- * by code that re-derived this decision locally and got it subtly wrong.
+ * The single rule lives in the domain package (privacy/index.ts): the person's
+ * own setting first, then the tree's rule for presumed-living people. This
+ * only supplies today's date and the viewer's standing in the tree. Each
+ * projection blanks its own fields; none of them decides *whether* to blank.
  */
-export function isHiddenFrom(person: { readonly isLiving: boolean }, redact: boolean): boolean {
-  return redact && person.isLiving;
+export function isHiddenFrom(
+  person: PrivacySubject,
+  access: Pick<TreeAccess, 'role' | 'redactLiving'>,
+): boolean {
+  return hiddenByRule(person, { role: access.role, redactLiving: access.redactLiving }, todayJdn());
 }
 
-export function redactPerson<T extends RedactablePerson>(person: T, redact: boolean): T {
-  if (!isHiddenFrom(person, redact)) return person;
-
+/**
+ * A graph person, as the rule sees them. Anything the graph did not carry is
+ * read as the most protective value.
+ */
+export function graphSubject(person: GraphPerson | undefined): PrivacySubject {
   return {
-    ...person,
-    displayName: REDACTED_LABEL,
-    birthLabel: '—',
-    deathLabel: '—',
-    earliestJdn: null,
-    latestJdn: null,
-    // The separate windows go too. Keeping them would let the time cursor
-    // reconstruct the birth year the name was hidden to protect.
-    birthEarliestJdn: null,
-    birthLatestJdn: null,
-    deathEarliestJdn: null,
-    deathLatestJdn: null,
-    redacted: true,
+    livingStatus: person?.livingStatus ?? 'UNKNOWN',
+    privacy: person?.privacy ?? 'INHERIT',
+    birthEarliestJdn: person?.birth?.interval.earliest ?? null,
+    deathRecorded: person?.deathRecorded ?? person?.isDeceased === true,
   };
 }
+
+/** Whether a person of this graph is hidden from this viewer, by id. */
+export function hiddenInGraph(
+  graph: { readonly people: ReadonlyMap<string, GraphPerson> },
+  access: Pick<TreeAccess, 'role' | 'redactLiving'>,
+): (personId: string) => boolean {
+  const today = todayJdn();
+  const viewer = { role: access.role, redactLiving: access.redactLiving };
+  return (personId) => hiddenByRule(graphSubject(graph.people.get(personId)), viewer, today);
+}
+
+function todayJdn(): number {
+  return dateToJdn(new Date());
+}
+
+export { privacySubjectFromColumns };

@@ -133,7 +133,7 @@ export default async function PersonPage({
 
         {person.redacted ? (
           <p className="border-source/30 bg-source/10 text-source rounded-[var(--radius-md)] border px-4 py-3">
-            Cette personne est vivante. Ses données sont protégées et ne sont pas publiées.
+            Cette personne est protégée. Rien n’est publié à son sujet.
           </p>
         ) : null}
 

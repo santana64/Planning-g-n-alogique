@@ -303,7 +303,7 @@ function renderScene(scene: StoryScene, index: number, input: StoryInput): Rende
       const who = ofName(last.name);
       const text =
         scene.reason === 'protected'
-          ? `${scene.missing === 'mother' ? 'La mère' : 'Le père'} ${who} est une personne vivante : rien n’est publié à son sujet, et le récit s’arrête avant.`
+          ? `${scene.missing === 'mother' ? 'La mère' : 'Le père'} ${who} est une personne protégée : rien n’est publié à son sujet, et le récit s’arrête avant.`
           : scene.reason === 'limit'
             ? 'Le récit s’arrête ici ; la lignée continue au-delà dans l’arbre.'
             : scene.missing === 'father'
@@ -318,7 +318,7 @@ function renderScene(scene: StoryScene, index: number, input: StoryInput): Rende
           marker: null,
           year: null,
           eyebrow: 'Fin de la lignée connue',
-          title: scene.reason === 'protected' ? 'Une personne vivante' : 'Pour l’instant',
+          title: scene.reason === 'protected' ? 'Une personne protégée' : 'Pour l’instant',
           sentences: [{ text, sources: [], factual: false }],
           asides: [],
           personId: null,

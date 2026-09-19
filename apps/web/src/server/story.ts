@@ -1,6 +1,11 @@
 import 'server-only';
 import { cache } from 'react';
-import { dateToJdn, formatGenealogicalDate, type GenealogicalDate } from '@chronolignee/domain';
+import {
+  dateToJdn,
+  formatGenealogicalDate,
+  isPresumedLiving,
+  type GenealogicalDate,
+} from '@chronolignee/domain';
 import { decodeDate, loadEvidenceCoverage, loadGenealogyGraph } from '@chronolignee/db';
 import {
   chooseStoriesByRules,
@@ -20,7 +25,13 @@ import {
 import type { GenealogyGraph } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
 import { describeCandidate, renderStory, type RenderedChapter } from '@/components/story/sentences';
-import { REDACTED_LABEL, isHiddenFrom, resolveTreeAccess, type TreeAccess } from './access';
+import {
+  REDACTED_LABEL,
+  graphSubject,
+  hiddenInGraph,
+  resolveTreeAccess,
+  type TreeAccess,
+} from './access';
 
 /**
  * Stories, ready to tell.
@@ -286,11 +297,7 @@ export const loadLineageStory = cache(
     const subject = graph.people.get(subjectId);
     if (!subject) return null;
 
-    const hidden = (personId: string) =>
-      isHiddenFrom(
-        { isLiving: graph.people.get(personId)?.isDeceased === false },
-        access.redactLiving,
-      );
+    const hidden = hiddenInGraph(graph, access);
 
     const base = { access, subjectId, line, people: {}, history: {} };
     if (hidden(subjectId)) {
@@ -350,9 +357,12 @@ export const loadStorySuggestions = cache(
     if (!access) return null;
 
     const graph = await loadGenealogyGraph(db, access.treeId, dateToJdn(new Date()));
-    // The same test as every redaction in the application: living, or
-    // presumed living from the dates.
-    const excluded = (personId: string) => graph.people.get(personId)?.isDeceased === false;
+    // Presumed living — the same presumption as every redaction — whoever
+    // is looking, and anyone this viewer may not see in any case.
+    const todayJdn = dateToJdn(new Date());
+    const hidden = hiddenInGraph(graph, access);
+    const excluded = (personId: string) =>
+      hidden(personId) || isPresumedLiving(graphSubject(graph.people.get(personId)), todayJdn);
     const ids = [...graph.people.keys()];
     const [{ people, historical }, coverage] = await Promise.all([
       readStoryRecord(access.treeId, graph, ids, excluded),

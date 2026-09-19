@@ -4,7 +4,7 @@ import { dateToJdn } from '@chronolignee/domain';
 import { loadGenealogyGraph } from '@chronolignee/db';
 import { abovilleNumbers } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
-import { REDACTED_LABEL, isHiddenFrom, resolveTreeAccess, type TreeAccess } from './access';
+import { REDACTED_LABEL, hiddenInGraph, resolveTreeAccess, type TreeAccess } from './access';
 
 /**
  * A descendant study.
@@ -56,11 +56,12 @@ export const loadDescent = cache(
     if (!graph.has(subjectId)) return null;
 
     const descent = abovilleNumbers(graph, subjectId, { generations });
+    const isHidden = hiddenInGraph(graph, access);
 
     const rows = descent.nodes.map((node): DescentRow => {
       const person = graph.people.get(node.personId);
       const isLiving = person?.isDeceased === false;
-      const hidden = isHiddenFrom({ isLiving }, access.redactLiving);
+      const hidden = isHidden(node.personId);
       const numbers = descent.numbersById.get(node.personId) ?? [];
 
       return {

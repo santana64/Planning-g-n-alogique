@@ -124,7 +124,7 @@ export default async function RecitPage({
 
         {view.subjectHidden ? (
           <p className="border-source/30 bg-source/10 text-source rounded-[var(--radius-md)] border px-4 py-3">
-            Cette personne est vivante. Son récit n’est pas affiché : il commencerait par sa propre
+            Cette personne est protégée. Son récit n’est pas affiché : il commencerait par sa propre
             naissance.
           </p>
         ) : (

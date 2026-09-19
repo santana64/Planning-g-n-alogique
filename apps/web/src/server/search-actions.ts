@@ -2,7 +2,7 @@
 
 import { searchPeople, searchPlaces } from '@chronolignee/db';
 import { db } from '@/lib/db';
-import { REDACTED_LABEL, isHiddenFrom, resolveTreeAccess } from './access';
+import { isHiddenFrom, privacySubjectFromColumns, resolveTreeAccess } from './access';
 
 /**
  * The command palette's search.
@@ -33,23 +33,29 @@ export async function searchTreeAction(
   if (query.trim().length < 2) return [];
 
   const [people, places] = await Promise.all([
-    searchPeople(db, { treeId: access.treeId, query, limit: 8 }),
+    // Asked for more than shown: hidden people are dropped below.
+    searchPeople(db, { treeId: access.treeId, query, limit: 24 }),
     searchPlaces(db, { treeId: access.treeId, query, limit: 4 }),
   ]);
 
-  const results: SearchResultItem[] = people.map((hit) => {
-    const isLiving = hit.livingStatus === 'LIVING';
-    const hidden = isHiddenFrom({ isLiving }, access.redactLiving);
-    return {
+  // Someone this viewer may not see is not a search result at all. Listed
+  // as "protected" under a search for their name, they would still be found:
+  // the result says a person of that name is in the tree.
+  const results: SearchResultItem[] = people
+    .filter((hit) => !isHiddenFrom(privacySubjectFromColumns(hit), access))
+    .slice(0, 8)
+    .map((hit) => ({
       kind: 'PERSON' as const,
       id: hit.personId,
-      label: hidden ? REDACTED_LABEL : hit.displayName,
-      // The years go with the name. A hidden name beside "1962 –" is not hidden.
-      detail: hidden ? '' : lifespanLabel(hit.lifespanEarliestJdn, hit.lifespanLatestJdn, isLiving),
+      label: hit.displayName,
+      detail: lifespanLabel(
+        hit.lifespanEarliestJdn,
+        hit.lifespanLatestJdn,
+        hit.livingStatus === 'LIVING',
+      ),
       approximate: hit.approximate,
-      redacted: hidden,
-    };
-  });
+      redacted: false,
+    }));
 
   for (const place of places) {
     results.push({

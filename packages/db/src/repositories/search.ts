@@ -37,9 +37,12 @@ export interface PersonSearchHit {
   readonly displayName: string;
   readonly searchName: string;
   readonly livingStatus: 'LIVING' | 'DECEASED' | 'UNKNOWN';
+  /** For the privacy rule: the caller decides who may be shown, not this query. */
+  readonly privacy: 'INHERIT' | 'VISIBLE' | 'REDACTED' | 'RESTRICTED';
   readonly birthSortJdn: number | null;
   readonly lifespanEarliestJdn: number | null;
   readonly lifespanLatestJdn: number | null;
+  readonly lifespanLatestInferred: boolean;
   /** 0 to 1. Exact and prefix matches are promoted above similarity. */
   readonly score: number;
   /** True when the match was not literal — worth saying so in the UI. */
@@ -54,9 +57,11 @@ interface RawHit {
   displayName: string;
   searchName: string;
   livingStatus: 'LIVING' | 'DECEASED' | 'UNKNOWN';
+  privacy: 'INHERIT' | 'VISIBLE' | 'REDACTED' | 'RESTRICTED';
   birthSortJdn: number | null;
   lifespanEarliestJdn: number | null;
   lifespanLatestJdn: number | null;
+  lifespanLatestInferred: boolean;
   score: number;
 }
 
@@ -114,9 +119,11 @@ export async function searchPeople(
       p."displayName",
       p."searchName",
       p."livingStatus"::text AS "livingStatus",
+      p."privacy"::text AS "privacy",
       p."birthSortJdn",
       p."lifespanEarliestJdn",
       p."lifespanLatestJdn",
+      p."lifespanLatestInferred",
       (
         CASE
           WHEN p."searchName" = ${folded} THEN 1.0
@@ -147,9 +154,11 @@ export async function searchPeople(
     displayName: row.displayName,
     searchName: row.searchName,
     livingStatus: row.livingStatus,
+    privacy: row.privacy,
     birthSortJdn: row.birthSortJdn,
     lifespanEarliestJdn: row.lifespanEarliestJdn,
     lifespanLatestJdn: row.lifespanLatestJdn,
+    lifespanLatestInferred: row.lifespanLatestInferred,
     score: row.score,
     // Said out loud in the UI: a fuzzy hit is a suggestion, and presenting it
     // as though the researcher's spelling matched would be a small lie about

@@ -3,7 +3,7 @@ import { cache } from 'react';
 import { dateToJdn } from '@chronolignee/domain';
 import { loadAtlas } from '@chronolignee/db';
 import { db } from '@/lib/db';
-import { resolveTreeAccess, type TreeAccess } from './access';
+import { isHiddenFrom, resolveTreeAccess, type TreeAccess } from './access';
 
 /**
  * The map's snapshot.
@@ -61,7 +61,7 @@ export const loadAtlasSnapshot = cache(async (treeSlug: string): Promise<AtlasSn
 
   const atlas = await loadAtlas(db, {
     treeId: access.treeId,
-    redactLiving: access.redactLiving,
+    isHidden: (person) => isHiddenFrom(person, access),
   });
 
   const byId = new Map(atlas.places.map((place) => [place.placeId, place]));

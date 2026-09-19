@@ -169,8 +169,7 @@ function AliveCounts({ alive }: { alive: AliveSnapshot }) {
       </span>
       {alive.hidden > 0 && (
         <span className="text-text-faint text-xs">
-          ({alive.hidden} vivant{alive.hidden > 1 ? 's' : ''} masqué
-          {alive.hidden > 1 ? 's' : ''})
+          ({alive.hidden} {alive.hidden > 1 ? 'personnes protégées' : 'personne protégée'})
         </span>
       )}
     </div>

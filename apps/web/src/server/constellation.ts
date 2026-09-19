@@ -5,7 +5,7 @@ import { loadEvidenceCoverage, loadGenealogyGraph } from '@chronolignee/db';
 import { layoutConstellation, type ConstellationLinkKind } from '@chronolignee/engine';
 import { isParentType, isPartnerType, type GenealogyGraph } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
-import { REDACTED_LABEL, isHiddenFrom, resolveTreeAccess, type TreeAccess } from './access';
+import { REDACTED_LABEL, hiddenInGraph, resolveTreeAccess, type TreeAccess } from './access';
 
 /**
  * The constellation, ready to draw.
@@ -80,11 +80,7 @@ export const loadConstellation = cache(
       loadEvidenceCoverage(db, access.treeId),
     ]);
 
-    const hidden = (personId: string) =>
-      isHiddenFrom(
-        { isLiving: graph.people.get(personId)?.isDeceased === false },
-        access.redactLiving,
-      );
+    const hidden = hiddenInGraph(graph, access);
 
     const empty = {
       access,

@@ -10,7 +10,7 @@ import { loadGenealogyGraph } from '@chronolignee/db';
 import { ganttLinks, layoutGantt, type GanttLink } from '@chronolignee/engine';
 import { lifespanEdges, type EdgeCertainty } from '@chronolignee/ui';
 import { db } from '@/lib/db';
-import { redactPerson, resolveTreeAccess } from './access';
+import { hiddenInGraph, redactPerson, resolveTreeAccess } from './access';
 
 /**
  * The timeline snapshot.
@@ -123,6 +123,7 @@ export const loadTimeline = cache(async (treeSlug: string): Promise<TimelineSnap
   const todayJdn = dateToJdn(new Date());
   const graph = await loadGenealogyGraph(db, tree.id, todayJdn);
   const layout = layoutGantt(graph);
+  const isHidden = hiddenInGraph(graph, access);
 
   const rows: TimelineRow[] = layout.rows.map((row) => {
     const person = graph.people.get(row.personId);
@@ -165,7 +166,7 @@ export const loadTimeline = cache(async (treeSlug: string): Promise<TimelineSnap
         }`.trim(),
         redacted: false,
       },
-      access.redactLiving,
+      isHidden(row.personId),
     );
   });
 
@@ -234,17 +235,28 @@ export const loadTimeline = cache(async (treeSlug: string): Promise<TimelineSnap
     significance: entry.historicalEvent.significance,
   }));
 
-  // Fall back to a sane window when the tree has no dated people at all,
-  // rather than handing the camera a null extent to divide by.
-  const earliestJdn = layout.earliestJdn ?? todayJdn - 36_525;
-  const latestJdn = layout.latestJdn ?? todayJdn;
+  // The window is drawn around what may be shown: a protected person born
+  // before everyone else would otherwise set the year the axis starts at.
+  // Fall back to a sane window when nobody visible is dated, rather than
+  // handing the camera a null extent to divide by.
+  let earliestJdn: number | null = null;
+  let latestJdn: number | null = null;
+  for (const row of rows) {
+    if (row.earliestJdn !== null && (earliestJdn === null || row.earliestJdn < earliestJdn)) {
+      earliestJdn = row.earliestJdn;
+    }
+    if (row.latestJdn !== null && (latestJdn === null || row.latestJdn > latestJdn)) {
+      latestJdn = row.latestJdn;
+    }
+  }
 
   // A parent link is positioned at the child's birth, so a link into a
   // redacted child leaks that birth date just as an event marker would.
   const allLinks = ganttLinks(graph, layout);
-  const links = access.redactLiving
-    ? allLinks.filter((link) => !redactedRows.has(link.toRow) && !redactedRows.has(link.fromRow))
-    : allLinks;
+  // Filtered whoever is looking: a restricted person is hidden from members too.
+  const links = allLinks.filter(
+    (link) => !redactedRows.has(link.toRow) && !redactedRows.has(link.fromRow),
+  );
 
   return {
     treeId: tree.id,
@@ -254,8 +266,8 @@ export const loadTimeline = cache(async (treeSlug: string): Promise<TimelineSnap
     links,
     events,
     bands,
-    earliestJdn,
-    latestJdn,
+    earliestJdn: earliestJdn ?? todayJdn - 36_525,
+    latestJdn: latestJdn ?? todayJdn,
     todayJdn,
     eventsTruncated,
   };

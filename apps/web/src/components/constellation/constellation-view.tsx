@@ -515,7 +515,7 @@ export function ConstellationView({
           >
             <p className="font-medium">{hoveredStar.name}</p>
             {hoveredStar.hidden ? (
-              <p className="text-[#a9b0c0]">Personne vivante : rien n’est publié à son sujet.</p>
+              <p className="text-[#a9b0c0]">Rien n’est publié à son sujet.</p>
             ) : (
               <>
                 <p className="text-[#a9b0c0]">{hoveredStar.lifeLabel}</p>
@@ -541,9 +541,7 @@ export function ConstellationView({
               </button>
             </div>
             {selectedStar.hidden ? (
-              <p className="text-xs text-[#a9b0c0]">
-                Personne vivante : rien n’est publié à son sujet.
-              </p>
+              <p className="text-xs text-[#a9b0c0]">Rien n’est publié à son sujet.</p>
             ) : (
               <>
                 <p className="text-xs text-[#a9b0c0]">

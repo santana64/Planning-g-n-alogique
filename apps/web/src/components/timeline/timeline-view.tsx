@@ -88,14 +88,20 @@ export function TimelineView({ snapshot }: { snapshot: TimelineSnapshot }) {
         <aside className="border-border-subtle bg-surface-1 border-t px-5 py-3" aria-live="polite">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <span className="font-editorial text-text-primary">{selected.displayName}</span>
-            <span className="text-text-muted text-sm">
-              Naissance : {selected.birthLabel} ({CERTAINTY_LABELS[selected.startCertainty]})
-            </span>
-            <span className="text-text-muted text-sm">
-              {selected.isLiving
-                ? 'Vivant'
-                : `Décès : ${selected.deathLabel} (${CERTAINTY_LABELS[selected.endCertainty]})`}
-            </span>
+            {selected.redacted ? (
+              <span className="text-text-muted text-sm">Rien n’est publié à son sujet.</span>
+            ) : (
+              <>
+                <span className="text-text-muted text-sm">
+                  Naissance : {selected.birthLabel} ({CERTAINTY_LABELS[selected.startCertainty]})
+                </span>
+                <span className="text-text-muted text-sm">
+                  {selected.isLiving
+                    ? 'Vivant'
+                    : `Décès : ${selected.deathLabel} (${CERTAINTY_LABELS[selected.endCertainty]})`}
+                </span>
+              </>
+            )}
           </div>
         </aside>
       )}
@@ -159,8 +165,8 @@ function TimelineTable({
               <td className="text-text-faint px-3 py-1.5">
                 {/* A redacted row reveals nothing, not even how well dated it
                     is: "exacte" tells a reader the birth was precisely
-                    recorded, which is a fact about a living person they did
-                    not agree to publish. */}
+                    recorded, which is a fact about a person who did not agree
+                    to be published. */}
                 {row.redacted
                   ? '—'
                   : `${CERTAINTY_LABELS[row.startCertainty]} / ${CERTAINTY_LABELS[row.endCertainty]}`}

@@ -66,6 +66,15 @@ export interface GraphPerson {
   readonly death?: GenealogicalDate | null;
   readonly lifespan?: JdnInterval | null;
   readonly isDeceased?: boolean | null;
+  /**
+   * What the privacy rule needs. Absent on a graph built for structural work,
+   * and read then as the most protective values: unknown status, the tree's
+   * rule, no recorded death.
+   */
+  readonly livingStatus?: 'LIVING' | 'DECEASED' | 'UNKNOWN';
+  readonly privacy?: 'INHERIT' | 'VISIBLE' | 'REDACTED' | 'RESTRICTED';
+  /** A death, a burial, or an accepted claim of either, is recorded. */
+  readonly deathRecorded?: boolean;
 }
 
 export interface GraphEdge {

@@ -86,7 +86,10 @@ test.describe('the demonstration timeline', () => {
     await page.goto('/demo');
     await page.getByRole('button', { name: 'Voir le tableau' }).click();
 
-    await expect(page.getByRole('table')).toContainText('Personne vivante');
+    await expect(page.getByRole('table')).toContainText('Personne protégée');
+    // Nor why they are hidden: "Vivant" beside a protected row would say it.
+    const protectedRow = page.getByRole('row').filter({ hasText: 'Personne protégée' }).first();
+    await expect(protectedRow).not.toContainText('Vivant');
 
     // Not a single living person's name reaches the page.
     const html = await page.content();
@@ -208,7 +211,9 @@ test.describe('the map', () => {
 
   test('withholds living people’s movements from a stranger', async ({ page }) => {
     await page.goto(MAP);
-    await expect(page.getByText(/déplacements de .* vivantes? ne sont pas affichés/)).toBeVisible();
+    await expect(
+      page.getByText(/personnes? protégées? ne figurent? pas sur la carte/),
+    ).toBeVisible();
   });
 
   test('moves the year and narrows what is shown', async ({ page }) => {
@@ -292,7 +297,7 @@ test.describe('descent', () => {
       .click();
     await expect(page).toHaveURL(/g=10/);
 
-    await expect(page.getByText('Personne vivante').first()).toBeVisible();
+    await expect(page.getByText('Personne protégée').first()).toBeVisible();
     const body = await page.content();
     for (const name of ['Camille', 'Léa', 'Mateo', 'Valentina']) {
       expect(body).not.toContain(name);
@@ -353,12 +358,12 @@ test.describe('the temporal fan', () => {
   test('draws nothing for a living person, whose birth year is the centre', async ({ page }) => {
     await page.goto('/app/famille-chassagne-demo/personnes');
     await page
-      .getByRole('link', { name: /Personne vivante/ })
+      .getByRole('link', { name: /Personne protégée/ })
       .first()
       .click();
     await page.getByRole('link', { name: 'Éventail temporel →' }).click();
 
-    await expect(page.getByText('Cette personne est vivante.', { exact: false })).toBeVisible();
+    await expect(page.getByText('Cette personne est protégée.', { exact: false })).toBeVisible();
     await expect(page.getByRole('figure')).toHaveCount(0);
     const body = await page.content();
     for (const name of ['Claire', 'Sylvie', 'Thomas', 'Valentina', 'Camille', 'Léa', 'Mateo']) {
@@ -613,12 +618,12 @@ test.describe('the story', () => {
   test('tells no story of a living person to a stranger', async ({ page }) => {
     await page.goto('/app/famille-chassagne-demo/personnes');
     await page
-      .getByRole('link', { name: /Personne vivante/ })
+      .getByRole('link', { name: /Personne protégée/ })
       .first()
       .click();
     await page.getByRole('link', { name: 'Remonter la lignée →' }).click();
 
-    await expect(page.getByText('Cette personne est vivante.', { exact: false })).toBeVisible();
+    await expect(page.getByText('Cette personne est protégée.', { exact: false })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Lire comme un récit' })).toHaveCount(0);
     const body = await page.content();
     for (const name of ['Claire', 'Sylvie', 'Thomas', 'Valentina', 'Camille', 'Léa', 'Mateo']) {
