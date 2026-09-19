@@ -13,8 +13,11 @@
  * both bracket it — "he was 64 when the war began" is true only of a man who
  * was alive, and an unknown death does not say he was. A wave of emigration
  * is context only for someone the record shows moving: set beside a woman
- * who lived and died in Tours, it would suggest a link nobody recorded. A
- * move is shown only between two places whose coordinates were recorded.
+ * who lived and died in Tours, it would suggest a link nobody recorded. For
+ * the same reason an event confined to some countries is attached only to
+ * someone with a recorded place in one of them: the First World War is no
+ * marker for a boy born and buried in Buenos Aires. A move is shown only
+ * between two places whose coordinates were recorded.
  */
 
 export type LineChoice = 'paternal' | 'maternal' | 'oldest';
@@ -31,6 +34,8 @@ export interface StoryPlace {
   readonly name: string;
   readonly latitude: number | null;
   readonly longitude: number | null;
+  /** ISO 3166-1 alpha-2, when recorded. */
+  readonly countryCode?: string | null;
 }
 
 export interface StorySource {
@@ -74,6 +79,8 @@ export interface StoryHistoricalEvent {
   readonly significance: number;
   /** WAR, POLITICAL, MIGRATION… as the historical layer records it. */
   readonly category: string;
+  /** The countries it touched; empty or absent for a global event. */
+  readonly countryCodes?: readonly string[];
 }
 
 /** Whole years, as a range when the dates behind them are ranges. */
@@ -130,6 +137,11 @@ export interface LineageOptions {
   readonly maxGenerations?: number;
   /** A move shorter than this is a neighbouring parish, not a migration. */
   readonly minMigrationKm?: number;
+  /**
+   * An exact way up, one step per generation: the father, then the mother,
+   * and so on. Steps beyond it follow the line.
+   */
+  readonly path?: readonly ('father' | 'mother')[];
 }
 
 const DAYS_PER_YEAR = 365.2425;
@@ -157,7 +169,10 @@ export function planLineageAscent(
   let generation = 0;
 
   for (;;) {
-    const next = chooseParent(child, line, people, oldestCache);
+    const step = options.path?.[generation];
+    const next = step
+      ? chooseParent(child, step === 'father' ? 'paternal' : 'maternal', people, oldestCache)
+      : chooseParent(child, line, people, oldestCache);
     if (next === null) {
       scenes.push({
         kind: 'end',
@@ -275,6 +290,17 @@ function pushHistory(
   if (!birth || birth.latestJdn === null || !death || death.earliestJdn === null) return;
   const bornBy = birth.latestJdn;
   const aliveUntil = death.earliestJdn;
+  // Where the record places this person. None known: no ground to exclude.
+  const countries = new Set(
+    [person.birth?.place?.countryCode, person.death?.place?.countryCode].filter(
+      (code): code is string => Boolean(code),
+    ),
+  );
+  const nearby = (event: StoryHistoricalEvent) =>
+    !event.countryCodes ||
+    event.countryCodes.length === 0 ||
+    countries.size === 0 ||
+    event.countryCodes.some((code) => countries.has(code));
 
   const candidates = historical
     .filter(
@@ -282,7 +308,8 @@ function pushHistory(
         !used.has(event.id) &&
         event.startJdn > bornBy &&
         event.startJdn < aliveUntil &&
-        (event.category !== 'MIGRATION' || person.migrated),
+        (event.category !== 'MIGRATION' || person.migrated) &&
+        nearby(event),
     )
     .sort((a, b) => b.significance - a.significance || a.startJdn - b.startJdn);
   const chosen = candidates[0];

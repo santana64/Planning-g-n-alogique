@@ -50,9 +50,11 @@ function Sentences({
 export function StoryPlayer({
   chapters,
   title,
+  label = 'Lire comme un récit',
 }: {
   chapters: readonly RenderedChapter[];
   title: string;
+  label?: string;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
@@ -147,7 +149,7 @@ export function StoryPlayer({
         disabled={chapters.length === 0}
         className="bg-accent text-accent-contrast hover:bg-accent-hover self-start rounded-[var(--radius-md)] px-4 py-2 text-sm font-medium disabled:opacity-50"
       >
-        Lire comme un récit
+        {label}
       </button>
 
       <dialog

@@ -4,3 +4,4 @@ export * from './factory';
 export * from './fake-provider';
 export * from './prompt';
 export * from './provider';
+export * from './story-selection';

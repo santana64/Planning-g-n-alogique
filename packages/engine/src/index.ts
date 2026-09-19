@@ -7,3 +7,4 @@ export * from './layout/constellation';
 export * from './render/quality';
 export * from './render/labels';
 export * from './story/lineage';
+export * from './story/director';

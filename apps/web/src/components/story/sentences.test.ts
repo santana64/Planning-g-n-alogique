@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { gregorianToJdn } from '@chronolignee/domain';
 import type { StoryDate, StoryPlan } from '@chronolignee/engine';
 import type { StoryViewPerson } from '@/server/story';
-import { ageText, dateClause, ofName, renderStory } from './sentences';
+import { ageText, dateClause, describeCandidate, ofName, renderStory } from './sentences';
 
 /**
  * The words of a story: every one of them has to be defensible from the
@@ -316,5 +316,42 @@ describe('what the record says, and no more', () => {
     expect(scene?.sentences[0]?.text).toBe(
       'La mère d’Émile MOREAU est une personne vivante : rien n’est publié à son sujet, et le récit s’arrête avant.',
     );
+  });
+});
+
+describe('a Director candidate, in words', () => {
+  const people = new Map([
+    ['gustave', person({ id: 'gustave', name: 'Gustave CHASSAGNE' })],
+    ['emile', person({ id: 'emile', name: 'Émile MOREAU' })],
+  ]);
+
+  it('names a move by its two ends and its length', () => {
+    expect(
+      describeCandidate(
+        {
+          kind: 'migration',
+          parentId: 'gustave',
+          childId: 'emile',
+          from: 'Tours',
+          to: 'Buenos Aires',
+          distanceKm: 10950,
+        },
+        'emile',
+        people,
+      ),
+    ).toEqual({
+      title: 'De Tours à Buenos Aires',
+      reason: '10 950 km entre la naissance de Gustave CHASSAGNE et celle d’Émile MOREAU.',
+    });
+  });
+
+  it('counts what it claims, with agreement', () => {
+    expect(
+      describeCandidate({ kind: 'well-documented', events: 3, cited: 1 }, 'emile', people).reason,
+    ).toBe('Émile MOREAU : 1 événement sourcé sur 3.');
+    expect(
+      describeCandidate({ kind: 'deep-line', generations: 6, earliestYear: null }, 'emile', people)
+        .reason,
+    ).toBe('6 générations depuis Émile MOREAU.');
   });
 });

@@ -94,6 +94,9 @@ export default defineConfig({
       APP_URL: BASE_URL,
       BETTER_AUTH_URL: BASE_URL,
       TRUSTED_ORIGINS: BASE_URL,
+      // Experimental surfaces are off by default and on here: a flag that is
+      // never switched on in a test is a feature nobody has run.
+      FEATURE_STORY_DIRECTOR: 'true',
     },
     reuseExistingServer: !process.env['CI'],
     timeout: 120_000,

@@ -1,7 +1,7 @@
 # État du projet
 
 **Dernière mise à jour** : 2026-09-18
-**Phase courante** : 9 (vues de profondeur) — éventail, constellation et Récit livrés ; Directeur à suivre
+**Phase courante** : 9 terminée (éventail, constellation, Récit, Directeur) ; phase 10 (collaboration) à suivre
 
 Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
@@ -315,6 +315,32 @@ registre. Toujours disponible, sans drapeau.
 
 **Tests** : 574 unitaires + 167 d'intégration + 53 E2E.
 
+### Directeur de récits (phase 9, drapeau `storyDirector`)
+
+Choisit **quoi** raconter ; le moteur du Récit décide **comment**. Désactivé
+par défaut, activé pour les E2E.
+
+| Élément                         | Preuve                                                                                  |
+| ------------------------------- | --------------------------------------------------------------------------------------- |
+| Motifs trouvés dans les données | grand déplacement, lignée la plus profonde, vie documentée, 4 générations               |
+| Déplacement                     | deux naissances géolocalisées à plus de 300 km ; un récit par route                     |
+| Quatre générations              | quatre décès connus exigés : un décès inconnu n'est pas une longue vie                  |
+| Personnes vivantes              | exclues de tout motif, **même pour les éditeurs**                                       |
+| Sélection par règles            | affichée d'emblée, gratuite, rien n'est envoyé ; même choix à chaque fois               |
+| Sélection par un modèle         | éditeurs seulement, sur demande, avertissement d'envoi externe                          |
+| Ce que le modèle peut faire     | choisir parmi les candidats et ajouter une phrase — jamais écrire un récit              |
+| Garde-fous                      | id inconnu, doublon, au-delà de la limite : écartés et comptés                          |
+| Phrase du modèle                | écartée si elle contient un nombre absent du candidat ; étiquetée « modèle »            |
+| Appel Anthropic                 | modèle principal à effort bas, sortie structurée, repli serveur ; client simulé en test |
+| Géographie du contexte          | un événement limité à des pays ne s'attache qu'à qui y a un lieu enregistré             |
+| Démonstration                   | « De Tours à Buenos Aires », 7 générations jusqu'en 1696, vie documentée                |
+
+La sélection par un modèle n'est couverte que par des tests unitaires (client
+simulé) : aucun E2E ne passe par le bouton, faute d'arbre éditable contenant
+des candidats dans la suite.
+
+**Tests** : 597 unitaires + 167 d'intégration + 54 E2E.
+
 ---
 
 ## Bugs réels trouvés et corrigés
@@ -450,7 +476,12 @@ registre. Toujours disponible, sans drapeau.
     mot, trompeur par juxtaposition. Un événement historique de catégorie
     migration ne concerne plus que qui a une migration enregistrée.
 
-32. **Focus initial du lecteur sur « Quitter ».** React ne rend pas
+32. **Première Guerre mondiale attachée à un enfant de Buenos Aires.** Vrai
+    (il avait 4 ans), sans rapport : l'événement ne touche que FR, DE, GB.
+    Un événement limité à des pays exige désormais un lieu enregistré dans
+    l'un d'eux ; sans lieu connu, rien n'est exclu faute de pouvoir juger.
+
+33. **Focus initial du lecteur sur « Quitter ».** React ne rend pas
     l'attribut `autofocus` et le dialogue, monté fermé, ignore le `focus()`
     de montage : un Entrée réflexe refermait le récit. Focus donné après
     `showModal()` ; vérifié en E2E.
@@ -465,20 +496,20 @@ Rien. Point de reprise propre.
 
 ## Reste à faire
 
-| Phase | Contenu                                                           | État                           |
-| ----- | ----------------------------------------------------------------- | ------------------------------ |
-| 2     | Services CRUD personne / relation                                 | **fait**                       |
-| 2     | Formulaires d'édition, liste, éditeur de liens                    | **fait**                       |
-| 2     | Éditeur d'événements hors naissance / décès                       | **fait**                       |
-| 3     | Import GEDCOM 7 + écran de revue                                  | **fait** — export sans bouton  |
-| 4     | Services de graphe (ancêtres, descendants, branches), recherche   | **fait** — sans doublons       |
-| 5     | Moteur Chronolignée, Gantt, voyage temporel, « qui était vivant » | **fait**                       |
-| 6     | Carte MapLibre, migrations                                        | **fait** — arcs au curseur     |
-| 7     | Archives S3, visionneuse de documents                             | **fait** — sans visionneuse    |
-| 8     | Pipeline IA, propositions, assistant                              | **fait** — texte seul          |
-| 9     | Constellation, profondeur temporelle, mode Récit                  | **en cours** — reste Directeur |
-| 10    | Collaboration, confidentialité des vivants                        | rédaction faite ; reste l'UI   |
-| 11    | Durcissement production                                           | partiel                        |
+| Phase | Contenu                                                           | État                             |
+| ----- | ----------------------------------------------------------------- | -------------------------------- |
+| 2     | Services CRUD personne / relation                                 | **fait**                         |
+| 2     | Formulaires d'édition, liste, éditeur de liens                    | **fait**                         |
+| 2     | Éditeur d'événements hors naissance / décès                       | **fait**                         |
+| 3     | Import GEDCOM 7 + écran de revue                                  | **fait** — export sans bouton    |
+| 4     | Services de graphe (ancêtres, descendants, branches), recherche   | **fait** — sans doublons         |
+| 5     | Moteur Chronolignée, Gantt, voyage temporel, « qui était vivant » | **fait**                         |
+| 6     | Carte MapLibre, migrations                                        | **fait** — arcs au curseur       |
+| 7     | Archives S3, visionneuse de documents                             | **fait** — sans visionneuse      |
+| 8     | Pipeline IA, propositions, assistant                              | **fait** — texte seul            |
+| 9     | Constellation, profondeur temporelle, mode Récit, Directeur       | **fait** — sans WebXR ni rivière |
+| 10    | Collaboration, confidentialité des vivants                        | rédaction faite ; reste l'UI     |
+| 11    | Durcissement production                                           | partiel                          |
 
 Manques identifiés hors phases : détection de doublons, bouton d'export
 GEDCOM, édition des coordonnées d'un lieu, lecture d'images par l'IA,

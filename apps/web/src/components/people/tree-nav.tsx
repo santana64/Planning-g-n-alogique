@@ -18,7 +18,15 @@ export function TreeNav({
   treeSlug: string;
   treeName: string;
   canEdit: boolean;
-  current: 'people' | 'timeline' | 'constellation' | 'map' | 'archive' | 'proposals' | 'import';
+  current:
+    | 'people'
+    | 'timeline'
+    | 'constellation'
+    | 'stories'
+    | 'map'
+    | 'archive'
+    | 'proposals'
+    | 'import';
 }) {
   const tabs = [
     { key: 'people' as const, href: `/app/${treeSlug}/personnes`, label: 'Personnes' },
@@ -31,6 +39,9 @@ export function TreeNav({
             label: 'Constellation',
           },
         ]
+      : []),
+    ...(features.storyDirector
+      ? [{ key: 'stories' as const, href: `/app/${treeSlug}/recits`, label: 'Récits' }]
       : []),
     { key: 'map' as const, href: `/app/${treeSlug}/carte`, label: 'Carte' },
     { key: 'archive' as const, href: `/app/${treeSlug}/archives`, label: 'Archives' },

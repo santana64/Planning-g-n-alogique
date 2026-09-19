@@ -1,6 +1,7 @@
 import { jdnToGregorian } from '@chronolignee/domain';
 import type {
   AgeRange,
+  StoryCandidateFacts,
   StoryDate,
   StoryHistoricalEvent,
   StoryPlan,
@@ -342,6 +343,48 @@ export function renderStory(input: StoryInput): RenderedChapter[] {
     }
   });
   return chapters;
+}
+
+/**
+ * A Director candidate, in words: a title and one sentence of reason, built
+ * from the facts the pattern was found on and nothing else.
+ */
+export function describeCandidate(
+  facts: StoryCandidateFacts,
+  subjectId: string,
+  people: ReadonlyMap<string, StoryViewPerson>,
+): { title: string; reason: string } {
+  const name = (id: string) => people.get(id)?.name ?? '';
+  switch (facts.kind) {
+    case 'migration': {
+      const distance = new Intl.NumberFormat('fr-FR').format(facts.distanceKm);
+      return {
+        title: `De ${facts.from} à ${facts.to}`,
+        reason: `${distance} km entre la naissance ${ofName(name(facts.parentId))} et celle ${ofName(name(facts.childId))}.`,
+      };
+    }
+    case 'deep-line':
+      return {
+        title: 'La lignée la plus ancienne',
+        reason: `${facts.generations} générations depuis ${name(subjectId)}${
+          facts.earliestYear === null ? '' : `, jusqu’en ${facts.earliestYear}`
+        }.`,
+      };
+    case 'well-documented': {
+      const plural = facts.cited > 1 ? 's' : '';
+      return {
+        title: 'Une vie bien documentée',
+        reason: `${name(subjectId)} : ${facts.cited} événement${plural} sourcé${plural} sur ${facts.events}.`,
+      };
+    }
+    case 'four-generations': {
+      const [a, b, c, d] = facts.personIds.map(name);
+      return {
+        title: 'Quatre générations en même temps',
+        reason: `De ${facts.fromYear} à ${facts.toYear}, ${a}, ${b}, ${c} et ${d} sont tous en vie.`,
+      };
+    }
+  }
 }
 
 export function sourceText(source: StorySource): string {

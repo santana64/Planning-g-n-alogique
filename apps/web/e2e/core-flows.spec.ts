@@ -627,6 +627,46 @@ test.describe('the story', () => {
   });
 });
 
+test.describe('the story director', () => {
+  test('offers the stories the tree already holds, chosen by rules', async ({ page }) => {
+    await page.goto('/app/famille-chassagne-demo/personnes');
+    await page
+      .getByRole('navigation', { name: 'Sections de l’arbre' })
+      .getByRole('link', { name: 'Récits' })
+      .click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Récits suggérés');
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Sélection par règles' }),
+    ).toBeVisible();
+
+    // The emigration the demonstration family made, found by distance alone.
+    await expect(page.getByRole('heading', { name: 'De Tours à Buenos Aires' })).toBeVisible();
+    // A stranger is never offered the model's choice.
+    await expect(page.getByRole('button', { name: /Demander une sélection/ })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Lire « De Tours à Buenos Aires »' }).click();
+    const player = page.getByRole('dialog', { name: 'De Tours à Buenos Aires' });
+    await expect(player.getByRole('heading', { level: 2 })).toHaveText('Ricardo CHASSAGNE');
+    // Born and buried in Buenos Aires: the First World War, confined to
+    // Europe in the historical layer, is not his context.
+    await expect(player).not.toContainText('Première Guerre mondiale');
+    await page.keyboard.press('Escape');
+
+    const body = await page.content();
+    for (const name of ['Claire', 'Sylvie', 'Thomas', 'Valentina', 'Camille', 'Léa', 'Mateo']) {
+      expect(body, `${name} must not appear in a suggested story`).not.toContain(name);
+    }
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    expect(
+      results.violations.map((v) => `${v.id}: ${v.nodes.length} nodes`),
+      JSON.stringify(results.violations, null, 2),
+    ).toEqual([]);
+  });
+});
+
 test.describe('machine proposals', () => {
   test('are never shown to someone outside the tree, even on a public one', async ({ page }) => {
     // A pending proposal is a reading nobody has vouched for. Publishing it

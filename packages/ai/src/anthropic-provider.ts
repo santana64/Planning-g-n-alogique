@@ -13,6 +13,16 @@ import {
   type AIProvider,
   type ExtractionRequest,
 } from './provider';
+import {
+  STORY_SELECTION_SYSTEM_PROMPT,
+  STORY_SELECTION_VERSION,
+  assertSelectable,
+  storySelectionOutputSchema,
+  storySelectionUserText,
+  validateStorySelection,
+  type StorySelectionRequest,
+  type StorySelectionResult,
+} from './story-selection';
 
 /**
  * Extraction by Claude.
@@ -60,6 +70,9 @@ const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
  * while staying under the SDK's non-streaming timeout ceiling.
  */
 const MAX_OUTPUT_TOKENS = 16_000;
+
+/** A handful of ids and sentences, with room for the model's own thinking. */
+const SELECTION_MAX_TOKENS = 8_000;
 
 export class AnthropicProvider implements AIProvider {
   readonly name = 'anthropic' as const;
@@ -133,6 +146,64 @@ export class AnthropicProvider implements AIProvider {
       pipelineVersion: PIPELINE_VERSION,
     });
   }
+
+  chooseStories(
+    request: StorySelectionRequest,
+    signal?: AbortSignal,
+  ): Promise<StorySelectionResult> {
+    return chooseStoriesWithClaude(this.client, this.model, request, signal);
+  }
+}
+
+/**
+ * A light task, on the same model at low effort rather than on a second,
+ * smaller one: the configured fast model accepts neither the effort setting
+ * nor the refusal fallback this provider relies on, and one model keeps one
+ * behaviour to reason about.
+ */
+export async function chooseStoriesWithClaude(
+  client: ExtractionClient,
+  model: string,
+  request: StorySelectionRequest,
+  signal?: AbortSignal,
+): Promise<StorySelectionResult> {
+  assertSelectable(request);
+
+  let response;
+  try {
+    response = await client.beta.messages.parse(
+      {
+        model,
+        max_tokens: SELECTION_MAX_TOKENS,
+        betas: [FALLBACK_BETA],
+        fallbacks: 'default',
+        system: STORY_SELECTION_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: storySelectionUserText(request) }],
+        output_config: {
+          format: betaZodOutputFormat(storySelectionOutputSchema),
+          effort: 'low',
+        },
+      },
+      signal ? { signal } : undefined,
+    );
+  } catch (error) {
+    throw toExtractionError(error);
+  }
+
+  if (response.stop_reason === 'refusal') {
+    throw new ExtractionError('REFUSED', response.stop_details?.category ?? undefined);
+  }
+  if (response.stop_reason === 'max_tokens') {
+    throw new ExtractionError('INVALID_OUTPUT', 'truncated');
+  }
+  const parsed = response.parsed_output;
+  if (!parsed) throw new ExtractionError('INVALID_OUTPUT', 'unparseable');
+
+  return validateStorySelection(parsed, request, {
+    provider: 'anthropic',
+    model: response.model,
+    version: STORY_SELECTION_VERSION,
+  });
 }
 
 /**

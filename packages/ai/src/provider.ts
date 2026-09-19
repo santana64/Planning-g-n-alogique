@@ -1,4 +1,5 @@
 import type { ExtractionResult } from './extraction';
+import type { StorySelectionRequest, StorySelectionResult } from './story-selection';
 
 /**
  * The provider boundary.
@@ -33,6 +34,14 @@ export interface AIProvider {
   /** Human-readable, for the review screen: which reader produced a proposal. */
   readonly label: string;
   extract(request: ExtractionRequest, signal?: AbortSignal): Promise<ExtractionResult>;
+  /**
+   * Choose which of the given stories to present, in order. The stories
+   * themselves are never written by the provider; see story-selection.ts.
+   */
+  chooseStories(
+    request: StorySelectionRequest,
+    signal?: AbortSignal,
+  ): Promise<StorySelectionResult>;
 }
 
 export type ExtractionErrorCode =

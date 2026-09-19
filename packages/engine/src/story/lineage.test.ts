@@ -136,6 +136,15 @@ describe('climbing a line', () => {
     });
   });
 
+  it('follows an exact path when given one, then the line', () => {
+    // Father, then his mother: Paul, then Céline — then fathers again.
+    const plan = planLineageAscent('emile', people, [], 'paternal', { path: ['father', 'mother'] });
+    const parents = plan?.scenes.flatMap((scene) =>
+      scene.kind === 'ancestor-step' ? [scene.parentId] : [],
+    );
+    expect(parents).toEqual(['paul', 'celine']);
+  });
+
   it('opens on the subject', () => {
     expect(planLineageAscent('emile', people, [], 'paternal')?.scenes[0]).toEqual({
       kind: 'person-focus',
@@ -328,6 +337,33 @@ describe('history', () => {
     expect(left?.scenes).toContainEqual(
       expect.objectContaining({ kind: 'historical-context', eventId: 'wave' }),
     );
+  });
+
+  it('keeps an event to the countries it touched', () => {
+    const BUENOS_AIRES: StoryPlace = {
+      id: 'ba',
+      name: 'Buenos Aires',
+      latitude: -34.6,
+      longitude: -58.38,
+      countryCode: 'AR',
+    };
+    const FRANCE_ONLY = { ...WAR, countryCodes: ['FR', 'DE', 'GB'] };
+    const argentine = {
+      ...person('r', { born: exact(1910), died: exact(1991) }),
+      birth: { date: exact(1910), place: BUENOS_AIRES, sources: [] },
+      death: { date: exact(1991), place: BUENOS_AIRES, sources: [] },
+    };
+    const stayed = planLineageAscent('r', family(argentine), [FRANCE_ONLY], 'paternal');
+    expect(kinds(stayed?.scenes ?? [])).not.toContain('historical-context');
+
+    // Nowhere recorded: nothing to go on, so nothing is excluded.
+    const unplaced = planLineageAscent(
+      'u',
+      family(person('u', { born: exact(1880), died: exact(1950) })),
+      [FRANCE_ONLY],
+      'paternal',
+    );
+    expect(kinds(unplaced?.scenes ?? [])).toContain('historical-context');
   });
 
   it('says nothing when the death is unknown: that is not evidence of being alive', () => {

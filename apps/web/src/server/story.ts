@@ -1,10 +1,13 @@
 import 'server-only';
 import { cache } from 'react';
 import { dateToJdn, formatGenealogicalDate, type GenealogicalDate } from '@chronolignee/domain';
-import { decodeDate, loadGenealogyGraph } from '@chronolignee/db';
+import { decodeDate, loadEvidenceCoverage, loadGenealogyGraph } from '@chronolignee/db';
 import {
+  chooseStoriesByRules,
+  findStoryCandidates,
   planLineageAscent,
   type LineChoice,
+  type StoryCandidateFacts,
   type StoryDate,
   type StoryFact,
   type StoryHistoricalEvent,
@@ -14,11 +17,13 @@ import {
   type StoryPlan,
   type StorySource,
 } from '@chronolignee/engine';
+import type { GenealogyGraph } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
+import { describeCandidate, renderStory, type RenderedChapter } from '@/components/story/sentences';
 import { REDACTED_LABEL, isHiddenFrom, resolveTreeAccess, type TreeAccess } from './access';
 
 /**
- * "Remonter ma lignée", ready to tell.
+ * Stories, ready to tell.
  *
  * The record is read once and handed to the planner, which decides the
  * scenes; only the people those scenes refer to leave the server. Dates are
@@ -72,6 +77,206 @@ function toStoryDate(date: GenealogicalDate | null | undefined): StoryDate | nul
   };
 }
 
+/**
+ * The facts a story can use, for the given people: projected dates, places,
+ * occupations, moves and their sources. Anyone `hidden` says of is present
+ * only as a name-less placeholder, so that a line stops before them rather
+ * than skipping over them.
+ */
+async function readStoryRecord(
+  treeId: string,
+  graph: GenealogyGraph,
+  ids: readonly string[],
+  hidden: (personId: string) => boolean,
+): Promise<{
+  people: Map<string, StoryViewPerson>;
+  historical: StoryHistoricalEvent[];
+}> {
+  const [events, historicalRows] = await Promise.all([
+    db.event.findMany({
+      where: {
+        treeId,
+        deletedAt: null,
+        type: { in: [...VITAL_TYPES] },
+        participants: { some: { personId: { in: [...ids] }, role: 'PRINCIPAL' } },
+      },
+      orderBy: [{ dateSortJdn: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
+      select: {
+        type: true,
+        description: true,
+        dateQualifier: true,
+        dateCalendar: true,
+        datePrecision: true,
+        dateStartYear: true,
+        dateStartMonth: true,
+        dateStartDay: true,
+        dateEndYear: true,
+        dateEndMonth: true,
+        dateEndDay: true,
+        dateOriginalText: true,
+        dateUnparsed: true,
+        place: {
+          select: { id: true, name: true, latitude: true, longitude: true, countryCode: true },
+        },
+        participants: {
+          where: { personId: { in: [...ids] }, role: 'PRINCIPAL' },
+          select: { personId: true },
+        },
+        citations: {
+          select: { locator: true, page: true, source: { select: { title: true } } },
+        },
+      },
+    }),
+    db.treeHistoricalEvent.findMany({
+      where: { treeId },
+      select: {
+        historicalEvent: {
+          select: {
+            id: true,
+            title: true,
+            startJdn: true,
+            endJdn: true,
+            significance: true,
+            category: true,
+            countryCodes: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  type EventRow = (typeof events)[number];
+  const byPerson = new Map<string, EventRow[]>();
+  for (const event of events) {
+    for (const participant of event.participants) {
+      const list = byPerson.get(participant.personId);
+      if (list) list.push(event);
+      else byPerson.set(participant.personId, [event]);
+    }
+  }
+
+  const sourcesOf = (event: EventRow | undefined): StorySource[] =>
+    (event?.citations ?? []).map((citation) => ({
+      title: citation.source.title,
+      locator: [citation.locator, citation.page].filter(Boolean).join(', ') || null,
+    }));
+  const placeOf = (event: EventRow | undefined): StoryPlace | null =>
+    event?.place
+      ? {
+          id: event.place.id,
+          name: event.place.name,
+          latitude: event.place.latitude,
+          longitude: event.place.longitude,
+          countryCode: event.place.countryCode,
+        }
+      : null;
+
+  const people = new Map<string, StoryViewPerson>();
+  for (const id of ids) {
+    const person = graph.people.get(id);
+    if (!person) continue;
+    const personHidden = hidden(id);
+    const own = byPerson.get(id) ?? [];
+    const birthEvent = own.find((event) => event.type === 'BIRTH');
+    const baptismEvent = own.find((event) => event.type === 'BAPTISM');
+    const deathEvent = own.find((event) => event.type === 'DEATH');
+    const burialEvent = own.find((event) => event.type === 'BURIAL');
+    const birthSource = birthEvent ?? baptismEvent;
+    const deathSource = deathEvent ?? burialEvent;
+    const birthDate = toStoryDate(person.birth);
+    const deathDate = toStoryDate(person.death);
+
+    const birth: StoryFact | null =
+      birthDate || birthSource
+        ? { date: birthDate, place: placeOf(birthSource), sources: sourcesOf(birthSource) }
+        : null;
+    const death: StoryFact | null =
+      deathDate || deathSource
+        ? { date: deathDate, place: placeOf(deathSource), sources: sourcesOf(deathSource) }
+        : null;
+    const occupations: StoryOccupation[] = own
+      .filter((event) => event.type === 'OCCUPATION' && event.description)
+      .map((event) => ({
+        label: event.description as string,
+        date: toStoryDate(decodeDate(event)),
+        sources: sourcesOf(event),
+      }));
+    const moves: StoryMove[] = own
+      .filter((event) => event.type === 'MIGRATION' || event.type === 'NATURALIZATION')
+      .map((event) => ({
+        kind: event.type === 'MIGRATION' ? 'migration' : 'naturalization',
+        date: toStoryDate(decodeDate(event)),
+        place: placeOf(event),
+        sources: sourcesOf(event),
+      }));
+
+    const parents = graph.parentsOf(id, true).map((edge) => edge.sourceId);
+    const sexOf = (parentId: string) => graph.people.get(parentId)?.recordedSex ?? null;
+
+    people.set(id, {
+      id,
+      name: personHidden ? REDACTED_LABEL : person.displayName,
+      recordedSex: personHidden ? null : (person.recordedSex ?? null),
+      hidden: personHidden,
+      birth: personHidden ? null : birth,
+      death: personHidden ? null : death,
+      occupations: personHidden ? [] : occupations,
+      // A parent of unrecorded sex is neither "father" nor "mother": the
+      // story would otherwise state something the record does not.
+      fatherId: parents.find((parentId) => sexOf(parentId) === 'MALE') ?? null,
+      motherId: parents.find((parentId) => sexOf(parentId) === 'FEMALE') ?? null,
+      birthRecordedAs:
+        personHidden || !birth ? null : birthEvent || !baptismEvent ? 'birth' : 'baptism',
+      deathRecordedAs:
+        personHidden || !death ? null : deathEvent || !burialEvent ? 'death' : 'burial',
+      moves: personHidden ? [] : moves,
+      migrated: !personHidden && moves.length > 0,
+    });
+  }
+
+  return { people, historical: historicalRows.map((row) => row.historicalEvent) };
+}
+
+/** Only what a plan refers to leaves the server, without links to anyone else. */
+function referencedBy(
+  plan: StoryPlan | null,
+  people: ReadonlyMap<string, StoryViewPerson>,
+  historical: readonly StoryHistoricalEvent[],
+): Pick<StoryView, 'people' | 'history'> {
+  const ids = new Set<string>();
+  const eventIds = new Set<string>();
+  for (const scene of plan?.scenes ?? []) {
+    switch (scene.kind) {
+      case 'ancestor-step':
+      case 'migration':
+        ids.add(scene.childId);
+        ids.add(scene.parentId);
+        break;
+      case 'historical-context':
+        ids.add(scene.personId);
+        eventIds.add(scene.eventId);
+        break;
+      case 'person-focus':
+      case 'end':
+        ids.add(scene.personId);
+        break;
+    }
+  }
+  return {
+    people: Object.fromEntries(
+      [...ids].flatMap((id) => {
+        const person = people.get(id);
+        // The links upward did their work in the planner; sent on, they
+        // would point at people the scenes never mention.
+        return person ? [[id, { ...person, fatherId: null, motherId: null }]] : [];
+      }),
+    ),
+    history: Object.fromEntries(
+      historical.filter((event) => eventIds.has(event.id)).map((event) => [event.id, event]),
+    ),
+  };
+}
+
 export const loadLineageStory = cache(
   async (treeSlug: string, subjectId: string, line: LineChoice): Promise<StoryView | null> => {
     const access = await resolveTreeAccess(treeSlug);
@@ -93,193 +298,83 @@ export const loadLineageStory = cache(
     }
 
     // Everyone the ascent could reach, and no one else.
-    const reachable = new Set<string>([subjectId]);
-    for (const id of graph.ancestorsOf(subjectId, { biologicalOnly: true }).order) {
-      reachable.add(id);
-    }
-    const ids = [...reachable];
-
-    const [events, historicalRows] = await Promise.all([
-      db.event.findMany({
-        where: {
-          treeId: access.treeId,
-          deletedAt: null,
-          type: { in: [...VITAL_TYPES] },
-          participants: { some: { personId: { in: ids }, role: 'PRINCIPAL' } },
-        },
-        orderBy: [{ dateSortJdn: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
-        select: {
-          type: true,
-          description: true,
-          dateQualifier: true,
-          dateCalendar: true,
-          datePrecision: true,
-          dateStartYear: true,
-          dateStartMonth: true,
-          dateStartDay: true,
-          dateEndYear: true,
-          dateEndMonth: true,
-          dateEndDay: true,
-          dateOriginalText: true,
-          dateUnparsed: true,
-          place: { select: { id: true, name: true, latitude: true, longitude: true } },
-          participants: {
-            where: { personId: { in: ids }, role: 'PRINCIPAL' },
-            select: { personId: true },
-          },
-          citations: {
-            select: { locator: true, page: true, source: { select: { title: true } } },
-          },
-        },
-      }),
-      db.treeHistoricalEvent.findMany({
-        where: { treeId: access.treeId },
-        select: {
-          historicalEvent: {
-            select: {
-              id: true,
-              title: true,
-              startJdn: true,
-              endJdn: true,
-              significance: true,
-              category: true,
-            },
-          },
-        },
-      }),
-    ]);
-
-    type EventRow = (typeof events)[number];
-    const byPerson = new Map<string, EventRow[]>();
-    for (const event of events) {
-      for (const participant of event.participants) {
-        const list = byPerson.get(participant.personId);
-        if (list) list.push(event);
-        else byPerson.set(participant.personId, [event]);
-      }
-    }
-
-    const sourcesOf = (event: EventRow | undefined): StorySource[] =>
-      (event?.citations ?? []).map((citation) => ({
-        title: citation.source.title,
-        locator: [citation.locator, citation.page].filter(Boolean).join(', ') || null,
-      }));
-    const placeOf = (event: EventRow | undefined) =>
-      event?.place
-        ? {
-            id: event.place.id,
-            name: event.place.name,
-            latitude: event.place.latitude,
-            longitude: event.place.longitude,
-          }
-        : null;
-
-    const people = new Map<string, StoryViewPerson>();
-    for (const id of ids) {
-      const person = graph.people.get(id);
-      if (!person) continue;
-      const personHidden = hidden(id);
-      const own = byPerson.get(id) ?? [];
-      const birthEvent = own.find((event) => event.type === 'BIRTH');
-      const baptismEvent = own.find((event) => event.type === 'BAPTISM');
-      const deathEvent = own.find((event) => event.type === 'DEATH');
-      const burialEvent = own.find((event) => event.type === 'BURIAL');
-      const birthSource = birthEvent ?? baptismEvent;
-      const deathSource = deathEvent ?? burialEvent;
-      const birthDate = toStoryDate(person.birth);
-      const deathDate = toStoryDate(person.death);
-
-      const birth: StoryFact | null =
-        birthDate || birthSource
-          ? { date: birthDate, place: placeOf(birthSource), sources: sourcesOf(birthSource) }
-          : null;
-      const death: StoryFact | null =
-        deathDate || deathSource
-          ? { date: deathDate, place: placeOf(deathSource), sources: sourcesOf(deathSource) }
-          : null;
-      const occupations: StoryOccupation[] = own
-        .filter((event) => event.type === 'OCCUPATION' && event.description)
-        .map((event) => ({
-          label: event.description as string,
-          date: toStoryDate(decodeDate(event)),
-          sources: sourcesOf(event),
-        }));
-
-      const moves: StoryMove[] = own
-        .filter((event) => event.type === 'MIGRATION' || event.type === 'NATURALIZATION')
-        .map((event) => ({
-          kind: event.type === 'MIGRATION' ? 'migration' : 'naturalization',
-          date: toStoryDate(decodeDate(event)),
-          place: placeOf(event),
-          sources: sourcesOf(event),
-        }));
-
-      const parents = graph.parentsOf(id, true).map((edge) => edge.sourceId);
-      const sexOf = (parentId: string) => graph.people.get(parentId)?.recordedSex ?? null;
-
-      people.set(id, {
-        id,
-        name: personHidden ? REDACTED_LABEL : person.displayName,
-        recordedSex: personHidden ? null : (person.recordedSex ?? null),
-        hidden: personHidden,
-        birth: personHidden ? null : birth,
-        death: personHidden ? null : death,
-        occupations: personHidden ? [] : occupations,
-        // A parent of unrecorded sex is neither "father" nor "mother": the
-        // story would otherwise state something the record does not.
-        fatherId: parents.find((parentId) => sexOf(parentId) === 'MALE') ?? null,
-        motherId: parents.find((parentId) => sexOf(parentId) === 'FEMALE') ?? null,
-        birthRecordedAs:
-          personHidden || !birth ? null : birthEvent || !baptismEvent ? 'birth' : 'baptism',
-        deathRecordedAs:
-          personHidden || !death ? null : deathEvent || !burialEvent ? 'death' : 'burial',
-        moves: personHidden ? [] : moves,
-        migrated: !personHidden && moves.length > 0,
-      });
-    }
-
-    const historical = historicalRows.map((row) => row.historicalEvent);
+    const ids = [
+      subjectId,
+      ...graph
+        .ancestorsOf(subjectId, { biologicalOnly: true })
+        .order.filter((id) => id !== subjectId),
+    ];
+    const { people, historical } = await readStoryRecord(access.treeId, graph, ids, hidden);
     const plan = planLineageAscent(subjectId, people, historical, line);
-
-    // Only what the scenes refer to leaves the server.
-    const referenced = new Set<string>();
-    const eventIds = new Set<string>();
-    for (const scene of plan?.scenes ?? []) {
-      switch (scene.kind) {
-        case 'person-focus':
-          referenced.add(scene.personId);
-          break;
-        case 'ancestor-step':
-        case 'migration':
-          referenced.add(scene.childId);
-          referenced.add(scene.parentId);
-          break;
-        case 'historical-context':
-          referenced.add(scene.personId);
-          eventIds.add(scene.eventId);
-          break;
-        case 'end':
-          referenced.add(scene.personId);
-          break;
-      }
-    }
 
     return {
       ...base,
       subjectName: subject.displayName,
       subjectHidden: false,
       plan,
-      people: Object.fromEntries(
-        [...referenced].flatMap((id) => {
-          const person = people.get(id);
-          // The links upward did their work in the planner; sent on, they
-          // would point at people the scenes never mention.
-          return person ? [[id, { ...person, fatherId: null, motherId: null }]] : [];
-        }),
-      ),
-      history: Object.fromEntries(
-        historical.filter((event) => eventIds.has(event.id)).map((event) => [event.id, event]),
-      ),
+      ...referencedBy(plan, people, historical),
+    };
+  },
+);
+
+export interface StorySuggestion {
+  readonly id: string;
+  readonly kind: StoryCandidateFacts['kind'];
+  readonly title: string;
+  readonly reason: string;
+  readonly chapters: readonly RenderedChapter[];
+}
+
+export interface StorySuggestionsView {
+  readonly access: TreeAccess;
+  /** Every candidate worth offering, strongest first, each ready to read. */
+  readonly suggestions: readonly StorySuggestion[];
+  /** The ids the rules would present, in order. */
+  readonly rulesChoice: readonly string[];
+}
+
+const OFFERED = 8;
+const PRESENTED = 4;
+
+/**
+ * The Director's candidates for this tree.
+ *
+ * Living people are left out of every pattern, whoever is looking. A
+ * suggestion is family history offered unprompted — and, when an editor asks
+ * a model to choose among them, the one thing sent outside — so it keeps to
+ * the dead even for the people entitled to see the living.
+ */
+export const loadStorySuggestions = cache(
+  async (treeSlug: string): Promise<StorySuggestionsView | null> => {
+    const access = await resolveTreeAccess(treeSlug);
+    if (!access) return null;
+
+    const graph = await loadGenealogyGraph(db, access.treeId, dateToJdn(new Date()));
+    // The same test as every redaction in the application: living, or
+    // presumed living from the dates.
+    const excluded = (personId: string) => graph.people.get(personId)?.isDeceased === false;
+    const ids = [...graph.people.keys()];
+    const [{ people, historical }, coverage] = await Promise.all([
+      readStoryRecord(access.treeId, graph, ids, excluded),
+      loadEvidenceCoverage(db, access.treeId),
+    ]);
+
+    const candidates = findStoryCandidates({ people, coverage, historical }).slice(0, OFFERED);
+    const suggestions = candidates.map((candidate) => {
+      const described = describeCandidate(candidate.facts, candidate.subjectId, people);
+      const told = referencedBy(candidate.plan, people, historical);
+      return {
+        id: candidate.id,
+        kind: candidate.facts.kind,
+        ...described,
+        chapters: renderStory({ plan: candidate.plan, ...told }),
+      };
+    });
+
+    return {
+      access,
+      suggestions,
+      rulesChoice: chooseStoriesByRules(candidates, PRESENTED).map((candidate) => candidate.id),
     };
   },
 );

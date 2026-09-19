@@ -6,6 +6,13 @@ import {
   type ExtractionResult,
 } from './extraction';
 import { assertExtractable, type AIProvider, type ExtractionRequest } from './provider';
+import {
+  STORY_SELECTION_VERSION,
+  assertSelectable,
+  validateStorySelection,
+  type StorySelectionRequest,
+  type StorySelectionResult,
+} from './story-selection';
 
 /**
  * The deterministic test double.
@@ -71,6 +78,23 @@ export class FakeAIProvider implements AIProvider {
   readonly name = 'fake' as const;
   readonly sendsDataExternally = false;
   readonly label = 'Lecture par règles (sans IA)';
+
+  /**
+   * The rules' own order, cut to the limit, and no sentence at all: there is
+   * no model here to have an opinion on why a story is worth reading.
+   */
+  async chooseStories(request: StorySelectionRequest): Promise<StorySelectionResult> {
+    assertSelectable(request);
+    return validateStorySelection(
+      {
+        selections: request.candidates
+          .slice(0, request.limit)
+          .map((candidate) => ({ candidateId: candidate.id, angle: '' })),
+      },
+      request,
+      { provider: 'fake', model: 'rules-fr-1', version: STORY_SELECTION_VERSION },
+    );
+  }
 
   async extract(request: ExtractionRequest): Promise<ExtractionResult> {
     assertExtractable(request);
