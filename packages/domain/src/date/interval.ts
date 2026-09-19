@@ -239,6 +239,13 @@ export interface ResolvedLifespan {
   readonly latestIsInferred: boolean;
   /** True when neither birth nor death carries any temporal position. */
   readonly undated: boolean;
+  /**
+   * True when the record ends the life before it begins — a death dated
+   * before the birth, a living person born in the future. The window then
+   * shrinks to its first day rather than turning inside out; the validator
+   * reports the contradiction, and the record is kept for someone to fix.
+   */
+  readonly contradictory: boolean;
 }
 
 /**
@@ -281,10 +288,16 @@ export function resolveLifespan(
     }
   }
 
+  // An inverted window is refused by the database and breaks every interval
+  // comparison downstream; a typing error in one date must not cost the whole
+  // record, still less a whole import.
+  const contradictory = birth.earliest !== null && latest !== null && latest < birth.earliest;
+
   return {
-    interval: { earliest: birth.earliest, latest },
+    interval: { earliest: birth.earliest, latest: contradictory ? birth.earliest : latest },
     latestIsInferred,
     undated,
+    contradictory,
   };
 }
 

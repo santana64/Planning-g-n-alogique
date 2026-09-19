@@ -203,6 +203,55 @@ describe('resolveLifespan', () => {
     );
     expect(resolved.interval.latest).toBe(TODAY);
   });
+
+  it('never ends a life before it began, whatever the record says', () => {
+    // A death typed before the birth, a living person born in the future: the
+    // record contradicts itself, the validator says so, and the lifespan
+    // shrinks to its first day rather than turning inside out — an inverted
+    // interval is refused by the database and breaks every comparison after.
+    const deathFirst = resolveLifespan(
+      { birth: parse('12 JUN 1827'), death: parse('MAR 1827'), isDeceased: true },
+      TODAY,
+    );
+    expect(deathFirst.interval.latest).toBe(deathFirst.interval.earliest);
+    expect(deathFirst.contradictory).toBe(true);
+
+    const bornLater = resolveLifespan(
+      { birth: parse('2062'), death: null, isDeceased: false },
+      TODAY,
+    );
+    expect(bornLater.interval.latest).toBe(bornLater.interval.earliest);
+    expect(bornLater.contradictory).toBe(true);
+
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1600, max: 2100 }),
+        fc.integer({ min: -60, max: 110 }),
+        fc.constantFrom(true, false, undefined),
+        (birthYear, span, isDeceased) => {
+          const { interval } = resolveLifespan(
+            {
+              birth: parse(`ABT ${birthYear}`),
+              death: isDeceased === false ? null : parse(String(birthYear + span)),
+              isDeceased,
+            },
+            TODAY,
+          );
+          if (interval.earliest !== null && interval.latest !== null) {
+            expect(interval.latest).toBeGreaterThanOrEqual(interval.earliest);
+          }
+        },
+      ),
+      { numRuns: 400 },
+    );
+  });
+
+  it('does not call an ordinary life contradictory', () => {
+    expect(
+      resolveLifespan({ birth: parse('1750'), death: parse('1800'), isDeceased: true }, TODAY)
+        .contradictory,
+    ).toBe(false);
+  });
 });
 
 describe('ageAt', () => {

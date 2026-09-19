@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { dateToJdn, gregorianToJdn, isPresumedLiving } from '@chronolignee/domain';
+import { auditPerson } from '@chronolignee/genealogy';
 import {
   RelationshipRefused,
   createCitation,
@@ -147,6 +148,22 @@ describe('creating a person', () => {
     });
     // Never briefly public between being created and being protected.
     expect(row.privacy).toBe('REDACTED');
+  });
+
+  it('keeps a record whose dates contradict each other, instead of failing', async () => {
+    // A death typed before the birth is a mistake the validator reports, not
+    // one the database may refuse: an inverted lifespan broke the save — and
+    // an import containing one such person lost the whole file.
+    const created = await person('Contradiction', 'Dates', '12 JUN 1827', 'MAR 1827');
+    const row = await db.person.findUniqueOrThrow({
+      where: { id: created.personId },
+      select: { lifespanEarliestJdn: true, lifespanLatestJdn: true },
+    });
+    expect(row.lifespanLatestJdn).toBe(row.lifespanEarliestJdn);
+
+    const graph = await loadGenealogyGraph(db, treeId, TODAY_JDN);
+    const findings = auditPerson(graph, created.personId, { todayJdn: TODAY_JDN });
+    expect(findings.map((finding) => finding.code)).toContain('DEATH_BEFORE_BIRTH');
   });
 
   it('refuses a person with no name at all', async () => {
