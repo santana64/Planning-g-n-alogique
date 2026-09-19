@@ -6,10 +6,10 @@ import {
   formatYearOnly,
   intervalWidthDays,
 } from '@chronolignee/domain';
-import { loadGenealogyGraph } from '@chronolignee/db';
 import { ganttLinks, layoutGantt, type GanttLink } from '@chronolignee/engine';
 import { lifespanEdges, type EdgeCertainty } from '@chronolignee/ui';
 import { db } from '@/lib/db';
+import { treeGraph } from './graph-cache';
 import { hiddenInGraph, redactPerson, resolveTreeAccess } from './access';
 
 /**
@@ -121,7 +121,7 @@ export const loadTimeline = cache(async (treeSlug: string): Promise<TimelineSnap
   const tree = { id: access.treeId, name: access.treeName, slug: access.treeSlug };
 
   const todayJdn = dateToJdn(new Date());
-  const graph = await loadGenealogyGraph(db, tree.id, todayJdn);
+  const graph = await treeGraph(tree.id, todayJdn);
   const layout = layoutGantt(graph);
   const isHidden = hiddenInGraph(graph, access);
 

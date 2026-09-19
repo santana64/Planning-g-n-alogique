@@ -17,7 +17,8 @@
     "studio": "prisma studio",
     "seed": "tsx src/seed/index.ts",
     "typecheck": "tsc --noEmit",
-    "build": "prisma generate"
+    "build": "prisma generate",
+    "benchmark": "tsx src/benchmark/run.ts"
   },
   "dependencies": {
     "@chronolignee/domain": "workspace:*",

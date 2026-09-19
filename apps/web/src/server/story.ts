@@ -6,7 +6,7 @@ import {
   isPresumedLiving,
   type GenealogicalDate,
 } from '@chronolignee/domain';
-import { decodeDate, loadEvidenceCoverage, loadGenealogyGraph } from '@chronolignee/db';
+import { decodeDate, loadEvidenceCoverage } from '@chronolignee/db';
 import {
   chooseStoriesByRules,
   findStoryCandidates,
@@ -24,6 +24,7 @@ import {
 } from '@chronolignee/engine';
 import type { GenealogyGraph } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
+import { treeGraph } from './graph-cache';
 import { describeCandidate, renderStory, type RenderedChapter } from '@/components/story/sentences';
 import {
   REDACTED_LABEL,
@@ -293,7 +294,7 @@ export const loadLineageStory = cache(
     const access = await resolveTreeAccess(treeSlug);
     if (!access) return null;
 
-    const graph = await loadGenealogyGraph(db, access.treeId, dateToJdn(new Date()));
+    const graph = await treeGraph(access.treeId, dateToJdn(new Date()));
     const subject = graph.people.get(subjectId);
     if (!subject) return null;
 
@@ -356,7 +357,7 @@ export const loadStorySuggestions = cache(
     const access = await resolveTreeAccess(treeSlug);
     if (!access) return null;
 
-    const graph = await loadGenealogyGraph(db, access.treeId, dateToJdn(new Date()));
+    const graph = await treeGraph(access.treeId, dateToJdn(new Date()));
     // Presumed living — the same presumption as every redaction — whoever
     // is looking, and anyone this viewer may not see in any case.
     const todayJdn = dateToJdn(new Date());

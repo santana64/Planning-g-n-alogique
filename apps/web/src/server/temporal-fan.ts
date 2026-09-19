@@ -1,10 +1,9 @@
 import 'server-only';
 import { cache } from 'react';
 import { dateToJdn, formatGenealogicalDate } from '@chronolignee/domain';
-import { loadGenealogyGraph } from '@chronolignee/db';
 import { layoutTemporalFan, type FanRing, type FanSector } from '@chronolignee/engine';
 import { sosaNumbers } from '@chronolignee/genealogy';
-import { db } from '@/lib/db';
+import { treeGraph } from './graph-cache';
 import { REDACTED_LABEL, hiddenInGraph, resolveTreeAccess, type TreeAccess } from './access';
 
 /**
@@ -52,7 +51,7 @@ export const loadTemporalFan = cache(
     const access = await resolveTreeAccess(treeSlug);
     if (!access) return null;
 
-    const graph = await loadGenealogyGraph(db, access.treeId, dateToJdn(new Date()));
+    const graph = await treeGraph(access.treeId, dateToJdn(new Date()));
     const subject = graph.people.get(subjectId);
     if (!subject) return null;
 

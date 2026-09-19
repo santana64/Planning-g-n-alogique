@@ -7,9 +7,10 @@ import {
   type GenealogicalDate,
   type PersonPrivacy,
 } from '@chronolignee/domain';
-import { decodeDate, foldName, loadGenealogyGraph, projectPersonLifespan } from '@chronolignee/db';
+import { decodeDate, foldName, projectPersonLifespan } from '@chronolignee/db';
 import { auditPerson, sortBySeverity, type Finding } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
+import { treeGraph } from './graph-cache';
 import {
   REDACTED_LABEL,
   isHiddenFrom,
@@ -355,7 +356,7 @@ export const loadPersonDetail = cache(
     });
 
     const todayJdn = dateToJdn(new Date());
-    const graph = await loadGenealogyGraph(db, access.treeId, todayJdn);
+    const graph = await treeGraph(access.treeId, todayJdn);
     const findings = sortBySeverity(auditPerson(graph, person.id, { todayJdn }));
 
     const vital = (type: 'BIRTH' | 'DEATH') => eventRows.find((event) => event.type === type);

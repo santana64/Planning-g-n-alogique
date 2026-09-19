@@ -1,10 +1,11 @@
 import 'server-only';
 import { cache } from 'react';
 import { dateToJdn, formatGenealogicalDate, jdnToGregorian } from '@chronolignee/domain';
-import { loadEvidenceCoverage, loadGenealogyGraph } from '@chronolignee/db';
+import { loadEvidenceCoverage } from '@chronolignee/db';
 import { layoutConstellation, type ConstellationLinkKind } from '@chronolignee/engine';
 import { isParentType, isPartnerType, type GenealogyGraph } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
+import { treeGraph } from './graph-cache';
 import { REDACTED_LABEL, hiddenInGraph, resolveTreeAccess, type TreeAccess } from './access';
 
 /**
@@ -76,7 +77,7 @@ export const loadConstellation = cache(
     const todayJdn = dateToJdn(new Date());
     const presentYear = jdnToGregorian(todayJdn).year;
     const [graph, coverage] = await Promise.all([
-      loadGenealogyGraph(db, access.treeId, todayJdn),
+      treeGraph(access.treeId, todayJdn),
       loadEvidenceCoverage(db, access.treeId),
     ]);
 

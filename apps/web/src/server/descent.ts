@@ -1,9 +1,8 @@
 import 'server-only';
 import { cache } from 'react';
 import { dateToJdn } from '@chronolignee/domain';
-import { loadGenealogyGraph } from '@chronolignee/db';
 import { abovilleNumbers } from '@chronolignee/genealogy';
-import { db } from '@/lib/db';
+import { treeGraph } from './graph-cache';
 import { REDACTED_LABEL, hiddenInGraph, resolveTreeAccess, type TreeAccess } from './access';
 
 /**
@@ -52,7 +51,7 @@ export const loadDescent = cache(
     if (!access) return null;
 
     const todayJdn = dateToJdn(new Date());
-    const graph = await loadGenealogyGraph(db, access.treeId, todayJdn);
+    const graph = await treeGraph(access.treeId, todayJdn);
     if (!graph.has(subjectId)) return null;
 
     const descent = abovilleNumbers(graph, subjectId, { generations });

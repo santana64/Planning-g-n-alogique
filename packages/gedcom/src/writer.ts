@@ -333,18 +333,26 @@ function assembleFamilies(
     ensure(spouses).events.push(event);
   }
 
+  // Indexed once. Asking every family for every person made writing a file
+  // quadratic: eight seconds for 20 000 people (docs/PERFORMANCE.md).
+  const spousal = new Map<string, string[]>();
+  const asChild = new Map<string, Array<{ family: string; type: RelationshipType }>>();
+  for (const family of byParentSet.values()) {
+    for (const partner of [family.husband, family.wife]) {
+      if (partner) spousal.set(partner, [...(spousal.get(partner) ?? []), family.xref]);
+    }
+    for (const link of family.children) {
+      const list = asChild.get(link.xref) ?? [];
+      list.push({ family: family.xref, type: link.type });
+      asChild.set(link.xref, list);
+    }
+  }
+
   return {
     all: (): AssembledFamily[] => [...byParentSet.values()],
-    spousalOf: (xref: string): string[] =>
-      [...byParentSet.values()]
-        .filter((family) => family.husband === xref || family.wife === xref)
-        .map((family) => family.xref),
-    childOf: (xref: string): Array<{ family: string; type: RelationshipType }> =>
-      [...byParentSet.values()].flatMap((family) =>
-        family.children
-          .filter((link) => link.xref === xref)
-          .map((link) => ({ family: family.xref, type: link.type })),
-      ),
+    spousalOf: (xref: string): readonly string[] => spousal.get(xref) ?? [],
+    childOf: (xref: string): ReadonlyArray<{ family: string; type: RelationshipType }> =>
+      asChild.get(xref) ?? [],
     associationsOf: (xref: string): readonly ImportRelationship[] => associations.get(xref) ?? [],
   };
 }

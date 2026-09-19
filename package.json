@@ -34,6 +34,7 @@
     "db:seed": "pnpm --filter @chronolignee/db seed",
     "db:studio": "pnpm --filter @chronolignee/db studio",
     "benchmark": "pnpm --filter @chronolignee/engine benchmark",
+    "benchmark:db": "pnpm --filter @chronolignee/db benchmark",
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down",
     "infra:logs": "docker compose logs -f",
