@@ -15,3 +15,7 @@ next-env.d.ts
 # Playwright's saved session for the E2E account. A real cookie, never committed
 # and never reformatted.
 apps/web/e2e/.auth/
+
+# Written by apps/web/scripts/build-basemap.mjs from Natural Earth; regenerate
+# rather than reformat.
+apps/web/public/basemap/
