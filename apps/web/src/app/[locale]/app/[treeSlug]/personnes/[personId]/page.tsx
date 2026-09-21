@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation';
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { can } from '@chronolignee/domain';
 import { Link } from '@/i18n/navigation';
 import { features } from '@/lib/env';
-import { SEVERITY_LABELS, findingMessage } from '@/lib/finding-messages';
+import { findingMessage, severityLabel } from '@/lib/finding-messages';
 import { loadPersonDetail } from '@/server/people';
 import { DeletePerson } from '@/components/people/delete-person';
 import { EventEditor } from '@/components/people/event-editor';
@@ -26,13 +26,6 @@ import { TreeNav } from '@/components/people/tree-nav';
  */
 export const dynamic = 'force-dynamic';
 
-/** Said to members only: the tree's rule needs no note, a decision does. */
-const PRIVACY_NOTES = {
-  REDACTED: 'Visible des seuls membres de l’arbre.',
-  RESTRICTED: 'Visible du seul propriétaire et des administrateurs.',
-  VISIBLE: 'Publiée, même de son vivant, par décision d’un administrateur.',
-} as const;
-
 export default async function PersonPage({
   params,
 }: {
@@ -43,6 +36,9 @@ export default async function PersonPage({
 
   const person = await loadPersonDetail(treeSlug, personId);
   if (!person) notFound();
+
+  const t = await getTranslations('person');
+  const findings = await getTranslations('findings');
 
   const { access } = person;
   const ai = getAIStatus();
@@ -70,7 +66,7 @@ export default async function PersonPage({
             href={`/app/${treeSlug}/personnes`}
             className="text-text-faint hover:text-accent text-sm"
           >
-            ← Toutes les personnes
+            ← {t('allPeople')}
           </Link>
           <h1 className="font-editorial text-text-primary text-3xl tracking-tight">
             {person.displayName}
@@ -79,7 +75,7 @@ export default async function PersonPage({
             {person.birthLabel} — {person.deathLabel}
           </p>
           {person.privacy && person.privacy !== 'INHERIT' ? (
-            <p className="text-source text-xs">{PRIVACY_NOTES[person.privacy]}</p>
+            <p className="text-source text-xs">{t(`privacy.${person.privacy}`)}</p>
           ) : null}
           {/* Two sources disagreeing is research information, not a glitch to
            * paper over. The accepted claim wins, and the page says what the
@@ -88,16 +84,14 @@ export default async function PersonPage({
           person.birthDateText &&
           person.birthDateText !== person.birthLabel ? (
             <p className="text-text-faint text-xs">
-              Naissance retenue d’après une affirmation acceptée ; l’événement saisi indique «{' '}
-              {person.birthDateText} ».
+              {t('birthFromClaim', { date: person.birthDateText })}
             </p>
           ) : null}
           {person.deathFromClaim &&
           person.deathDateText &&
           person.deathDateText !== person.deathLabel ? (
             <p className="text-text-faint text-xs">
-              Décès retenu d’après une affirmation acceptée ; l’événement saisi indique «{' '}
-              {person.deathDateText} ».
+              {t('deathFromClaim', { date: person.deathDateText })}
             </p>
           ) : null}
           <p className="mt-1 flex gap-4">
@@ -105,27 +99,27 @@ export default async function PersonPage({
               href={`/app/${treeSlug}/personnes/${person.personId}/ascendance`}
               className="text-accent text-sm hover:underline"
             >
-              Ascendance →
+              {t('ancestry')} →
             </Link>
             <Link
               href={`/app/${treeSlug}/personnes/${person.personId}/descendance`}
               className="text-accent text-sm hover:underline"
             >
-              Descendance →
+              {t('descendants')} →
             </Link>
             {features.temporalDepth ? (
               <Link
                 href={`/app/${treeSlug}/personnes/${person.personId}/eventail`}
                 className="text-accent text-sm hover:underline"
               >
-                Éventail temporel →
+                {t('temporalFan')} →
               </Link>
             ) : null}
             <Link
               href={`/app/${treeSlug}/personnes/${person.personId}/recit`}
               className="text-accent text-sm hover:underline"
             >
-              Remonter la lignée →
+              {t('followTheLine')} →
             </Link>
           </p>
         </div>
@@ -139,29 +133,22 @@ export default async function PersonPage({
             className="border-source/30 flex flex-col gap-3 rounded-[var(--radius-lg)] border p-4"
           >
             <h2 id="proposals-heading" className="text-source text-xs tracking-wide uppercase">
-              {proposals.length === 1
-                ? '1 proposition à examiner'
-                : `${proposals.length} propositions à examiner`}
+              {t('proposalsHeading', { count: proposals.length })}
             </h2>
-            <p className="text-text-muted text-sm">
-              Lues dans les transcriptions citées ci-dessous. Rien n’entre dans la fiche avant que
-              vous l’acceptiez.
-            </p>
+            <p className="text-text-muted text-sm">{t('proposalsLead')}</p>
             <ProposalReview treeSlug={treeSlug} rows={proposals} showSubject={false} />
           </section>
         ) : null}
 
         {person.redacted ? (
           <p className="border-source/30 bg-source/10 text-source rounded-[var(--radius-md)] border px-4 py-3">
-            Cette personne est protégée. Rien n’est publié à son sujet.
+            {t('protected')}
           </p>
         ) : null}
 
         {person.findings.length > 0 ? (
           <section className="flex flex-col gap-2">
-            <h2 className="text-text-faint text-xs tracking-wide uppercase">
-              Ce que les dates disent
-            </h2>
+            <h2 className="text-text-faint text-xs tracking-wide uppercase">{t('whatDatesSay')}</h2>
             <ul className="flex flex-col gap-1.5">
               {person.findings.map((finding, index) => (
                 <li
@@ -175,9 +162,9 @@ export default async function PersonPage({
                   }`}
                 >
                   <span className="shrink-0 text-xs tracking-wide uppercase">
-                    {SEVERITY_LABELS[finding.severity]}
+                    {severityLabel(findings, finding.severity)}
                   </span>
-                  <span>{findingMessage(finding)}</span>
+                  <span>{findingMessage(findings, finding)}</span>
                 </li>
               ))}
             </ul>
@@ -186,7 +173,7 @@ export default async function PersonPage({
 
         <div className="grid gap-12 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <section className="flex flex-col gap-6">
-            <h2 className="text-text-faint text-xs tracking-wide uppercase">Fiche</h2>
+            <h2 className="text-text-faint text-xs tracking-wide uppercase">{t('record')}</h2>
             {canEdit ? (
               <PersonForm
                 treeSlug={treeSlug}
@@ -212,7 +199,7 @@ export default async function PersonPage({
 
           <div className="flex flex-col gap-10">
             <section className="flex flex-col gap-4">
-              <h2 className="text-text-faint text-xs tracking-wide uppercase">Liens</h2>
+              <h2 className="text-text-faint text-xs tracking-wide uppercase">{t('links')}</h2>
               <RelationshipEditor
                 treeSlug={treeSlug}
                 personId={person.personId}
@@ -224,7 +211,7 @@ export default async function PersonPage({
             </section>
 
             <section className="flex flex-col gap-3">
-              <h2 className="text-text-faint text-xs tracking-wide uppercase">Événements</h2>
+              <h2 className="text-text-faint text-xs tracking-wide uppercase">{t('events')}</h2>
               <EventEditor
                 treeSlug={treeSlug}
                 personId={person.personId}
@@ -238,7 +225,7 @@ export default async function PersonPage({
             {history.length > 0 ? (
               <section aria-labelledby="record-history" className="flex flex-col gap-3">
                 <h2 id="record-history" className="text-text-faint text-xs tracking-wide uppercase">
-                  Historique de la fiche
+                  {t('recordHistory')}
                 </h2>
                 <HistoryList treeSlug={treeSlug} lines={history} linkPeople={false} />
               </section>
@@ -250,7 +237,7 @@ export default async function PersonPage({
   );
 }
 
-function ReadOnlyPerson({
+async function ReadOnlyPerson({
   birthLabel,
   deathLabel,
   notes,
@@ -259,19 +246,20 @@ function ReadOnlyPerson({
   deathLabel: string;
   notes: string;
 }) {
+  const t = await getTranslations('person');
   return (
     <dl className="flex flex-col gap-3">
       <div className="flex gap-4">
-        <dt className="text-text-faint w-32 text-sm">Naissance</dt>
+        <dt className="text-text-faint w-32 text-sm">{t('birth')}</dt>
         <dd className="text-text-primary tabular text-sm">{birthLabel}</dd>
       </div>
       <div className="flex gap-4">
-        <dt className="text-text-faint w-32 text-sm">Décès</dt>
+        <dt className="text-text-faint w-32 text-sm">{t('death')}</dt>
         <dd className="text-text-primary tabular text-sm">{deathLabel}</dd>
       </div>
       {notes ? (
         <div className="flex gap-4">
-          <dt className="text-text-faint w-32 text-sm">Notes</dt>
+          <dt className="text-text-faint w-32 text-sm">{t('notes')}</dt>
           <dd className="text-text-secondary text-sm whitespace-pre-wrap">{notes}</dd>
         </div>
       ) : null}

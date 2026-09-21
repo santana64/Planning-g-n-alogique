@@ -1,5 +1,6 @@
 'use server';
 
+import { getTranslations } from 'next-intl/server';
 import { ZodError } from 'zod';
 import {
   RelationshipRefused,
@@ -110,14 +111,16 @@ export async function createEventAction(
             },
             authorised.context,
           );
-          warnings.push(...link.warnings.map(findingMessage));
+          const findings = await getTranslations('findings');
+          warnings.push(...link.warnings.map((finding) => findingMessage(findings, finding)));
         } catch (linkError) {
           // The event is already written and is the thing the user asked for.
           // A refused link is reported, never a reason to lose the record.
+          const findings = await getTranslations('findings');
           warnings.push(
             linkError instanceof RelationshipRefused
               ? "Le lien d'union n'a pas pu être créé : " +
-                  linkError.findings.map(findingMessage).join(' ')
+                  linkError.findings.map((finding) => findingMessage(findings, finding)).join(' ')
               : "L'événement est enregistré, mais le lien d'union existait déjà ou a été refusé.",
           );
         }

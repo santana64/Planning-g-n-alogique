@@ -5,9 +5,9 @@ la dernière exécution complète (voir [PROJECT_STATUS.md](PROJECT_STATUS.md)).
 
 | Niveau       | Quoi                                                       | Où                                                             | Combien                |
 | ------------ | ---------------------------------------------------------- | -------------------------------------------------------------- | ---------------------- |
-| Unitaire     | Pur, sans I/O : dates, règles, mises en page, formulations | `packages/*/src/**/*.test.ts`, `apps/*/src/`                   | **694** en 43 fichiers |
+| Unitaire     | Pur, sans I/O : dates, règles, mises en page, formulations | `packages/*/src/**/*.test.ts`, `apps/*/src/`                   | **702** en 44 fichiers |
 | Intégration  | Contre la vraie base, le vrai stockage, le vrai SMTP       | `packages/*/tests/*.integration.test.ts`, `apps/worker/tests/` | **214** en 19 fichiers |
-| Bout en bout | Un navigateur, l'application construite, le worker         | `apps/web/e2e/*.spec.ts`                                       | **73** en 10 fichiers  |
+| Bout en bout | Un navigateur, l'application construite, le worker         | `apps/web/e2e/*.spec.ts`                                       | **76** en 11 fichiers  |
 
 ```bash
 pnpm test:unit          # < 5 s, à chaque sauvegarde
@@ -67,6 +67,7 @@ n'est écrit par personne n'est pas un import.
 | `import.spec.ts`              | Import GEDCOM d'un fichier « ANSI » accentué, revue, écriture par le worker, refus d'un encodage illisible                                             |
 | `collaboration.spec.ts`       | Invitation, rôles, historique, export, effacement de compte                                                                                            |
 | `duplicates.spec.ts`          | Recherche de doublons par le worker, signaux affichés, père et fils écartés, paire rejetée, fusion confirmée, revue interdite à qui ne peut pas écrire |
+| `i18n.spec.ts`                | Le français sans préfixe, l'anglais sous `/en`, le cookie de langue, la fiche et ses événements en anglais                                             |
 | `motion-and-keyboard.spec.ts` | Mouvement réduit (avec **et** sans la préférence), frise et invitation au clavier seul                                                                 |
 | `stewardship-a11y.spec.ts`    | axe sur les écrans de gestion, et aucun défilement horizontal à 375 px                                                                                 |
 | `operations.spec.ts`          | Sondes de santé, identifiant malformé → 404                                                                                                            |

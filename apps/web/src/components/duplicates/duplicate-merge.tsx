@@ -1,7 +1,8 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { ofName } from '@/lib/french';
+import { useLocale, useTranslations } from 'next-intl';
+import { ofNameIn } from '@/lib/french';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { mergeDuplicateAction } from '@/server/duplicate-actions';
 
@@ -34,6 +35,8 @@ export function DuplicateMergeButton({
 }) {
   // On success the action redirects to the record that survived; only a
   // refusal comes back here.
+  const t = useTranslations('duplicates');
+  const locale = useLocale();
   const [state, action, pending] = useActionState<ActionState, FormData>(
     mergeDuplicateAction,
     IDLE,
@@ -64,9 +67,14 @@ export function DuplicateMergeButton({
       {/* The record is the subject, not the person: "X sera retirée" reads as
           though someone were being removed from the family. */}
       <p className="text-text-secondary max-w-prose text-sm">
-        La fiche <span className="text-text-primary font-medium">{ofName(mergedName)}</span> sera
-        retirée de l’arbre. Ses noms, ses événements, ses liens et ses sources passent sur{' '}
-        <span className="text-text-primary font-medium">{keptName}</span>, qui garde son adresse.
+        {t.rich('confirmMerge', {
+          of: ofNameIn(locale, mergedName),
+          kept: keptName,
+          // A tag, not a value: `t.rich` replaces `{of}` with the string and
+          // wraps what `<name>…</name>` encloses. Passing a function as the
+          // value of `{of}` rendered nothing at all — caught end to end.
+          name: (chunks) => <span className="text-text-primary font-medium">{chunks}</span>,
+        })}
       </p>
 
       {state.status === 'error' && state.message ? (
@@ -81,14 +89,14 @@ export function DuplicateMergeButton({
           disabled={pending}
           className="bg-accent text-accent-contrast hover:bg-accent-hover rounded-[var(--radius-md)] px-4 py-2 text-sm font-medium disabled:opacity-60"
         >
-          {pending ? 'Fusion…' : 'Fusionner les deux fiches'}
+          {pending ? t('merging') : t('confirmMergeButton')}
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
           className="text-text-muted hover:text-text-primary text-sm"
         >
-          Annuler
+          {t('cancel')}
         </button>
       </div>
     </form>

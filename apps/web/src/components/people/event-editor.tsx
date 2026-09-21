@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { createEventAction, deleteEventAction, updateEventAction } from '@/server/event-actions';
 import type { PersonEventRow } from '@/server/people';
@@ -22,27 +23,30 @@ import { PersonPicker } from './person-picker';
  * corrected from two screens that disagree about what happens to the old one.
  */
 
+/** In the order an editor reaches for them, not the model's order. */
 const EVENT_OPTIONS = [
-  ['MARRIAGE', 'Mariage'],
-  ['MARRIAGE_CONTRACT', 'Contrat de mariage'],
-  ['MARRIAGE_BANN', 'Publication des bans'],
-  ['CIVIL_UNION', 'Union civile'],
-  ['DIVORCE', 'Divorce'],
-  ['BAPTISM', 'Baptême'],
-  ['BURIAL', 'Inhumation'],
-  ['CREMATION', 'Crémation'],
-  ['RESIDENCE', 'Résidence'],
-  ['OCCUPATION', 'Profession'],
-  ['EDUCATION', 'Études'],
-  ['MILITARY_SERVICE', 'Service militaire'],
-  ['MIGRATION', 'Migration'],
-  ['NATURALIZATION', 'Naturalisation'],
-  ['CENSUS', 'Recensement'],
-  ['PROBATE', 'Succession'],
-  ['WILL', 'Testament'],
-  ['RELIGIOUS_EVENT', 'Événement religieux'],
-  ['CUSTOM', 'Autre…'],
+  'MARRIAGE',
+  'MARRIAGE_CONTRACT',
+  'MARRIAGE_BANN',
+  'CIVIL_UNION',
+  'DIVORCE',
+  'BAPTISM',
+  'BURIAL',
+  'CREMATION',
+  'RESIDENCE',
+  'OCCUPATION',
+  'EDUCATION',
+  'MILITARY_SERVICE',
+  'MIGRATION',
+  'NATURALIZATION',
+  'CENSUS',
+  'PROBATE',
+  'WILL',
+  'RELIGIOUS_EVENT',
+  'CUSTOM',
 ] as const;
+
+const CONFIDENCE_OPTIONS = ['VERY_HIGH', 'HIGH', 'MEDIUM', 'LOW', 'VERY_LOW'] as const;
 
 /** Types where a second person is the normal case rather than an oddity. */
 const PAIRED = new Set([
@@ -54,8 +58,6 @@ const PAIRED = new Set([
 ]);
 
 const VITAL = new Set(['BIRTH', 'DEATH']);
-
-const DATE_HINT = 'Tel que le registre l’écrit : 14 mai 1871, vers 1900, 4 germinal an VII.';
 
 export function EventEditor({
   treeSlug,
@@ -72,6 +74,8 @@ export function EventEditor({
   canDelete: boolean;
   ai: AIStatus;
 }) {
+  const t = useTranslations('eventEditor');
+  const kinds = useTranslations('events');
   const [createState, createAction, creating] = useActionState<ActionState, FormData>(
     createEventAction,
     IDLE,
@@ -87,7 +91,7 @@ export function EventEditor({
   return (
     <div className="flex flex-col gap-4">
       {events.length === 0 ? (
-        <p className="text-text-faint text-sm">Aucun événement enregistré.</p>
+        <p className="text-text-faint text-sm">{t('nothingRecorded')}</p>
       ) : (
         <ul className="flex flex-col">
           {events.map((event) =>
@@ -115,7 +119,7 @@ export function EventEditor({
                      * such. Hiding it would remove the one clue needed to
                      * correct it. */}
                     {event.dateUnparsed ? (
-                      <span className="text-warning text-xs">date illisible</span>
+                      <span className="text-warning text-xs">{t('unreadableDate')}</span>
                     ) : null}
                     {event.placeName ? (
                       <span className="text-text-faint text-xs">{event.placeName}</span>
@@ -128,7 +132,7 @@ export function EventEditor({
                           onClick={() => setEditing(event.eventId)}
                           className="text-text-faint hover:text-accent text-xs"
                         >
-                          Corriger
+                          {t('correct')}
                         </button>
                         {canDelete ? (
                           <form action={deleteAction} className="inline">
@@ -138,7 +142,7 @@ export function EventEditor({
                               type="submit"
                               className="text-text-faint hover:text-danger text-xs"
                             >
-                              Retirer
+                              {t('remove')}
                             </button>
                           </form>
                         ) : null}
@@ -146,7 +150,7 @@ export function EventEditor({
                     ) : canEdit ? (
                       // Vital events are corrected on the person form, where the
                       // previous value is archived rather than overwritten.
-                      <span className="text-text-faint text-xs">via la fiche</span>
+                      <span className="text-text-faint text-xs">{t('viaTheRecord')}</span>
                     ) : null}
                   </span>
                 </span>
@@ -179,7 +183,7 @@ export function EventEditor({
           onClick={() => setAdding(true)}
           className="text-accent self-start text-sm hover:underline"
         >
-          Ajouter un événement
+          {t('add')}
         </button>
       ) : null}
 
@@ -195,7 +199,7 @@ export function EventEditor({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="event-type" className="text-text-secondary text-sm font-medium">
-                Type d’événement
+                {t('type')}
               </label>
               <select
                 id="event-type"
@@ -204,30 +208,26 @@ export function EventEditor({
                 onChange={(event) => setType(event.target.value)}
                 className="border-border-default bg-surface-1 text-text-primary hover:border-border-strong focus:border-accent w-full rounded-[var(--radius-md)] border px-3 py-2 transition-colors duration-[var(--duration-fast)] focus:outline-none"
               >
-                {EVENT_OPTIONS.map(([value, label]) => (
+                {EVENT_OPTIONS.map((value) => (
                   <option key={value} value={value}>
-                    {label}
+                    {value === 'CUSTOM' ? t('custom') : kinds(value)}
                   </option>
                 ))}
               </select>
             </div>
 
             {type === 'CUSTOM' ? (
-              <Field id="customType" label="Intitulé">
-                <TextInput id="customType" name="customType" placeholder="Prix de l’Académie" />
+              <Field id="customType" label={t('customLabel')}>
+                <TextInput id="customType" name="customType" placeholder={t('customPlaceholder')} />
               </Field>
             ) : null}
 
-            <Field id="event-date" label="Date" hint={DATE_HINT}>
-              <TextInput id="event-date" name="date" placeholder="14 mai 1871" hasHint />
+            <Field id="event-date" label={t('date')} hint={t('dateHint')}>
+              <TextInput id="event-date" name="date" placeholder={t('datePlaceholder')} hasHint />
             </Field>
 
-            <Field id="event-place" label="Lieu">
-              <TextInput
-                id="event-place"
-                name="placeName"
-                placeholder="Tours, Indre-et-Loire, France"
-              />
+            <Field id="event-place" label={t('place')}>
+              <TextInput id="event-place" name="placeName" placeholder={t('placePlaceholder')} />
             </Field>
 
             {PAIRED.has(type) ? (
@@ -235,7 +235,7 @@ export function EventEditor({
                 <PersonPicker
                   key={type}
                   name="secondId"
-                  label="Avec"
+                  label={t('with')}
                   treeSlug={treeSlug}
                   excludeId={personId}
                 />
@@ -247,37 +247,30 @@ export function EventEditor({
                     className="accent-accent mt-1"
                   />
                   <span>
-                    Créer aussi le lien d’union
-                    <span className="text-text-faint block text-xs">
-                      L’acte est une date ; le lien est ce que l’arbre parcourt. Presque toujours
-                      les deux — mais c’est vous qui le dites.
-                    </span>
+                    {t('alsoLink')}
+                    <span className="text-text-faint block text-xs">{t('alsoLinkHint')}</span>
                   </span>
                 </label>
               </div>
             ) : null}
 
-            <Field id="event-confidence" label="Certitude">
+            <Field id="event-confidence" label={t('confidence')}>
               <Select
                 id="event-confidence"
                 name="confidence"
                 defaultValue="MEDIUM"
-                options={[
-                  ['VERY_HIGH', 'Acte original consulté'],
-                  ['HIGH', 'Source fiable'],
-                  ['MEDIUM', 'Vraisemblable'],
-                  ['LOW', 'Incertain'],
-                  ['VERY_LOW', 'Hypothèse'],
-                ]}
+                options={CONFIDENCE_OPTIONS.map(
+                  (value) => [value, t(`confidences.${value}`)] as const,
+                )}
               />
             </Field>
           </div>
 
-          <Field id="event-description" label="Détail">
+          <Field id="event-description" label={t('detail')}>
             <TextInput
               id="event-description"
               name="description"
-              placeholder="tonnelier, rue de la Riche"
+              placeholder={t('detailPlaceholder')}
             />
           </Field>
 
@@ -305,13 +298,13 @@ export function EventEditor({
           ) : null}
 
           <div className="flex items-center gap-3">
-            <SubmitButton pending={creating}>Ajouter</SubmitButton>
+            <SubmitButton pending={creating}>{t('submit')}</SubmitButton>
             <button
               type="button"
               onClick={() => setAdding(false)}
               className="text-text-muted hover:text-text-primary text-sm"
             >
-              Annuler
+              {t('cancel')}
             </button>
           </div>
         </form>
@@ -329,6 +322,7 @@ function EventCorrection({
   event: PersonEventRow;
   onDone: () => void;
 }) {
+  const t = useTranslations('eventEditor');
   const [state, action, pending] = useActionState<ActionState, FormData>(updateEventAction, IDLE);
 
   // In an effect, not in the render body: closing the form is a side effect on
@@ -345,10 +339,10 @@ function EventCorrection({
       <p className="text-text-secondary text-sm">{event.label}</p>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field id={`d-${event.eventId}`} label="Date">
+        <Field id={`d-${event.eventId}`} label={t('date')}>
           <TextInput id={`d-${event.eventId}`} name="date" defaultValue={event.dateText} />
         </Field>
-        <Field id={`p-${event.eventId}`} label="Lieu">
+        <Field id={`p-${event.eventId}`} label={t('place')}>
           <TextInput
             id={`p-${event.eventId}`}
             name="placeName"
@@ -364,13 +358,13 @@ function EventCorrection({
       ) : null}
 
       <div className="flex items-center gap-3">
-        <SubmitButton pending={pending}>Enregistrer</SubmitButton>
+        <SubmitButton pending={pending}>{t('save')}</SubmitButton>
         <button
           type="button"
           onClick={onDone}
           className="text-text-muted hover:text-text-primary text-sm"
         >
-          Annuler
+          {t('cancel')}
         </button>
       </div>
     </form>

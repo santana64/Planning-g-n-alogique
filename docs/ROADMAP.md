@@ -16,11 +16,12 @@ qu'un message arrive vraiment dans une boîte extérieure.
 
 ### Traduction des écrans de l'application
 
-Aujourd'hui : 82 clés traduites (accueil, authentification, libellés de
-certitude, rôles, constats) ; **les écrans d'un arbre sont écrits en français
-dans les composants**, et `/en` les sert en français. Le travail : extraire les
-chaînes vers les catalogues `next-intl`, écran par écran, en commençant par la
-fiche, la liste et la frise.
+Fait : la coquille d'un arbre, la liste des personnes, la fiche et ses
+éditeurs, les doublons, l'historique et les constats d'audit — 476 clés dans
+les deux langues, et un test bout en bout qui vérifie que `/en` répond bien en
+anglais. Reste : la frise, la carte, les archives, la constellation, les
+récits, la revue d'import, les réglages, le partage, le compte, et les
+messages renvoyés par les actions serveur. Même méthode, écran par écran.
 
 ### Faire tourner la CI pour de vrai
 

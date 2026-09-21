@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { deletePersonAction } from '@/server/person-actions';
 import { SubmitButton } from './fields';
@@ -27,6 +28,7 @@ export function DeletePerson({
 }) {
   // On success the action redirects to the list itself; only a refusal
   // comes back here.
+  const t = useTranslations('editing.delete');
   const [state, action, pending] = useActionState<ActionState, FormData>(deletePersonAction, IDLE);
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
@@ -38,7 +40,7 @@ export function DeletePerson({
         onClick={() => setOpen(true)}
         className="text-text-faint hover:text-danger self-start text-sm"
       >
-        Retirer cette personne de l’arbre
+        {t('open')}
       </button>
     );
   }
@@ -51,13 +53,12 @@ export function DeletePerson({
       <input type="hidden" name="treeSlug" value={treeSlug} />
       <input type="hidden" name="personId" value={personId} />
 
-      <p className="text-text-secondary text-sm">
-        La fiche et tous ses liens seront retirés de l’arbre. Les révisions déjà enregistrées,
-        elles, restent : elles disent ce que l’on croyait et quand.
-      </p>
+      <p className="text-text-secondary text-sm">{t('warning')}</p>
 
       <label htmlFor="confirm-name" className="text-text-secondary text-sm">
-        Tapez <span className="text-text-primary font-medium">{name}</span> pour confirmer.
+        {t.rich('typeToConfirm', {
+          name: () => <span className="text-text-primary font-medium">{name}</span>,
+        })}
       </label>
       <input
         id="confirm-name"
@@ -75,7 +76,7 @@ export function DeletePerson({
 
       <div className="flex items-center gap-3">
         <SubmitButton pending={pending} disabled={typed !== name} tone="danger">
-          Retirer définitivement de l’arbre
+          {t('confirm')}
         </SubmitButton>
         <button
           type="button"
@@ -85,7 +86,7 @@ export function DeletePerson({
           }}
           className="text-text-muted hover:text-text-primary text-sm"
         >
-          Annuler
+          {t('cancel')}
         </button>
       </div>
     </form>

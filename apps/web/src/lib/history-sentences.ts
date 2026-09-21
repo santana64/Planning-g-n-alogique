@@ -1,18 +1,27 @@
-import { ofName } from './french';
-import { CLAIM_LABELS, EVENT_LABELS, RELATIONSHIP_LABELS } from './labels';
+import { ofNameIn } from './french';
 
 /**
  * A revision, told as a sentence.
  *
  * "Noah a corrigé la fiche de Jean ROUX — date de naissance : 1877 → 1878."
- * The revision stores codes and the changed fields; this turns them into
- * what a collaborator reads when a date they researched has moved. Pure, so
- * every wording is tested without a database.
+ * The revision stores codes and the changed fields; this turns them into what
+ * a collaborator reads when a date they researched has moved.
+ *
+ * What lives here is the choice of sentence and of values. The wording lives
+ * in the catalogues, so the caller hands in a translator — the root one,
+ * because a history line borrows the names of events, relationships, claims
+ * and roles from the namespaces that already hold them, rather than keeping a
+ * second copy that can drift.
  *
  * The stored summary is the fallback, not the source: summaries written
  * before this existed carry codes ("BIRTH corrigé") that no reader should
  * have to decode.
  */
+
+export type Values = Readonly<Record<string, string | number>>;
+export type Translator = ((key: string, values?: Values) => string) & {
+  has?: (key: string) => boolean;
+};
 
 export interface RevisionFacts {
   readonly action: string;
@@ -36,93 +45,81 @@ export interface Described {
   readonly changes: readonly Change[];
 }
 
-const FIELD_LABELS: Record<string, string> = {
-  displayName: 'nom',
-  recordedSex: 'sexe',
-  livingStatus: 'statut',
-  privacy: 'visibilité',
-  notes: 'notes de recherche',
-  birthDate: 'date de naissance',
-  birthPlace: 'lieu de naissance',
-  deathDate: 'date de décès',
-  deathPlace: 'lieu de décès',
-  dateOriginalText: 'date',
-  placeOriginalText: 'lieu',
-  description: 'description',
-  confidence: 'confiance',
-  role: 'rôle',
-  name: 'nom de l’arbre',
-  visibility: 'lecture',
-  redactLivingPeople: 'vivants masqués aux visiteurs',
-};
+/** The fields a reader is told about, in the order they are declared. */
+const FIELDS = [
+  'displayName',
+  'recordedSex',
+  'livingStatus',
+  'privacy',
+  'notes',
+  'birthDate',
+  'birthPlace',
+  'deathDate',
+  'deathPlace',
+  'dateOriginalText',
+  'placeOriginalText',
+  'description',
+  'confidence',
+  'role',
+  'name',
+  'visibility',
+  'redactLivingPeople',
+] as const;
 
-const VALUE_LABELS: Record<string, Record<string, string>> = {
-  recordedSex: {
-    MALE: 'masculin',
-    FEMALE: 'féminin',
-    INTERSEX: 'intersexe',
-    UNKNOWN: 'non renseigné',
-  },
-  livingStatus: { LIVING: 'vivante', DECEASED: 'décédée', UNKNOWN: 'inconnu' },
-  privacy: {
-    INHERIT: 'selon la règle de l’arbre',
-    REDACTED: 'membres seulement',
-    RESTRICTED: 'administrateurs seulement',
-    VISIBLE: 'publique',
-  },
-  confidence: {
-    VERY_LOW: 'très faible',
-    LOW: 'faible',
-    MEDIUM: 'moyenne',
-    HIGH: 'élevée',
-    VERY_HIGH: 'très élevée',
-  },
-  visibility: {
-    PRIVATE: 'membres seulement',
-    LINK: 'par lien',
-    PUBLIC: 'public',
-  },
-  role: {
-    OWNER: 'propriétaire',
-    ADMIN: 'administrateur',
-    EDITOR: 'éditeur',
-    CONTRIBUTOR: 'contributeur',
-    VIEWER: 'lecteur',
-  },
-};
+/** Fields whose value is a code with a name of its own. */
+const CODED_VALUES = new Set([
+  'recordedSex',
+  'livingStatus',
+  'privacy',
+  'confidence',
+  'visibility',
+  'role',
+]);
 
-function show(field: string, value: unknown): string | null {
+function show(t: Translator, field: string, value: unknown): string | null {
   if (value === null || value === undefined || value === '') return null;
-  if (typeof value === 'string') return VALUE_LABELS[field]?.[value] ?? value;
-  if (typeof value === 'boolean') return value ? 'oui' : 'non';
+  if (typeof value === 'string') {
+    const key = field === 'role' ? `tree.roles.${value}` : `history.values.${field}.${value}`;
+    if (!CODED_VALUES.has(field) || !t.has?.(key)) return value;
+    // Roles are named once, capitalised, because that is how they appear on
+    // their own. Inside a sentence they are ordinary nouns. Lowercasing here
+    // rather than keeping a second list of role names is a decision that
+    // holds for French and English; a language that capitalises its nouns
+    // would need the sentence forms in the catalogue.
+    return field === 'role' ? t(key).toLowerCase() : t(key);
+  }
+  if (typeof value === 'boolean') return t(value ? 'common.yes' : 'common.no');
   if (typeof value === 'number') return String(value);
   return null;
 }
 
-export function changesOf(facts: RevisionFacts): Change[] {
+export function changesOf(facts: RevisionFacts, t: Translator): Change[] {
   const before = facts.before ?? {};
   const after = facts.after ?? {};
-  const fields = [...new Set([...Object.keys(before), ...Object.keys(after)])];
   const changes: Change[] = [];
-  for (const field of fields) {
-    const label = FIELD_LABELS[field];
-    // Bookkeeping fields (search keys, who-updated) are not research.
-    if (!label) continue;
+  for (const field of FIELDS) {
+    // Bookkeeping fields (search keys, who-updated) are not research, and
+    // are simply absent from the list above.
+    if (!(field in before) && !(field in after)) continue;
+    const label = t(`history.fields.${field}`);
     if (field === 'notes') {
       // A note is the researcher's own working text and can run to pages:
       // the history says it changed, not what it says.
-      changes.push({ field: label, before: null, after: 'modifiées' });
+      changes.push({ field: label, before: null, after: t('history.changes.notesModified') });
       continue;
     }
-    const was = show(field, before[field]);
-    const is = show(field, after[field]);
+    const was = show(t, field, before[field]);
+    const is = show(t, field, after[field]);
     if (was !== is) changes.push({ field: label, before: was, after: is });
   }
   return changes;
 }
 
-function roleName(role: string | null): string {
-  return (role && VALUE_LABELS['role']?.[role]) ?? 'membre';
+/** Lowercase: the role appears inside a sentence, not as a label. */
+function roleName(t: Translator, role: string | null): string {
+  return role && t.has?.(`tree.roles.${role}`)
+    ? t(`tree.roles.${role}`).toLowerCase()
+    : t('history.someMember');
 }
 
 function text(record: Readonly<Record<string, unknown>> | null, key: string): string | null {
@@ -130,8 +127,9 @@ function text(record: Readonly<Record<string, unknown>> | null, key: string): st
   return typeof value === 'string' && value.trim() ? value : null;
 }
 
-function eventName(type: string | null): string {
-  return type ? (EVENT_LABELS[type] ?? type) : 'Événement';
+function eventName(t: Translator, type: string | null): string {
+  if (!type) return t('history.someEvent');
+  return t.has?.(`events.${type}`) ? t(`events.${type}`) : type;
 }
 
 /** What a summary written as "Jean ROUX modifié" starts with. */
@@ -141,59 +139,87 @@ function headOf(summary: string | null, suffix: string): string | null {
   return head || null;
 }
 
-export function describeRevision(facts: RevisionFacts): Described {
+export function describeRevision(facts: RevisionFacts, t: Translator, locale = 'fr'): Described {
   const { action, entityType, summary, before, after } = facts;
-  const changes = action === 'UPDATE' ? changesOf(facts) : [];
+  const changes = action === 'UPDATE' ? changesOf(facts, t) : [];
+  const h = (key: string, values?: Values): string => t(`history.${key}`, values);
 
   switch (`${entityType}:${action}`) {
     case 'Person:CREATE': {
-      const name = text(after, 'displayName') ?? headOf(summary, 'ajouté') ?? 'une personne';
-      return { sentence: `a ajouté ${name}`, changes };
+      const name = text(after, 'displayName') ?? headOf(summary, 'ajouté') ?? h('somePerson');
+      return { sentence: h('personCreate', { name }), changes };
     }
     case 'Person:UPDATE': {
       const name = headOf(summary, 'modifié');
       return {
-        sentence: name ? `a corrigé la fiche de ${name}` : 'a corrigé une fiche',
+        sentence: name ? h('personUpdate', { name }) : h('personUpdateAnonymous'),
         changes,
       };
     }
     case 'Person:DELETE': {
-      const name = text(before, 'displayName') ?? headOf(summary, 'supprimé') ?? 'une personne';
-      return { sentence: `a retiré ${name} de l’arbre`, changes };
+      const name = text(before, 'displayName') ?? headOf(summary, 'supprimé') ?? h('somePerson');
+      return { sentence: h('personDelete', { name }), changes };
+    }
+    case 'Person:MERGE': {
+      // A merge retires a record. The history says which one, into which,
+      // and what came across: it is the only trace of the record that left.
+      const merged = text(before, 'mergedName') ?? h('someRecord');
+      const kept = text(after, 'keptName') ?? h('anotherRecord');
+      const events = Number(after?.['events'] ?? 0);
+      const relationships = Number(after?.['relationships'] ?? 0);
+      const key =
+        events > 0 && relationships > 0
+          ? 'personMergeBoth'
+          : events > 0
+            ? 'personMergeEvents'
+            : relationships > 0
+              ? 'personMergeLinks'
+              : 'personMerge';
+      return { sentence: h(key, { merged, kept, events, relationships }), changes };
     }
     case 'Event:CREATE': {
       const participants = after?.['participants'];
       const who = Array.isArray(participants)
-        ? participants.filter((name): name is string => typeof name === 'string').join(' et ')
+        ? participants
+            .filter((name): name is string => typeof name === 'string')
+            .join(h('participantSeparator'))
         : '';
       const date = text(after, 'date');
-      return {
-        sentence: `a ajouté l’événement « ${eventName(text(after, 'type'))} »${
-          who ? ` de ${who}` : ''
-        }${date ? ` (${date})` : ''}`,
-        changes,
-      };
+      const event = eventName(t, text(after, 'type'));
+      const key = who
+        ? date
+          ? 'eventCreateWhoDate'
+          : 'eventCreateWho'
+        : date
+          ? 'eventCreateDate'
+          : 'eventCreate';
+      return { sentence: h(key, { event, who, date: date ?? '' }), changes };
     }
     case 'Event:UPDATE':
       return {
-        sentence: `a corrigé l’événement « ${eventName(headOf(summary, 'corrigé'))} »`,
+        sentence: h('eventUpdate', { event: eventName(t, headOf(summary, 'corrigé')) }),
         changes,
       };
     case 'Event:DELETE': {
       const date = text(before, 'date');
+      const event = eventName(t, text(before, 'type'));
       return {
-        sentence: `a retiré l’événement « ${eventName(text(before, 'type'))} »${
-          date ? ` (${date})` : ''
-        }`,
+        sentence: date ? h('eventDeleteDate', { event, date }) : h('eventDelete', { event }),
         changes,
       };
     }
     case 'Relationship:CREATE': {
       const source = text(after, 'source');
       const target = text(after, 'target');
-      const kind = (RELATIONSHIP_LABELS[text(after, 'type') ?? ''] ?? 'lien').toLowerCase();
+      const type = text(after, 'type');
+      const kind = (
+        type && t.has?.(`relationships.${type}`) ? t(`relationships.${type}`) : h('someLink')
+      ).toLowerCase();
       return {
-        sentence: source && target ? `a relié ${source} à ${target} (${kind})` : 'a ajouté un lien',
+        sentence:
+          source && target
+            ? h('relationshipCreate', { source, target, kind })
+            : h('relationshipCreateAnonymous'),
         changes,
       };
     }
@@ -201,102 +227,104 @@ export function describeRevision(facts: RevisionFacts): Described {
       const prefix = 'Lien supprimé : ';
       return {
         sentence: summary?.startsWith(prefix)
-          ? `a supprimé le lien ${summary.slice(prefix.length)}`
-          : 'a supprimé un lien',
+          ? h('relationshipDelete', { detail: summary.slice(prefix.length) })
+          : h('relationshipDeleteAnonymous'),
         changes,
       };
     }
     case 'Source:CREATE':
-      return { sentence: `a ajouté la source « ${text(after, 'title') ?? '…'} »`, changes };
+      return { sentence: h('sourceCreate', { title: text(after, 'title') ?? '…' }), changes };
     case 'Citation:CREATE': {
+      const source = text(after, 'source') ?? h('someSource');
       const locator = text(after, 'locator');
       return {
-        sentence: `a cité « ${text(after, 'source') ?? 'une source'} »${locator ? `, ${locator}` : ''}`,
+        sentence: locator
+          ? h('citationCreateLocator', { source, locator })
+          : h('citationCreate', { source }),
         changes,
       };
     }
     case 'Citation:DELETE':
       return {
-        sentence: `a retiré une citation de « ${text(before, 'source') ?? 'une source'} »`,
+        sentence: h('citationDelete', { source: text(before, 'source') ?? h('someSource') }),
         changes,
       };
     case 'Document:CREATE':
-      return { sentence: `a versé le document « ${text(after, 'title') ?? '…'} »`, changes };
+      return { sentence: h('documentCreate', { title: text(after, 'title') ?? '…' }), changes };
     case 'Claim:ACCEPT_CLAIM': {
+      const predicate = claimName(t, text(after, 'predicate'));
       const value = text(after, 'value');
-      return {
-        sentence: `a accepté une lecture proposée : ${
-          CLAIM_LABELS[text(after, 'predicate') ?? ''] ?? 'fait'
-        }${value ? ` « ${value} »` : ''}${after?.['edited'] === true ? ', après correction' : ''}`,
-        changes,
-      };
+      const edited = after?.['edited'] === true;
+      const key = value
+        ? edited
+          ? 'claimAcceptValueEdited'
+          : 'claimAcceptValue'
+        : edited
+          ? 'claimAcceptEdited'
+          : 'claimAccept';
+      return { sentence: h(key, { predicate, value: value ?? '' }), changes };
     }
     case 'AiProposal:REJECT_CLAIM':
       return {
-        sentence: `a rejeté une lecture proposée (${
-          CLAIM_LABELS[text(before, 'predicate') ?? ''] ?? 'fait'
-        })`,
+        sentence: h('claimReject', { predicate: claimName(t, text(before, 'predicate')) }),
         changes,
       };
-    case 'Person:MERGE': {
-      // A merge retires a record. The history says which one, into which,
-      // and what came across: it is the only trace of the fiche that left.
-      const merged = text(before, 'mergedName') ?? 'une fiche';
-      const kept = text(after, 'keptName');
-      const moved = [
-        [Number(after?.['events'] ?? 0), 'événement'] as const,
-        [Number(after?.['relationships'] ?? 0), 'lien'] as const,
-      ]
-        .filter(([count]) => count > 0)
-        .map(([count, word]) => `${count} ${word}${count > 1 ? 's' : ''}`);
-      return {
-        sentence: `a fusionné ${merged} dans ${kept ?? 'une autre fiche'}${
-          moved.length > 0 ? ` — ${moved.join(', ')} repris` : ''
-        }`,
-        changes,
-      };
-    }
     case 'Tree:CREATE':
-      return { sentence: 'a créé l’arbre', changes };
+      return { sentence: h('treeCreate'), changes };
     case 'Tree:IMPORT':
       return {
-        sentence: `a importé un fichier GEDCOM : ${Number(after?.['people'] ?? 0)} personnes, ${Number(
-          after?.['relationships'] ?? 0,
-        )} liens, ${Number(after?.['events'] ?? 0)} événements`,
+        sentence: h('treeImport', {
+          people: Number(after?.['people'] ?? 0),
+          relationships: Number(after?.['relationships'] ?? 0),
+          events: Number(after?.['events'] ?? 0),
+        }),
         changes,
       };
     case 'Tree:UPDATE':
-      return { sentence: 'a modifié les réglages de l’arbre', changes };
+      return { sentence: h('treeUpdate'), changes };
     case 'Tree:EXPORT':
       return {
-        sentence: `a exporté l’arbre au format GEDCOM (${Number(after?.['people'] ?? 0)} personnes)`,
+        sentence: h('treeExport', { people: Number(after?.['people'] ?? 0) }),
         changes: [],
       };
     case 'TreeMember:CREATE':
       return {
-        sentence: `a rejoint l’arbre comme ${roleName(text(after, 'role'))}`,
+        sentence: h('memberJoin', { role: roleName(t, text(after, 'role')) }),
         changes: [],
       };
     case 'TreeMember:UPDATE':
       return {
-        sentence: `a changé le rôle ${
-          facts.subjectName ? ofName(facts.subjectName) : 'd’un ancien membre'
-        } : ${roleName(text(before, 'role'))} → ${roleName(text(after, 'role'))}`,
+        sentence: h('memberRole', {
+          // "de Léa", "d'Émile" — the elision is French, so the value is
+          // built for the language the sentence is in.
+          of: facts.subjectName ? ofNameIn(locale, facts.subjectName) : h('ofAFormerMember', {}),
+          before: roleName(t, text(before, 'role')),
+          after: roleName(t, text(after, 'role')),
+        }),
         changes: [],
       };
     case 'TreeMember:DELETE':
       return {
         sentence:
           summary === 'A quitté l’arbre'
-            ? 'a quitté l’arbre'
+            ? h('memberLeft')
             : summary === 'Compte supprimé'
-              ? 'a quitté l’arbre en supprimant son compte'
-              : `a retiré ${facts.subjectName ?? 'un ancien membre'} de l’arbre`,
+              ? h('memberLeftWithAccount')
+              : h('memberRemoved', { name: facts.subjectName ?? h('aFormerMember') }),
         changes: [],
       };
     default:
       // Membership and invitation summaries are written as whole sentences,
       // role change included; listing the change again would say it twice.
-      return { sentence: summary ? `— ${summary}` : 'a fait une modification', changes: [] };
+      return {
+        sentence: summary ? h('storedSummary', { summary }) : h('somethingChanged'),
+        changes: [],
+      };
   }
+}
+
+function claimName(t: Translator, predicate: string | null): string {
+  return predicate && t.has?.(`claims.${predicate}`)
+    ? t(`claims.${predicate}`)
+    : t('history.someFact');
 }

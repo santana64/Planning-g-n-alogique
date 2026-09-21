@@ -144,11 +144,22 @@ Les charges utiles sont validées par Zod à l'entrée de la file et à la sorti
 ## Internationalisation
 
 next-intl : français par défaut, **sans préfixe** d'URL ; anglais sous `/en`.
-Les catalogues (`apps/web/messages/`) couvrent l'accueil, l'authentification,
-les libellés de certitude, les rôles et les constats d'audit (82 clés). Les
-écrans de l'application sont **écrits en français dans les composants** :
-l'anglais n'y est pas traduit. Écart assumé et documenté
+Les catalogues (`apps/web/messages/`) comptent 476 clés dans les deux langues,
+vérifiées clé pour clé et placeholder pour placeholder par un test unitaire.
+
+Ce qui est traduit : l'accueil, l'authentification, la coquille d'un arbre, la
+liste des personnes, la fiche et ses éditeurs (noms, événements, liens),
+l'écran des doublons, l'historique et les constats d'audit. Ce qui ne l'est pas
+encore : la frise, la carte, les archives, la constellation, les récits, la
+revue d'import, les réglages, le partage et les messages renvoyés par les
+actions serveur — **écrits en français dans les composants**
 ([ROADMAP](ROADMAP.md)).
+
+Deux règles tenues partout : une phrase est **choisie** dans le code et
+**écrite** dans le catalogue — le code ne concatène pas des fragments, parce
+que deux langues ne mettent pas les mots dans le même ordre ; et ce qui
+dépend de la langue (l'élision « d'Émile », la minuscule d'un rôle au milieu
+d'une phrase) est traité comme tel, jamais supposé universel.
 
 ## Configuration
 

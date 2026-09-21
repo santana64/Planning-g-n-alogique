@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { HistoryList } from '@/components/history/history-list';
 import { TreeNav } from '@/components/people/tree-nav';
 import { Link } from '@/i18n/navigation';
@@ -17,6 +17,7 @@ export default async function HistoryPage({
 }) {
   const { locale, treeSlug } = await params;
   setRequestLocale(locale);
+  const t = await getTranslations('history');
   const { apres } = await searchParams;
   const cursor = typeof apres === 'string' ? apres : null;
 
@@ -36,20 +37,16 @@ export default async function HistoryPage({
         />
 
         <div className="flex flex-col gap-2">
-          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">Historique</h1>
-          <p className="text-text-muted max-w-2xl text-sm">
-            Chaque modification de l’arbre, par qui, et ce qu’elle a changé. Rien ne s’efface d’ici
-            : une valeur corrigée reste lisible, pour le jour où la correction se révélerait être
-            l’erreur.
-          </p>
+          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">{t('title')}</h1>
+          <p className="text-text-muted max-w-2xl text-sm">{t('lead')}</p>
         </div>
 
         <HistoryList treeSlug={treeSlug} lines={history.lines} />
 
-        <nav aria-label="Pages de l’historique" className="flex gap-6 text-sm">
+        <nav aria-label={t('pages')} className="flex gap-6 text-sm">
           {cursor ? (
             <Link href={`/app/${treeSlug}/historique`} className="text-accent hover:underline">
-              ← Les plus récentes
+              ← {t('newest')}
             </Link>
           ) : null}
           {history.nextCursor ? (
@@ -60,7 +57,7 @@ export default async function HistoryPage({
               }}
               className="text-accent hover:underline"
             >
-              Plus anciennes →
+              {t('older')} →
             </Link>
           ) : null}
         </nav>

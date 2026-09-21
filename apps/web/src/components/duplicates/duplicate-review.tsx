@@ -1,8 +1,9 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Link, useRouter } from '@/i18n/navigation';
-import { signalSentence } from '@/lib/duplicate-signals';
+import { agreeingSignals } from '@/lib/duplicate-signals';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { scanDuplicatesAction } from '@/server/duplicate-actions';
 import { DuplicateDismissButton } from './duplicate-dismiss';
@@ -30,6 +31,7 @@ export function DuplicateReviewList({
   pairs: readonly DuplicatePairView[];
   scanState: ScanState;
 }) {
+  const t = useTranslations('duplicates');
   const [scan, scanAction, scanning] = useActionState<ActionState, FormData>(
     scanDuplicatesAction,
     IDLE,
@@ -38,6 +40,12 @@ export function DuplicateReviewList({
   const [tick, setTick] = useState(0);
 
   const running = scanState === 'queued' || scanState === 'running';
+  const signalSentence = (signals: readonly DuplicatePairView['signals'][number][]): string => {
+    const agreeing = agreeingSignals(signals, (name) => t(`signals.${name}`));
+    return agreeing.length === 0
+      ? t('noClearSignal')
+      : t('agreeing', { signals: agreeing.join(', ') });
+  };
 
   // While the scan runs, ask the page again rather than inventing an
   // endpoint: re-rendering the server component reads the queue and the
@@ -62,13 +70,11 @@ export function DuplicateReviewList({
             disabled={scanning || running}
             className="bg-accent text-accent-contrast hover:bg-accent-hover rounded-[var(--radius-md)] px-4 py-2 text-sm font-medium disabled:opacity-60"
           >
-            {running ? 'Recherche en cours…' : 'Chercher des doublons'}
+            {running ? t('searching') : t('search')}
           </button>
         </form>
         {scanState === 'failed' ? (
-          <p className="text-danger text-sm">
-            La dernière recherche s’est interrompue. Relancez-la.
-          </p>
+          <p className="text-danger text-sm">{t('searchInterrupted')}</p>
         ) : null}
         {scan.status !== 'idle' && scan.message ? (
           <p
@@ -81,11 +87,7 @@ export function DuplicateReviewList({
       </div>
 
       {pairs.length === 0 ? (
-        <p className="text-text-muted text-sm">
-          Aucun rapprochement en attente. La recherche compare les noms proches, puis les dates, les
-          parents, les enfants et les lieux ; elle ne propose rien qu’une date ou un lien de parenté
-          écarte.
-        </p>
+        <p className="text-text-muted text-sm">{t('none')}</p>
       ) : (
         <ul className="border-border-subtle flex flex-col rounded-[var(--radius-lg)] border">
           {pairs.map((pair) => (
@@ -102,7 +104,10 @@ export function DuplicateReviewList({
                   <span className="text-text-faint text-sm">({pair.right.lifespan})</span>
                 </p>
                 <p className="text-text-faint text-xs">
-                  {Math.round(pair.score * 100)} % — {signalSentence(pair.signals)}
+                  {t('matchAndSignals', {
+                    percent: Math.round(pair.score * 100),
+                    signals: signalSentence(pair.signals),
+                  })}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-4">
@@ -110,7 +115,7 @@ export function DuplicateReviewList({
                   href={`/app/${treeSlug}/doublons/${pair.id}`}
                   className="text-accent text-sm hover:underline"
                 >
-                  Comparer
+                  {t('compare')}
                 </Link>
                 <DuplicateDismissButton
                   treeSlug={treeSlug}

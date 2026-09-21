@@ -1,5 +1,31 @@
+import { createTranslator } from 'next-intl';
 import { describe, expect, it } from 'vitest';
-import { describeRevision, type RevisionFacts } from './history-sentences';
+import en from '../../messages/en.json';
+import fr from '../../messages/fr.json';
+import { describeRevision, type RevisionFacts, type Translator } from './history-sentences';
+
+/**
+ * The history, rendered through the real catalogues.
+ *
+ * The module chooses the sentence and the values; the wording is in
+ * `messages/*.json`. Rendering through the catalogue here means a key the
+ * code asks for and the catalogue does not have fails in this test rather
+ * than in front of a reader — `onError` throws instead of returning the key.
+ */
+
+const translator = (locale: 'fr' | 'en'): Translator =>
+  // Cast: the imported JSON gives `createTranslator` literal key types, and
+  // this module calls it with keys it computes from a revision.
+  createTranslator({
+    locale,
+    messages: locale === 'fr' ? fr : en,
+    onError: (error) => {
+      throw error;
+    },
+  }) as unknown as Translator;
+
+const french = translator('fr');
+const english = translator('en');
 
 const facts = (partial: Partial<RevisionFacts> & Pick<RevisionFacts, 'entityType' | 'action'>) => ({
   summary: null,
@@ -8,9 +34,12 @@ const facts = (partial: Partial<RevisionFacts> & Pick<RevisionFacts, 'entityType
   ...partial,
 });
 
+/** The French reading, which the wording of these assertions describes. */
+const told = (input: Parameters<typeof describeRevision>[0]) => describeRevision(input, french);
+
 describe('describeRevision', () => {
   it('tells a corrected birth as before and after', () => {
-    const described = describeRevision(
+    const described = told(
       facts({
         entityType: 'Person',
         action: 'UPDATE',
@@ -27,7 +56,7 @@ describe('describeRevision', () => {
   });
 
   it('names settings in words, and leaves bookkeeping out', () => {
-    const described = describeRevision(
+    const described = told(
       facts({
         entityType: 'Person',
         action: 'UPDATE',
@@ -43,7 +72,7 @@ describe('describeRevision', () => {
   });
 
   it('says a note changed without quoting it', () => {
-    const described = describeRevision(
+    const described = told(
       facts({
         entityType: 'Person',
         action: 'UPDATE',
@@ -59,12 +88,10 @@ describe('describeRevision', () => {
 
   it('decodes the codes older summaries carry', () => {
     expect(
-      describeRevision(
-        facts({ entityType: 'Event', action: 'UPDATE', summary: 'MARRIAGE corrigé' }),
-      ).sentence,
+      told(facts({ entityType: 'Event', action: 'UPDATE', summary: 'MARRIAGE corrigé' })).sentence,
     ).toBe('a corrigé l’événement « Mariage »');
     expect(
-      describeRevision(
+      told(
         facts({
           entityType: 'Relationship',
           action: 'CREATE',
@@ -73,7 +100,7 @@ describe('describeRevision', () => {
       ).sentence,
     ).toBe('a relié Jean ROUX à Paul ROUX (parent biologique)');
     expect(
-      describeRevision(
+      told(
         facts({
           entityType: 'Claim',
           action: 'ACCEPT_CLAIM',
@@ -85,7 +112,7 @@ describe('describeRevision', () => {
 
   it('tells an event with the people it belongs to', () => {
     expect(
-      describeRevision(
+      told(
         facts({
           entityType: 'Event',
           action: 'CREATE',
@@ -97,7 +124,7 @@ describe('describeRevision', () => {
 
   it('tells an import as one line', () => {
     expect(
-      describeRevision(
+      told(
         facts({
           entityType: 'Tree',
           action: 'IMPORT',
@@ -109,7 +136,7 @@ describe('describeRevision', () => {
 
   it('tells a merge as what became of the record that left', () => {
     expect(
-      describeRevision(
+      told(
         facts({
           entityType: 'Person',
           action: 'MERGE',
@@ -122,7 +149,7 @@ describe('describeRevision', () => {
 
     // Nothing moved: the sentence stops rather than saying "0 lien".
     expect(
-      describeRevision(
+      told(
         facts({
           entityType: 'Person',
           action: 'MERGE',
@@ -141,34 +168,32 @@ describe('describeRevision', () => {
       before: { role: 'CONTRIBUTOR', userId: 'u1' },
       after: { role: 'EDITOR', userId: 'u1' },
     };
-    expect(describeRevision(facts({ ...change, subjectName: 'Léa' }))).toEqual({
+    expect(told(facts({ ...change, subjectName: 'Léa' }))).toEqual({
       sentence: 'a changé le rôle de Léa : contributeur → éditeur',
       changes: [],
     });
-    expect(describeRevision(facts({ ...change, subjectName: 'Émile' })).sentence).toBe(
+    expect(told(facts({ ...change, subjectName: 'Émile' })).sentence).toBe(
       'a changé le rôle d’Émile : contributeur → éditeur',
     );
-    expect(describeRevision(facts({ ...change, subjectName: null })).sentence).toBe(
+    expect(told(facts({ ...change, subjectName: null })).sentence).toBe(
       'a changé le rôle d’un ancien membre : contributeur → éditeur',
     );
   });
 
   it('tells joining and leaving from the member’s side', () => {
     expect(
-      describeRevision(
-        facts({ entityType: 'TreeMember', action: 'CREATE', after: { role: 'VIEWER' } }),
-      ).sentence,
+      told(facts({ entityType: 'TreeMember', action: 'CREATE', after: { role: 'VIEWER' } }))
+        .sentence,
     ).toBe('a rejoint l’arbre comme lecteur');
     expect(
-      describeRevision(
-        facts({ entityType: 'TreeMember', action: 'DELETE', summary: 'A quitté l’arbre' }),
-      ).sentence,
+      told(facts({ entityType: 'TreeMember', action: 'DELETE', summary: 'A quitté l’arbre' }))
+        .sentence,
     ).toBe('a quitté l’arbre');
   });
 
   it('tells the tree’s own changes: settings, and every export', () => {
     expect(
-      describeRevision(
+      told(
         facts({
           entityType: 'Tree',
           action: 'UPDATE',
@@ -181,15 +206,51 @@ describe('describeRevision', () => {
       { field: 'vivants masqués aux visiteurs', before: 'oui', after: 'non' },
     ]);
     expect(
-      describeRevision(
+      told(
         facts({ entityType: 'Tree', action: 'EXPORT', after: { format: 'GEDCOM 7', people: 42 } }),
       ).sentence,
     ).toBe('a exporté l’arbre au format GEDCOM (42 personnes)');
   });
 
+  it('tells the same revision in English', () => {
+    const merge = facts({
+      entityType: 'Person',
+      action: 'MERGE',
+      before: { mergedName: 'Jean CHASSAIGNE' },
+      after: { keptName: 'Jean CHASSAGNE', events: 2, relationships: 1 },
+    });
+    expect(describeRevision(merge, english).sentence).toBe(
+      'merged Jean CHASSAIGNE into Jean CHASSAGNE — 2 events, 1 link carried over',
+    );
+
+    const marriage = facts({
+      entityType: 'Event',
+      action: 'CREATE',
+      after: { type: 'MARRIAGE', date: '1902', participants: ['Jean ROUX', 'Anne BRUN'] },
+    });
+    expect(describeRevision(marriage, english).sentence).toBe(
+      'added the event “Marriage” of Jean ROUX and Anne BRUN (1902)',
+    );
+
+    // The elision belongs to French: English takes the name as it is.
+    const roleChange = facts({
+      entityType: 'TreeMember',
+      action: 'UPDATE',
+      subjectName: 'Émile',
+      before: { role: 'CONTRIBUTOR' },
+      after: { role: 'EDITOR' },
+    });
+    expect(describeRevision(roleChange, french, 'fr').sentence).toBe(
+      'a changé le rôle d’Émile : contributeur → éditeur',
+    );
+    expect(describeRevision(roleChange, english, 'en').sentence).toBe(
+      'changed the role of Émile: contributor → editor',
+    );
+  });
+
   it('falls back on the stored summary for what it cannot tell', () => {
     expect(
-      describeRevision(
+      told(
         facts({
           entityType: 'TreeInvitation',
           action: 'CREATE',

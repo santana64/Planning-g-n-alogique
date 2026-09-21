@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { getTranslations } from 'next-intl/server';
 import { agreeingSignals } from '@/lib/duplicate-signals';
-import { EVENT_LABELS, RELATIONSHIP_LABELS } from '@/lib/labels';
 import { loadDuplicateComparison } from '@/server/duplicates';
 import { DuplicateDismissButton } from '@/components/duplicates/duplicate-dismiss';
 import { DuplicateMergeButton } from '@/components/duplicates/duplicate-merge';
@@ -28,7 +28,9 @@ function fullName(name: PersonDetail['names'][number]): string {
  * because the reader is being asked to retire one of the two columns, and
  * the only honest way to ask is to show what each one holds.
  */
-function PersonColumn({ person }: { person: PersonDetail }) {
+async function PersonColumn({ person }: { person: PersonDetail }) {
+  const t = await getTranslations('duplicates');
+  const links = await getTranslations('relationships');
   const others = person.names.filter((name) => !name.isPreferred);
   return (
     <section
@@ -43,16 +45,18 @@ function PersonColumn({ person }: { person: PersonDetail }) {
         </h2>
         <p className="text-text-faint text-xs">
           {person.birthLabel === NO_DATE
-            ? 'naissance inconnue'
-            : `naissance : ${person.birthLabel}`}
+            ? t('unknownBirth')
+            : t('knownBirth', { date: person.birthLabel })}
           {' · '}
-          {person.deathLabel === NO_DATE ? 'décès inconnu' : `décès : ${person.deathLabel}`}
+          {person.deathLabel === NO_DATE
+            ? t('unknownDeath')
+            : t('knownDeath', { date: person.deathLabel })}
         </p>
       </div>
 
       {others.length > 0 ? (
         <div className="flex flex-col gap-1">
-          <h3 className="text-text-muted text-xs tracking-wide uppercase">Autres noms</h3>
+          <h3 className="text-text-muted text-xs tracking-wide uppercase">{t('otherNames')}</h3>
           <ul className="text-text-primary flex flex-col gap-0.5 text-sm">
             {others.map((name, index) => (
               <li key={`${name.type}-${index}`}>{fullName(name)}</li>
@@ -62,14 +66,14 @@ function PersonColumn({ person }: { person: PersonDetail }) {
       ) : null}
 
       <div className="flex flex-col gap-1">
-        <h3 className="text-text-muted text-xs tracking-wide uppercase">Événements</h3>
+        <h3 className="text-text-muted text-xs tracking-wide uppercase">{t('events')}</h3>
         {person.events.length === 0 ? (
-          <p className="text-text-faint text-sm">Aucun.</p>
+          <p className="text-text-faint text-sm">{t('nothing')}</p>
         ) : (
           <ul className="text-text-primary flex flex-col gap-0.5 text-sm">
             {person.events.map((event) => (
               <li key={event.eventId}>
-                {EVENT_LABELS[event.type] ?? event.label}
+                {event.label}
                 {event.dateLabel ? ` — ${event.dateLabel}` : ''}
                 {event.placeName ? `, ${event.placeName}` : ''}
               </li>
@@ -79,14 +83,14 @@ function PersonColumn({ person }: { person: PersonDetail }) {
       </div>
 
       <div className="flex flex-col gap-1">
-        <h3 className="text-text-muted text-xs tracking-wide uppercase">Liens</h3>
+        <h3 className="text-text-muted text-xs tracking-wide uppercase">{t('links')}</h3>
         {person.links.length === 0 ? (
-          <p className="text-text-faint text-sm">Aucun.</p>
+          <p className="text-text-faint text-sm">{t('nothing')}</p>
         ) : (
           <ul className="text-text-primary flex flex-col gap-0.5 text-sm">
             {person.links.map((link) => (
               <li key={link.relationshipId}>
-                {RELATIONSHIP_LABELS[link.type] ?? link.type} : {link.otherName}
+                {links.has(link.type) ? links(link.type) : link.type} : {link.otherName}
               </li>
             ))}
           </ul>
@@ -95,7 +99,7 @@ function PersonColumn({ person }: { person: PersonDetail }) {
 
       {person.notes ? (
         <div className="flex flex-col gap-1">
-          <h3 className="text-text-muted text-xs tracking-wide uppercase">Notes</h3>
+          <h3 className="text-text-muted text-xs tracking-wide uppercase">{t('notes')}</h3>
           <p className="text-text-primary text-sm whitespace-pre-line">{person.notes}</p>
         </div>
       ) : null}
@@ -116,8 +120,9 @@ export default async function ComparaisonPage({
   // see: the same answer in every case.
   if (!comparison) notFound();
 
+  const t = await getTranslations('duplicates');
   const { left, right } = comparison;
-  const signals = agreeingSignals(comparison.signals);
+  const signals = agreeingSignals(comparison.signals, (name) => t(`signals.${name}`));
 
   return (
     <main id="main" className="bg-surface-0 min-h-dvh px-6 py-10">
@@ -130,21 +135,20 @@ export default async function ComparaisonPage({
         />
 
         <div className="flex flex-col gap-2">
-          {/* Non-breaking space before the question mark, as French sets it:
-              on a phone the heading wrapped and left the "?" on its own line. */}
+          {/* The French message carries a non-breaking space before its
+              question mark: on a phone the heading wrapped and left the "?"
+              alone on its own line. */}
           <h1 className="font-editorial text-text-primary text-3xl tracking-tight">
-            Une même personne&nbsp;?
+            {t('samePersonQuestion')}
           </h1>
           <p className="text-text-muted max-w-2xl text-sm">
-            {Math.round(comparison.score * 100)} % de rapprochement
-            {signals.length > 0 ? ` — concordent : ${signals.join(', ')}` : ''}. Le score dit
-            seulement ce qui se ressemble ; la décision vous revient.
+            {t('comparisonLead', {
+              percent: Math.round(comparison.score * 100),
+              signals:
+                signals.length > 0 ? t('comparisonSignals', { signals: signals.join(', ') }) : '',
+            })}
           </p>
-          <p className="text-text-faint max-w-2xl text-xs">
-            Fusionner conserve tout : les deux dates de naissance restent, l’une et l’autre, sur la
-            fiche gardée. La fiche fusionnée n’est pas effacée, elle est retirée de l’arbre et
-            l’historique garde trace de l’opération.
-          </p>
+          <p className="text-text-faint max-w-2xl text-xs">{t('mergeKeepsEverything')}</p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
@@ -161,7 +165,7 @@ export default async function ComparaisonPage({
                 mergeId={right.personId}
                 keptName={left.displayName}
                 mergedName={right.displayName}
-                label={`Garder « ${left.displayName} » (à gauche)`}
+                label={t('keepLeft', { name: left.displayName })}
               />
               <DuplicateMergeButton
                 treeSlug={treeSlug}
@@ -169,13 +173,11 @@ export default async function ComparaisonPage({
                 mergeId={left.personId}
                 keptName={right.displayName}
                 mergedName={left.displayName}
-                label={`Garder « ${right.displayName} » (à droite)`}
+                label={t('keepRight', { name: right.displayName })}
               />
             </>
           ) : (
-            <p className="text-text-muted text-sm">
-              Fusionner retire une fiche de l’arbre : seuls les responsables peuvent le faire.
-            </p>
+            <p className="text-text-muted text-sm">{t('mergeOnlyForStewards')}</p>
           )}
           <DuplicateDismissButton treeSlug={treeSlug} candidateId={comparison.candidateId} />
         </div>

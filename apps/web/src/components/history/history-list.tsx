@@ -1,16 +1,20 @@
+import { getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import type { HistoryLine } from '@/server/history';
 
-const DAY = new Intl.DateTimeFormat('fr-FR', {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-  timeZone: 'Europe/Paris',
-});
-const TIME = new Intl.DateTimeFormat('fr-FR', {
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: 'Europe/Paris',
+/** The reader's own calendar, not the product's. */
+const formatters = (locale: string) => ({
+  day: new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Europe/Paris',
+  }),
+  time: new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Paris',
+  }),
 });
 
 /**
@@ -19,7 +23,7 @@ const TIME = new Intl.DateTimeFormat('fr-FR', {
  * A server component: the lines are already filtered for this reader, and
  * nothing here needs the browser.
  */
-export function HistoryList({
+export async function HistoryList({
   treeSlug,
   lines,
   linkPeople = true,
@@ -29,8 +33,11 @@ export function HistoryList({
   /** Off on a record page, where every line is about the record being read. */
   linkPeople?: boolean;
 }) {
+  const t = await getTranslations('history');
+  const { day: DAY, time: TIME } = formatters(await getLocale());
+
   if (lines.length === 0) {
-    return <p className="text-text-faint text-sm">Aucune modification enregistrée.</p>;
+    return <p className="text-text-faint text-sm">{t('noChange')}</p>;
   }
 
   const days = new Map<string, HistoryLine[]>();
@@ -63,7 +70,7 @@ export function HistoryList({
                         href={`/app/${treeSlug}/personnes/${line.personId}`}
                         className="text-accent text-xs underline underline-offset-2"
                       >
-                        voir la fiche
+                        {t('seeRecord')}
                       </Link>
                     </>
                   ) : null}
@@ -76,7 +83,7 @@ export function HistoryList({
                         {change.before !== null ? (
                           <>
                             <span className="line-through decoration-1">{change.before}</span>
-                            {change.after !== null ? ' → ' : ' (retiré)'}
+                            {change.after !== null ? ' → ' : ` ${t('removed')}`}
                           </>
                         ) : null}
                         {change.after !== null ? (

@@ -20,7 +20,7 @@ import {
   type TreeAccess,
 } from './access';
 import { loadCitationsForPerson, type EventCitation } from './archive';
-import { EVENT_LABELS } from '@/lib/labels';
+import { getTranslations } from 'next-intl/server';
 
 /**
  * Reads for the editing screens.
@@ -249,8 +249,6 @@ export interface PersonDetail {
   readonly redacted: boolean;
 }
 
-export { EVENT_LABELS } from '@/lib/labels';
-
 const PARENT_TYPES = new Set([
   'PARENT_BIOLOGICAL',
   'PARENT_ADOPTIVE',
@@ -402,6 +400,9 @@ export const loadPersonDetail = cache(
       ? new Map<string, EventCitation[]>()
       : await loadCitationsForPerson(access.treeId, person.id);
 
+    // The names of the kinds of event, in the reader's language. Read once
+    // per record rather than per row.
+    const kinds = await getTranslations('events');
     const events = hidden
       ? []
       : eventRows.map((event): PersonEventRow => {
@@ -411,8 +412,10 @@ export const loadPersonDetail = cache(
             type: event.type,
             label:
               event.type === 'CUSTOM'
-                ? (event.customType ?? 'Autre')
-                : (EVENT_LABELS[event.type] ?? event.type),
+                ? (event.customType ?? kinds('CUSTOM'))
+                : kinds.has(event.type)
+                  ? kinds(event.type)
+                  : event.type,
             dateLabel: dateLabelOf(date, event.dateOriginalText),
             dateText: event.dateOriginalText,
             placeName: event.place?.name ?? null,

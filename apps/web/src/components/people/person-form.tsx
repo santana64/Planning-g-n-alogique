@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { defaultPersonPrivacy, type PersonPrivacy } from '@chronolignee/domain';
 import { useRouter } from '@/i18n/navigation';
 import { IDLE, type ActionState } from '@/server/action-state';
@@ -23,18 +24,9 @@ import { Field, Select, SubmitButton, TextArea, TextInput } from './fields';
  * cannot find her in both halves of her life.
  */
 
-const SEX_OPTIONS = [
-  ['UNKNOWN', 'Non renseigné'],
-  ['FEMALE', 'Féminin'],
-  ['MALE', 'Masculin'],
-  ['INTERSEX', 'Intersexe'],
-] as const;
+const SEX_OPTIONS = ['UNKNOWN', 'FEMALE', 'MALE', 'INTERSEX'] as const;
 
-const STATUS_OPTIONS = [
-  ['UNKNOWN', 'Inconnu'],
-  ['LIVING', 'Vivante'],
-  ['DECEASED', 'Décédée'],
-] as const;
+const STATUS_OPTIONS = ['UNKNOWN', 'LIVING', 'DECEASED'] as const;
 
 /**
  * Who may see this person, in the words of the people it concerns.
@@ -44,43 +36,19 @@ const STATUS_OPTIONS = [
  * who run the tree; the server refuses them to anyone else whatever the form
  * sends.
  */
-const PRIVACY_OPTIONS: readonly (readonly [PersonPrivacy, string, string])[] = [
-  [
-    'INHERIT',
-    'Selon la règle de l’arbre',
-    'Masquée aux visiteurs tant qu’elle peut être en vie, si l’arbre le demande.',
-  ],
-  [
-    'REDACTED',
-    'Membres de l’arbre seulement',
-    'Masquée à toute personne extérieure à l’arbre : nom, dates et lieux, même après son décès.',
-  ],
-  [
-    'RESTRICTED',
-    'Propriétaire et administrateurs seulement',
-    'Masquée aussi aux éditeurs, contributeurs et lecteurs de l’arbre.',
-  ],
-  [
-    'VISIBLE',
-    'Publique, même de son vivant',
-    'Visible de quiconque peut lire l’arbre. À réserver à qui y a consenti.',
-  ],
-];
+const PRIVACY_OPTIONS: readonly PersonPrivacy[] = ['INHERIT', 'REDACTED', 'RESTRICTED', 'VISIBLE'];
 const STEWARD_ONLY: ReadonlySet<PersonPrivacy> = new Set(['RESTRICTED', 'VISIBLE']);
 
 const NAME_TYPE_OPTIONS = [
-  ['BIRTH', 'De naissance'],
-  ['MARRIED', 'De mariage'],
-  ['RELIGIOUS', 'De religion'],
-  ['IMMIGRANT', "D'immigration"],
-  ['AKA', 'Alias'],
-  ['NICKNAME', 'Surnom'],
-  ['PROFESSIONAL', 'Professionnel'],
-  ['OTHER', 'Autre'],
+  'BIRTH',
+  'MARRIED',
+  'RELIGIOUS',
+  'IMMIGRANT',
+  'AKA',
+  'NICKNAME',
+  'PROFESSIONAL',
+  'OTHER',
 ] as const;
-
-const DATE_HINT =
-  'Tel que le registre l’écrit : 12 juin 1877, vers 1750, entre 1801 et 1803, 4 germinal an VII.';
 
 interface NameDraft {
   readonly key: string;
@@ -115,6 +83,7 @@ export function PersonForm({
   /** May publish a living person or restrict someone to the administrators. */
   canSteward: boolean;
 }) {
+  const t = useTranslations('personForm');
   const router = useRouter();
   const [state, action, pending] = useActionState<ActionState, FormData>(
     person ? updatePersonAction : createPersonAction,
@@ -129,9 +98,8 @@ export function PersonForm({
   // as living starts hidden from outside the tree, and the form shows it.
   const [privacyChosen, setPrivacyChosen] = useState(false);
   const privacyLocked = !canSteward && STEWARD_ONLY.has(privacy);
-  const privacyChoices = PRIVACY_OPTIONS.filter(
-    ([value]) => canSteward || !STEWARD_ONLY.has(value),
-  );
+  const privacyChoices = PRIVACY_OPTIONS.filter((value) => canSteward || !STEWARD_ONLY.has(value));
+  const dateHint = t('dateHint');
 
   // A newly created person has no page yet, so the form navigates to the one
   // the write just produced. An edit stays where it is: being thrown somewhere
@@ -151,7 +119,7 @@ export function PersonForm({
 
       <section className="flex flex-col gap-4">
         <header className="flex items-baseline justify-between">
-          <h2 className="font-editorial text-text-primary text-lg">Noms</h2>
+          <h2 className="font-editorial text-text-primary text-lg">{t('names')}</h2>
           <button
             type="button"
             onClick={() =>
@@ -173,7 +141,7 @@ export function PersonForm({
             }
             className="text-accent text-sm hover:underline"
           >
-            Ajouter un nom
+            {t('addName')}
           </button>
         </header>
 
@@ -183,58 +151,60 @@ export function PersonForm({
             className="border-border-subtle bg-surface-1/40 flex flex-col gap-3 rounded-[var(--radius-md)] border p-4"
           >
             <legend className="text-text-faint px-1 text-xs">
-              {index === 0 ? 'Nom principal — celui qui s’affiche partout' : `Nom ${index + 1}`}
+              {index === 0 ? t('mainName') : t('otherName', { number: index + 1 })}
             </legend>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field id={`given-${index}`} label="Prénom(s)" error={error(`names.${index}.given`)}>
+              <Field id={`given-${index}`} label={t('given')} error={error(`names.${index}.given`)}>
                 <TextInput
                   id={`given-${index}`}
                   name={`names.${index}.given`}
                   defaultValue={name.given}
-                  placeholder="Jean-Baptiste"
+                  placeholder={t('givenPlaceholder')}
                   error={error(`names.${index}.given`)}
                 />
               </Field>
 
-              <Field id={`surname-${index}`} label="Nom de famille">
+              <Field id={`surname-${index}`} label={t('surname')}>
                 <TextInput
                   id={`surname-${index}`}
                   name={`names.${index}.surname`}
                   defaultValue={name.surname}
-                  placeholder="Chassagne"
+                  placeholder={t('surnamePlaceholder')}
                 />
               </Field>
 
               <Field
                 id={`surname-prefix-${index}`}
-                label="Particule"
-                hint="Conservée à l’affichage, ignorée au classement : « de La Tour » se range à T."
+                label={t('surnamePrefix')}
+                hint={t('surnamePrefixHint')}
               >
                 <TextInput
                   id={`surname-prefix-${index}`}
                   name={`names.${index}.surnamePrefix`}
                   defaultValue={name.surnamePrefix}
-                  placeholder="de La"
+                  placeholder={t('surnamePrefixPlaceholder')}
                   hasHint
                 />
               </Field>
 
-              <Field id={`nickname-${index}`} label="Surnom">
+              <Field id={`nickname-${index}`} label={t('nickname')}>
                 <TextInput
                   id={`nickname-${index}`}
                   name={`names.${index}.nickname`}
                   defaultValue={name.nickname}
-                  placeholder="Le Grand"
+                  placeholder={t('nicknamePlaceholder')}
                 />
               </Field>
 
-              <Field id={`name-type-${index}`} label="Type">
+              <Field id={`name-type-${index}`} label={t('nameType')}>
                 <Select
                   id={`name-type-${index}`}
                   name={`names.${index}.type`}
                   defaultValue={name.type}
-                  options={NAME_TYPE_OPTIONS}
+                  options={NAME_TYPE_OPTIONS.map(
+                    (value) => [value, t(`nameTypes.${value}`)] as const,
+                  )}
                 />
               </Field>
             </div>
@@ -245,7 +215,7 @@ export function PersonForm({
                 onClick={() => setNames((current) => current.filter((n) => n.key !== name.key))}
                 className="text-text-faint hover:text-danger self-start text-xs"
               >
-                Retirer ce nom
+                {t('removeName')}
               </button>
             ) : null}
           </fieldset>
@@ -253,18 +223,18 @@ export function PersonForm({
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2">
-        <Field id="recordedSex" label="Sexe inscrit à l’état civil">
+        <Field id="recordedSex" label={t('recordedSex')}>
           <Select
             id="recordedSex"
             name="recordedSex"
             defaultValue={person?.recordedSex ?? 'UNKNOWN'}
-            options={SEX_OPTIONS}
+            options={SEX_OPTIONS.map((value) => [value, t(`sexes.${value}`)] as const)}
           />
         </Field>
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="livingStatus" className="text-text-secondary text-sm font-medium">
-            Statut
+            {t('status')}
           </label>
           <select
             id="livingStatus"
@@ -279,23 +249,20 @@ export function PersonForm({
             }}
             className="border-border-default bg-surface-1 text-text-primary hover:border-border-strong focus:border-accent w-full rounded-[var(--radius-md)] border px-3 py-2 transition-colors duration-[var(--duration-fast)] focus:outline-none"
           >
-            {STATUS_OPTIONS.map(([value, label]) => (
+            {STATUS_OPTIONS.map((value) => (
               <option key={value} value={value}>
-                {label}
+                {t(`statuses.${value}`)}
               </option>
             ))}
           </select>
           {livingStatus === 'LIVING' ? null : (
-            <p className="text-text-faint text-xs">
-              Sans date de décès, une durée de vie maximale de 123 ans borne la fiche. Cette borne
-              est déduite, jamais enregistrée.
-            </p>
+            <p className="text-text-faint text-xs">{t('inferredLifespan')}</p>
           )}
         </div>
 
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <label htmlFor="privacy" className="text-text-secondary text-sm font-medium">
-            Visibilité
+            {t('visibility')}
           </label>
           {privacyLocked ? (
             // Decided by someone who runs the tree. Sent back unchanged, so
@@ -304,8 +271,8 @@ export function PersonForm({
             <>
               <input type="hidden" name="privacy" value={privacy} />
               <p id="privacy" className="text-text-primary text-sm">
-                {PRIVACY_OPTIONS.find(([value]) => value === privacy)?.[1]}
-                <span className="text-text-faint"> — choisi par un administrateur</span>
+                {t(`privacyLabels.${privacy}`)}
+                <span className="text-text-faint">{t('chosenByAdministrator')}</span>
               </p>
             </>
           ) : (
@@ -320,64 +287,60 @@ export function PersonForm({
               }}
               className="border-border-default bg-surface-1 text-text-primary hover:border-border-strong focus:border-accent w-full rounded-[var(--radius-md)] border px-3 py-2 transition-colors duration-[var(--duration-fast)] focus:outline-none"
             >
-              {privacyChoices.map(([value, label]) => (
+              {privacyChoices.map((value) => (
                 <option key={value} value={value}>
-                  {label}
+                  {t(`privacyLabels.${value}`)}
                 </option>
               ))}
             </select>
           )}
           <p id="privacy-hint" className="text-source text-xs">
-            {PRIVACY_OPTIONS.find(([value]) => value === privacy)?.[2]}
+            {t(`privacyHints.${privacy}`)}
           </p>
         </div>
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2">
-        <Field id="birthDate" label="Date de naissance" hint={DATE_HINT}>
+        <Field id="birthDate" label={t('birthDate')} hint={dateHint}>
           <TextInput
             id="birthDate"
             name="birthDate"
             defaultValue={person?.birthDateText ?? ''}
-            placeholder="12 juin 1877"
+            placeholder={t('birthDatePlaceholder')}
             hasHint
           />
         </Field>
 
-        <Field id="birthPlace" label="Lieu de naissance">
+        <Field id="birthPlace" label={t('birthPlace')}>
           <TextInput
             id="birthPlace"
             name="birthPlace"
             defaultValue={person?.birthPlaceName ?? ''}
-            placeholder="Tours, Indre-et-Loire, France"
+            placeholder={t('birthPlacePlaceholder')}
           />
         </Field>
 
-        <Field id="deathDate" label="Date de décès" hint={DATE_HINT}>
+        <Field id="deathDate" label={t('deathDate')} hint={dateHint}>
           <TextInput
             id="deathDate"
             name="deathDate"
             defaultValue={person?.deathDateText ?? ''}
-            placeholder="vers 1910"
+            placeholder={t('deathDatePlaceholder')}
             hasHint
           />
         </Field>
 
-        <Field id="deathPlace" label="Lieu de décès">
+        <Field id="deathPlace" label={t('deathPlace')}>
           <TextInput
             id="deathPlace"
             name="deathPlace"
             defaultValue={person?.deathPlaceName ?? ''}
-            placeholder="Paris, France"
+            placeholder={t('deathPlacePlaceholder')}
           />
         </Field>
       </section>
 
-      <Field
-        id="notes"
-        label="Notes de recherche"
-        hint="Ce que vous cherchez encore, ce dont vous doutez, où vous avez déjà regardé."
-      >
+      <Field id="notes" label={t('researchNotes')} hint={t('researchNotesHint')}>
         <TextArea id="notes" name="notes" defaultValue={person?.notes ?? ''} />
       </Field>
 
@@ -395,14 +358,8 @@ export function PersonForm({
       ) : null}
 
       <div className="flex items-center gap-3">
-        <SubmitButton pending={pending}>
-          {person ? 'Enregistrer' : 'Créer la personne'}
-        </SubmitButton>
-        {person ? (
-          <span className="text-text-faint text-xs">
-            Une date corrigée archive la précédente au lieu de l’écraser.
-          </span>
-        ) : null}
+        <SubmitButton pending={pending}>{person ? t('save') : t('create')}</SubmitButton>
+        {person ? <span className="text-text-faint text-xs">{t('correctionArchives')}</span> : null}
       </div>
     </form>
   );

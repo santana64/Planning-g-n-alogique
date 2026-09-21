@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { can } from '@chronolignee/domain';
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { PEOPLE_PAGE_SIZE, listPeople } from '@/server/people';
 import { PeopleSearch } from '@/components/people/people-search';
@@ -33,6 +33,7 @@ export default async function PeoplePage({
   const { locale, treeSlug } = await params;
   setRequestLocale(locale);
 
+  const t = await getTranslations('people');
   const { q } = await searchParams;
   const listing = await listPeople(treeSlug, q ?? '');
   // A tree that is private and a tree that does not exist answer identically,
@@ -53,12 +54,8 @@ export default async function PeoplePage({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <PeopleSearch initialQuery={listing.query} />
           <p className="text-text-muted text-sm">
-            {listing.total === 0
-              ? 'Personne'
-              : listing.total === 1
-                ? '1 personne'
-                : `${listing.total} personnes`}
-            {listing.truncated ? ` — ${PEOPLE_PAGE_SIZE} affichées` : ''}
+            {t('count', { count: listing.total })}
+            {listing.truncated ? ` — ${t('shown', { count: PEOPLE_PAGE_SIZE })}` : ''}
           </p>
         </div>
 
@@ -95,7 +92,7 @@ export default async function PeoplePage({
                   <span className="tabular text-text-muted text-sm">
                     {person.lifespanLabel}
                     {person.isLiving && !person.redacted ? (
-                      <span className="text-source ml-2 text-xs">vivante</span>
+                      <span className="text-source ml-2 text-xs">{t('living')}</span>
                     ) : null}
                   </span>
                 </Link>
@@ -106,7 +103,7 @@ export default async function PeoplePage({
 
         {listing.truncated ? (
           <p className="text-text-faint text-sm">
-            Affinez la recherche pour voir les {listing.total - PEOPLE_PAGE_SIZE} autres.
+            {t('refine', { count: listing.total - PEOPLE_PAGE_SIZE })}
           </p>
         ) : null}
       </div>
@@ -114,7 +111,7 @@ export default async function PeoplePage({
   );
 }
 
-function EmptyState({
+async function EmptyState({
   treeSlug,
   canEdit,
   canImport,
@@ -125,27 +122,28 @@ function EmptyState({
   canImport: boolean;
   filtered: boolean;
 }) {
+  const t = await getTranslations('people');
   if (filtered) {
-    return <p className="text-text-muted py-12">Aucun nom ne correspond.</p>;
+    return <p className="text-text-muted py-12">{t('noMatch')}</p>;
   }
 
   return (
     <div className="border-border-subtle flex flex-col items-start gap-4 rounded-[var(--radius-lg)] border border-dashed p-10">
-      <p className="text-text-secondary">Cet arbre est vide.</p>
+      <p className="text-text-secondary">{t('empty')}</p>
       {canEdit ? (
         <div className="flex flex-wrap gap-3">
           <Link
             href={`/app/${treeSlug}/personnes/nouvelle`}
             className="bg-accent text-accent-contrast hover:bg-accent-hover rounded-[var(--radius-md)] px-4 py-2 text-sm font-medium"
           >
-            Saisir la première personne
+            {t('firstPerson')}
           </Link>
           {canImport ? (
             <Link
               href={`/app/${treeSlug}/import`}
               className="border-border-default text-text-primary hover:border-border-strong rounded-[var(--radius-md)] border px-4 py-2 text-sm"
             >
-              Importer un GEDCOM
+              {t('importGedcom')}
             </Link>
           ) : null}
         </div>

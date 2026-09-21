@@ -1,4 +1,5 @@
 import { can, type TreeRole } from '@chronolignee/domain';
+import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { features } from '@/lib/env';
 
@@ -10,7 +11,7 @@ import { features } from '@/lib/env';
  * the mutation itself is authorised again on arrival, because a hidden link is
  * not a permission.
  */
-export function TreeNav({
+export async function TreeNav({
   treeSlug,
   treeName,
   role,
@@ -34,37 +35,42 @@ export function TreeNav({
     | 'sharing'
     | 'settings';
 }) {
+  const t = await getTranslations('tree');
   const canEdit = can(role, 'contribute');
   const tabs = [
-    { key: 'people' as const, href: `/app/${treeSlug}/personnes`, label: 'Personnes' },
-    { key: 'timeline' as const, href: `/app/${treeSlug}/chronologie`, label: 'Chronologie' },
+    { key: 'people' as const, href: `/app/${treeSlug}/personnes`, label: t('nav.people') },
+    { key: 'timeline' as const, href: `/app/${treeSlug}/chronologie`, label: t('nav.timeline') },
     ...(features.constellation
       ? [
           {
             key: 'constellation' as const,
             href: `/app/${treeSlug}/constellation`,
-            label: 'Constellation',
+            label: t('nav.constellation'),
           },
         ]
       : []),
     ...(features.storyDirector
-      ? [{ key: 'stories' as const, href: `/app/${treeSlug}/recits`, label: 'Récits' }]
+      ? [{ key: 'stories' as const, href: `/app/${treeSlug}/recits`, label: t('nav.stories') }]
       : []),
-    { key: 'map' as const, href: `/app/${treeSlug}/carte`, label: 'Carte' },
-    { key: 'archive' as const, href: `/app/${treeSlug}/archives`, label: 'Archives' },
+    { key: 'map' as const, href: `/app/${treeSlug}/carte`, label: t('nav.map') },
+    { key: 'archive' as const, href: `/app/${treeSlug}/archives`, label: t('nav.archive') },
     // Editors only: a proposal is a reading nobody has vouched for yet.
     ...(canEdit
       ? [
           {
             key: 'proposals' as const,
             href: `/app/${treeSlug}/propositions`,
-            label: 'Propositions',
+            label: t('nav.proposals'),
           },
-          { key: 'duplicates' as const, href: `/app/${treeSlug}/doublons`, label: 'Doublons' },
+          {
+            key: 'duplicates' as const,
+            href: `/app/${treeSlug}/doublons`,
+            label: t('nav.duplicates'),
+          },
         ]
       : []),
     ...(can(role, 'import')
-      ? [{ key: 'import' as const, href: `/app/${treeSlug}/import`, label: 'Importer' }]
+      ? [{ key: 'import' as const, href: `/app/${treeSlug}/import`, label: t('nav.import') }]
       : []),
   ];
 
@@ -73,10 +79,16 @@ export function TreeNav({
     role === null
       ? []
       : [
-          { key: 'history' as const, href: `/app/${treeSlug}/historique`, label: 'Historique' },
-          { key: 'sharing' as const, href: `/app/${treeSlug}/partage`, label: 'Partage' },
+          { key: 'history' as const, href: `/app/${treeSlug}/historique`, label: t('nav.history') },
+          { key: 'sharing' as const, href: `/app/${treeSlug}/partage`, label: t('nav.sharing') },
           ...(can(role, 'manageTree') || can(role, 'export') || can(role, 'deleteTree')
-            ? [{ key: 'settings' as const, href: `/app/${treeSlug}/reglages`, label: 'Réglages' }]
+            ? [
+                {
+                  key: 'settings' as const,
+                  href: `/app/${treeSlug}/reglages`,
+                  label: t('nav.settings'),
+                },
+              ]
             : []),
         ];
 
@@ -86,7 +98,7 @@ export function TreeNav({
           whole page sideways, on every screen of a tree. */}
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-2">
         <span className="font-editorial text-text-primary text-lg tracking-tight">{treeName}</span>
-        <nav aria-label="Sections de l’arbre" className="flex flex-wrap gap-x-4 gap-y-1">
+        <nav aria-label={t('sections')} className="flex flex-wrap gap-x-4 gap-y-1">
           {tabs.map((tab) => (
             <Link
               key={tab.key}
@@ -106,7 +118,7 @@ export function TreeNav({
 
       <div className="flex flex-wrap items-baseline gap-4">
         {stewardship.length > 0 ? (
-          <nav aria-label="L’arbre" className="flex flex-wrap gap-x-4 gap-y-1">
+          <nav aria-label={t('stewardship')} className="flex flex-wrap gap-x-4 gap-y-1">
             {stewardship.map((tab) => (
               <Link
                 key={tab.key}
@@ -128,7 +140,7 @@ export function TreeNav({
             href={`/app/${treeSlug}/personnes/nouvelle`}
             className="bg-accent text-accent-contrast hover:bg-accent-hover rounded-[var(--radius-md)] px-3 py-1.5 text-sm font-medium transition-colors duration-[var(--duration-fast)]"
           >
-            Ajouter une personne
+            {t('addPerson')}
           </Link>
         ) : null}
       </div>

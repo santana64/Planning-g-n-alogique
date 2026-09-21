@@ -1,5 +1,6 @@
 import 'server-only';
 import { cache } from 'react';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { loadHistory, type HistoryEntry } from '@chronolignee/db';
 import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
@@ -84,17 +85,24 @@ async function readable(
       .map((person) => person.id),
   );
 
+  // One translator for the whole page: every line borrows the names of
+  // events, relationships and roles from the namespaces that hold them.
+  const t = await getTranslations();
+  const locale = await getLocale();
+
   return entries
     .filter((entry) => !entry.personIds.some((id) => hidden.has(id)))
     .map((entry) => {
-      const described = describeRevision(entry);
+      const described = describeRevision(entry, t, locale);
       return {
         id: entry.revisionId,
         at: entry.createdAt.toISOString(),
         // A member whose account was erased signs nothing any more.
         author:
           entry.actorName ??
-          (entry.entityType === 'TreeMember' ? 'Un ancien membre' : 'Auteur inconnu'),
+          (entry.entityType === 'TreeMember'
+            ? t('history.formerMember')
+            : t('history.unknownAuthor')),
         sentence: described.sentence,
         changes: described.changes,
         personId:

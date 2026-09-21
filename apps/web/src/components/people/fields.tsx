@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 
 /**
  * Form primitives.
@@ -143,6 +144,7 @@ export function SubmitButton({
   disabled?: boolean;
   tone?: 'primary' | 'danger';
 }) {
+  const t = useTranslations('editing');
   const palette =
     tone === 'danger'
       ? 'border-danger/40 text-danger hover:bg-danger/10'
@@ -156,7 +158,7 @@ export function SubmitButton({
     >
       {/* The label changes rather than a spinner appearing next to a label that
        * still says "Enregistrer": the button should not claim to be idle. */}
-      {pending ? 'Enregistrement…' : children}
+      {pending ? t('saving') : children}
     </button>
   );
 }

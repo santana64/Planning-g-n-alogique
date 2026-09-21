@@ -1,7 +1,7 @@
 'use client';
 
-import { RELATIONSHIP_LABELS } from '@/lib/labels';
 import { useActionState, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { createRelationshipAction, deleteRelationshipAction } from '@/server/person-actions';
@@ -25,31 +25,19 @@ import { PersonPicker } from './person-picker';
  */
 
 const PARENT_KINDS = [
-  ['PARENT_BIOLOGICAL', 'Biologique'],
-  ['PARENT_ADOPTIVE', 'Adoptif'],
-  ['PARENT_FOSTER', 'Nourricier'],
-  ['PARENT_STEP', 'Par alliance'],
-  ['PARENT_GUARDIAN', 'Tuteur'],
-  ['PARENT_UNKNOWN', 'Non précisé'],
+  'PARENT_BIOLOGICAL',
+  'PARENT_ADOPTIVE',
+  'PARENT_FOSTER',
+  'PARENT_STEP',
+  'PARENT_GUARDIAN',
+  'PARENT_UNKNOWN',
 ] as const;
 
-const PEER_KINDS = [
-  ['SPOUSE', 'Époux / épouse'],
-  ['PARTNER', 'Partenaire'],
-  ['DIVORCED_PARTNER', 'Ex-conjoint'],
-  ['SIBLING', 'Frère / sœur'],
-  ['OTHER', 'Autre'],
-] as const;
-
-export { RELATIONSHIP_LABELS } from '@/lib/labels';
+const PEER_KINDS = ['SPOUSE', 'PARTNER', 'DIVORCED_PARTNER', 'SIBLING', 'OTHER'] as const;
 
 type Stance = 'PARENT_OF' | 'CHILD_OF' | 'PEER';
 
-const STANCES = [
-  ['PARENT_OF', 'est le parent de'],
-  ['CHILD_OF', 'est l’enfant de'],
-  ['PEER', 'est lié à'],
-] as const;
+const STANCES = ['PARENT_OF', 'CHILD_OF', 'PEER'] as const;
 
 export function RelationshipEditor({
   treeSlug,
@@ -66,6 +54,8 @@ export function RelationshipEditor({
   canEdit: boolean;
   canDelete: boolean;
 }) {
+  const t = useTranslations('relationshipEditor');
+  const types = useTranslations('relationships');
   const [createState, createAction, creating] = useActionState<ActionState, FormData>(
     createRelationshipAction,
     IDLE,
@@ -79,29 +69,36 @@ export function RelationshipEditor({
   const parents = links.filter((link) => link.direction === 'CHILD');
   const children = links.filter((link) => link.direction === 'PARENT');
   const peers = links.filter((link) => link.direction === 'PEER');
+  const kinds = (stance === 'PEER' ? PEER_KINDS : PARENT_KINDS).map(
+    (code) => [code, t(`kinds.${code}`)] as const,
+  );
+  const typeLabel = (type: string): string => (types.has(type) ? types(type) : type);
 
   return (
     <div className="flex flex-col gap-6">
       <LinkGroup
-        title="Parents"
+        title={t('parents')}
         links={parents}
         treeSlug={treeSlug}
         canDelete={canDelete}
         action={deleteAction}
+        typeLabel={typeLabel}
       />
       <LinkGroup
-        title="Enfants"
+        title={t('children')}
         links={children}
         treeSlug={treeSlug}
         canDelete={canDelete}
         action={deleteAction}
+        typeLabel={typeLabel}
       />
       <LinkGroup
-        title="Unions et fratrie"
+        title={t('peers')}
         links={peers}
         treeSlug={treeSlug}
         canDelete={canDelete}
         action={deleteAction}
+        typeLabel={typeLabel}
       />
 
       {deleteState.status === 'error' && deleteState.message ? (
@@ -118,19 +115,19 @@ export function RelationshipEditor({
           action={createAction}
           className="border-border-subtle bg-surface-1/40 flex flex-col gap-4 rounded-[var(--radius-md)] border p-4"
         >
-          <h3 className="font-editorial text-text-primary text-base">Ajouter un lien</h3>
+          <h3 className="font-editorial text-text-primary text-base">{t('addLink')}</h3>
 
           <p className="text-text-secondary text-sm">
             <span className="text-text-primary font-medium">{personName}</span>{' '}
             <select
-              aria-label="Sens du lien"
+              aria-label={t('direction')}
               value={stance}
               onChange={(event) => setStance(event.target.value as Stance)}
               className="border-border-default bg-surface-1 text-text-primary rounded-[var(--radius-sm)] border px-2 py-1"
             >
-              {STANCES.map(([value, label]) => (
+              {STANCES.map((value) => (
                 <option key={value} value={value}>
-                  {label}
+                  {t(`stance.${value}`)}
                 </option>
               ))}
             </select>
@@ -149,27 +146,27 @@ export function RelationshipEditor({
             <PersonPicker
               key={stance}
               name={stance === 'CHILD_OF' ? 'sourceId' : 'targetId'}
-              label={stance === 'CHILD_OF' ? 'Le parent' : 'L’autre personne'}
+              label={stance === 'CHILD_OF' ? t('theParent') : t('theOtherPerson')}
               treeSlug={treeSlug}
               excludeId={personId}
             />
 
-            <Field id="type" label="Nature du lien">
+            <Field id="type" label={t('kind')}>
               <Select
                 id="type"
                 name="type"
-                options={stance === 'PEER' ? PEER_KINDS : PARENT_KINDS}
+                options={kinds}
                 defaultValue={stance === 'PEER' ? 'SPOUSE' : 'PARENT_BIOLOGICAL'}
               />
             </Field>
 
             {stance === 'PEER' ? (
               <>
-                <Field id="startDate" label="Début (mariage, union)">
-                  <TextInput id="startDate" name="startDate" placeholder="14 mai 1849" />
+                <Field id="startDate" label={t('start')}>
+                  <TextInput id="startDate" name="startDate" placeholder={t('startPlaceholder')} />
                 </Field>
-                <Field id="endDate" label="Fin (divorce, décès)">
-                  <TextInput id="endDate" name="endDate" placeholder="vers 1871" />
+                <Field id="endDate" label={t('end')}>
+                  <TextInput id="endDate" name="endDate" placeholder={t('endPlaceholder')} />
                 </Field>
               </>
             ) : null}
@@ -198,7 +195,7 @@ export function RelationshipEditor({
             </ul>
           ) : null}
 
-          <SubmitButton pending={creating}>Créer le lien</SubmitButton>
+          <SubmitButton pending={creating}>{t('create')}</SubmitButton>
         </form>
       ) : null}
     </div>
@@ -211,18 +208,21 @@ function LinkGroup({
   treeSlug,
   canDelete,
   action,
+  typeLabel,
 }: {
   title: string;
   links: readonly PersonLinkRow[];
   treeSlug: string;
   canDelete: boolean;
   action: (formData: FormData) => void;
+  typeLabel: (type: string) => string;
 }) {
+  const t = useTranslations('relationshipEditor');
   return (
     <section className="flex flex-col gap-2">
       <h3 className="text-text-faint text-xs tracking-wide uppercase">{title}</h3>
       {links.length === 0 ? (
-        <p className="text-text-faint text-sm">Aucun</p>
+        <p className="text-text-faint text-sm">{t('none')}</p>
       ) : (
         <ul className="flex flex-col gap-1">
           {links.map((link) => (
@@ -241,9 +241,7 @@ function LinkGroup({
                     {link.otherName}
                   </Link>
                 )}
-                <span className="text-text-faint text-xs">
-                  {RELATIONSHIP_LABELS[link.type] ?? link.type}
-                </span>
+                <span className="text-text-faint text-xs">{typeLabel(link.type)}</span>
               </span>
 
               {canDelete ? (
@@ -251,7 +249,7 @@ function LinkGroup({
                   <input type="hidden" name="treeSlug" value={treeSlug} />
                   <input type="hidden" name="relationshipId" value={link.relationshipId} />
                   <button type="submit" className="text-text-faint hover:text-danger text-xs">
-                    Retirer
+                    {t('remove')}
                   </button>
                 </form>
               ) : null}

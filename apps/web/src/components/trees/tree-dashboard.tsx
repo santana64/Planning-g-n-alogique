@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { Link, useRouter } from '@/i18n/navigation';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { createTreeAction } from '@/server/tree-actions';
@@ -23,15 +24,9 @@ export interface TreeCard {
   readonly peopleCount: number;
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  OWNER: 'Propriétaire',
-  ADMIN: 'Administrateur',
-  EDITOR: 'Éditeur',
-  CONTRIBUTOR: 'Contributeur',
-  VIEWER: 'Lecteur',
-};
-
 export function TreeDashboard({ trees }: { trees: readonly TreeCard[] }) {
+  const t = useTranslations('dashboard');
+  const roles = useTranslations('tree.roles');
   const router = useRouter();
   const [state, action, pending] = useActionState<ActionState & { slug?: string }, FormData>(
     createTreeAction,
@@ -48,7 +43,7 @@ export function TreeDashboard({ trees }: { trees: readonly TreeCard[] }) {
     <div className="flex flex-col gap-10">
       {trees.length > 0 ? (
         <section className="flex flex-col gap-3">
-          <h2 className="text-text-faint text-xs tracking-wide uppercase">Vos arbres</h2>
+          <h2 className="text-text-faint text-xs tracking-wide uppercase">{t('yourTrees')}</h2>
           <ul className="flex flex-col">
             {trees.map((tree) => (
               <li key={tree.treeId}>
@@ -58,13 +53,9 @@ export function TreeDashboard({ trees }: { trees: readonly TreeCard[] }) {
                 >
                   <span className="font-editorial text-text-primary text-base">{tree.name}</span>
                   <span className="text-text-muted text-sm">
-                    {tree.peopleCount === 0
-                      ? 'vide'
-                      : tree.peopleCount === 1
-                        ? '1 personne'
-                        : `${tree.peopleCount} personnes`}
+                    {t('peopleCount', { count: tree.peopleCount })}
                     <span className="text-text-faint ml-3 text-xs">
-                      {ROLE_LABELS[tree.role] ?? tree.role}
+                      {roles.has(tree.role) ? roles(tree.role) : tree.role}
                     </span>
                   </span>
                 </Link>
@@ -76,22 +67,19 @@ export function TreeDashboard({ trees }: { trees: readonly TreeCard[] }) {
 
       <section className="flex max-w-md flex-col gap-4">
         <h2 className="text-text-faint text-xs tracking-wide uppercase">
-          {trees.length === 0 ? 'Commencer' : 'Nouvel arbre'}
+          {trees.length === 0 ? t('start') : t('newTree')}
         </h2>
 
         {trees.length === 0 ? (
-          <p className="text-text-secondary text-sm">
-            Un arbre est privé à sa création. Vous décidez ensuite ce qui est publié — et les
-            personnes vivantes restent masquées dans tous les cas.
-          </p>
+          <p className="text-text-secondary text-sm">{t('privateNote')}</p>
         ) : null}
 
         <form action={action} className="flex flex-col gap-4">
-          <Field id="tree-name" label="Nom de l’arbre" error={state.fieldErrors?.['name']}>
+          <Field id="tree-name" label={t('treeName')} error={state.fieldErrors?.['name']}>
             <TextInput
               id="tree-name"
               name="name"
-              placeholder="Famille Chassagne"
+              placeholder={t('treeNamePlaceholder')}
               error={state.fieldErrors?.['name']}
             />
           </Field>
@@ -105,16 +93,18 @@ export function TreeDashboard({ trees }: { trees: readonly TreeCard[] }) {
             </p>
           ) : null}
 
-          <SubmitButton pending={pending}>Créer l’arbre</SubmitButton>
+          <SubmitButton pending={pending}>{t('create')}</SubmitButton>
         </form>
 
         {trees.length === 0 ? (
           <p className="text-text-faint text-sm">
-            Ou regardez d’abord{' '}
-            <Link href="/demo" className="text-accent hover:underline">
-              l’arbre de démonstration
-            </Link>{' '}
-            : quarante personnes sur trois siècles, avec ses dates illisibles et ses contradictions.
+            {t.rich('demoInvitation', {
+              link: (chunks) => (
+                <Link href="/demo" className="text-accent hover:underline">
+                  {chunks}
+                </Link>
+              ),
+            })}
           </p>
         ) : null}
       </section>

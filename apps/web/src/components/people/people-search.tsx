@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from '@/i18n/navigation';
 
 /**
@@ -11,6 +12,7 @@ import { usePathname, useRouter } from '@/i18n/navigation';
  * button. A research session is not one sitting.
  */
 export function PeopleSearch({ initialQuery }: { initialQuery: string }) {
+  const t = useTranslations('people');
   const router = useRouter();
   const pathname = usePathname();
   const [value, setValue] = useState(initialQuery);
@@ -35,14 +37,14 @@ export function PeopleSearch({ initialQuery }: { initialQuery: string }) {
         type="search"
         value={value}
         onChange={(event) => setValue(event.target.value)}
-        placeholder="Chercher un nom…"
-        aria-label="Chercher une personne"
+        placeholder={t('searchPlaceholder')}
+        aria-label={t('searchLabel')}
         className="border-border-default bg-surface-1 text-text-primary placeholder:text-text-faint hover:border-border-strong focus:border-accent w-full max-w-sm rounded-[var(--radius-md)] border px-3 py-2 transition-colors duration-[var(--duration-fast)] focus:outline-none"
       />
       {/* Accents are folded on both sides, so this is worth saying once rather
        * than leaving the user to discover it by failing to find someone. */}
       <span className="text-text-faint hidden text-xs sm:inline">
-        {pending ? 'Recherche…' : 'Les accents et la casse sont ignorés.'}
+        {pending ? t('searching') : t('accentsIgnored')}
       </span>
     </div>
   );

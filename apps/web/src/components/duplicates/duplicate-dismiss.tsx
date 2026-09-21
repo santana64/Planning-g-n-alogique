@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import { useTranslations } from 'next-intl';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { dismissDuplicateAction } from '@/server/duplicate-actions';
 
@@ -14,6 +15,7 @@ export function DuplicateDismissButton({
   candidateId: string;
   className?: string;
 }) {
+  const t = useTranslations('duplicates');
   const [state, action, pending] = useActionState<ActionState, FormData>(
     dismissDuplicateAction,
     IDLE,
@@ -31,7 +33,7 @@ export function DuplicateDismissButton({
           'border-border-subtle text-text-muted hover:text-text-primary rounded-[var(--radius-md)] border px-4 py-2 text-sm disabled:opacity-60'
         }
       >
-        Deux personnes différentes
+        {t('notTheSame')}
       </button>
       {state.status === 'error' && state.message ? (
         <p role="alert" className="text-danger text-sm">

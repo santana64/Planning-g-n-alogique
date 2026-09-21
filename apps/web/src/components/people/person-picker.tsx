@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { searchPeopleAction } from '@/server/person-actions';
 import type { PersonSummary } from '@/server/people';
 
@@ -29,6 +30,7 @@ export function PersonPicker({
   treeSlug: string;
   excludeId: string;
 }) {
+  const t = useTranslations('editing.picker');
   const inputId = useId();
   const listId = useId();
   const [query, setQuery] = useState('');
@@ -88,7 +90,7 @@ export function PersonPicker({
         }}
         onFocus={() => setOpen(visible.length > 0)}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
-        placeholder="Taper un nom…"
+        placeholder={t('placeholder')}
         className="border-border-default bg-surface-1 text-text-primary placeholder:text-text-faint hover:border-border-strong focus:border-accent w-full rounded-[var(--radius-md)] border px-3 py-2 transition-colors duration-[var(--duration-fast)] focus:outline-none"
       />
 
@@ -101,10 +103,10 @@ export function PersonPicker({
           }}
           className="text-text-faint hover:text-accent self-start text-xs"
         >
-          Changer
+          {t('change')}
         </button>
       ) : active && !searching && visible.length === 0 ? (
-        <p className="text-text-faint text-xs">Aucune personne de ce nom dans cet arbre.</p>
+        <p className="text-text-faint text-xs">{t('noMatch')}</p>
       ) : null}
 
       {open && visible.length > 0 ? (

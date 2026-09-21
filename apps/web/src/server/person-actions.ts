@@ -1,6 +1,6 @@
 'use server';
 
-import { getLocale } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { ZodError } from 'zod';
 import {
   RelationshipRefused,
@@ -98,8 +98,10 @@ function fieldErrorsFrom(error: ZodError): Record<string, string> {
   return errors;
 }
 
-function warningsFrom(findings: readonly Finding[]): string[] {
-  return findings.map(findingMessage);
+async function warningsFrom(findings: readonly Finding[]): Promise<string[]> {
+  if (findings.length === 0) return [];
+  const t = await getTranslations('findings');
+  return findings.map((finding) => findingMessage(t, finding));
 }
 
 /**
@@ -171,7 +173,7 @@ export async function createPersonAction(
       personId: created.personId,
     };
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
 }
 
@@ -228,7 +230,7 @@ export async function updatePersonAction(
     revalidateTree(treeSlug);
     return { status: 'success', message: `${updated.displayName} a été enregistré.`, personId };
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
 }
 
@@ -246,7 +248,7 @@ export async function deletePersonAction(
   try {
     await deletePerson(db, personId, authorised.context);
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
   revalidateTree(treeSlug);
   // From the server, in the same response. Left to the client, the
@@ -290,10 +292,10 @@ export async function createRelationshipAction(
       message: 'Le lien a été créé.',
       // Reported, never blocking. A mother of 58 is unusual and real; refusing
       // it would force the researcher to falsify the register to store it.
-      warnings: warningsFrom(result.warnings),
+      warnings: await warningsFrom(result.warnings),
     };
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
 }
 
@@ -314,7 +316,7 @@ export async function deleteRelationshipAction(
     revalidateTree(treeSlug);
     return { status: 'success', message: 'Le lien a été supprimé.' };
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
 }
 
@@ -325,12 +327,12 @@ export async function deleteRelationshipAction(
  * caused the refusal, and those are the whole explanation. Collapsing them to
  * "erreur" would leave the user to guess which of two people is wrong.
  */
-function failure(error: unknown): ActionState {
+async function failure(error: unknown): Promise<ActionState> {
   if (error instanceof RelationshipRefused) {
     return {
       status: 'error',
       message: 'Ce lien rendrait l’arbre incohérent.',
-      warnings: warningsFrom(error.findings),
+      warnings: await warningsFrom(error.findings),
     };
   }
   if (error instanceof ZodError) {
