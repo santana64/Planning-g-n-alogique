@@ -78,7 +78,8 @@ Le vocabulaire prévoit `EVENT_OUTSIDE_LIFESPAN`, `CUSTOM_EVENT_UNLABELLED` (la
 base l'interdit déjà par contrainte), `MARRIAGE_BEFORE_BIRTH`,
 `MARRIAGE_AFTER_DEATH`, `MARRIED_TOO_YOUNG`, `CONTRADICTORY_ACCEPTED_CLAIMS`,
 `DUPLICATE_CANDIDATE`, `CLAIM_WITHOUT_CITATION`, `PEDIGREE_COLLAPSE` : leurs
-messages existent, **aucune règle ne les émet**. L'implexe est aujourd'hui
+messages existent, **aucune règle ne les émet**. Les doublons ont leur propre
+écran (voir plus bas) ; ils ne remontent pas encore comme constat sur la fiche. L'implexe est aujourd'hui
 montré par la numérotation Sosa (une personne à plusieurs numéros), pas comme un
 constat.
 
@@ -98,12 +99,53 @@ ce qui est possible :
 | naissance après décès (mère)        | 2 jours                                    |
 | écart minimal entre frères et sœurs | 240 jours                                  |
 
+## Doublons et fusion
+
+Deux imports d'une même famille laissent la même personne deux fois. La
+recherche (`scanDuplicates`, file `duplicate-scan`, lancée depuis l'écran
+« Doublons ») rapproche d'abord par trigrammes sur le nom normalisé — au plus
+**huit voisins par personne** et **5 000 paires par passage**, seuil de
+similarité 0,5 — puis score chaque paire.
+
+**Quatre refus passent avant toute arithmétique**, parce qu'aucune
+accumulation de ressemblances ne doit les emporter :
+
+| Refus                  | Pourquoi                                                                                                       |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `SAME_PERSON`          | la même fiche deux fois                                                                                        |
+| `RECORDED_SEX_DIFFERS` | le registre a écrit ce qu'il a écrit                                                                           |
+| `DIRECTLY_RELATED`     | parent, enfant ou conjoint : le père et le fils du même nom sont deux personnes                                |
+| `DATES_EXCLUDE_IT`     | naissances (ou décès) datés au-delà de la tolérance de 8 ans : c'est une preuve contre, pas un signal manquant |
+
+Le score est une moyenne pondérée des seuls signaux **mesurables** des deux
+côtés — nom 0,24, prénom 0,20, naissance 0,24, décès 0,08, parents 0,12,
+union 0,05, enfants 0,05, lieu de naissance 0,02 — normalisée sur ces
+signaux-là : une paire sans dates n'est pas punie pour les dates qu'elle n'a
+pas. Au-dessus de **0,62**, la paire est proposée. L'écran affiche toujours le
+score **avec** les signaux qui l'ont produit ; un nombre seul demanderait
+qu'on lui fasse confiance.
+
+Une fusion (capacité `delete`, jamais un contributeur) déplace vers la fiche
+gardée tout ce que la fiche retirée portait — noms, participations aux
+événements, liens, affirmations, propositions, étiquettes de photographie,
+pistes de recherche — puis :
+
+- **rien n'est arbitré** : deux dates de naissance deviennent deux événements
+  de naissance sur la fiche gardée, et la contradiction est affichée par
+  l'audit ; choisir est la décision de recherche suivante, pas celle-ci ;
+- **un lien déjà présent des deux côtés n'est pas écrit deux fois** ;
+- la fiche retirée est **effacée en douceur**, jamais détruite : un
+  identifiant cité dans une révision ancienne doit encore résoudre ;
+- toutes les paires qui la nommaient passent à `MERGED`, et une révision
+  `MERGE` dit ce qui a bougé.
+
 ## Ce qui n'est jamais déduit
 
 - **Aucune relation n'est créée en silence.** Ajouter un mariage avec un
   conjoint **propose** le lien d'union ; le formulaire le demande.
-- **Aucune fusion automatique.** La table des doublons existe, aucun
-  calculateur ne l'alimente encore, et une fusion restera une décision humaine.
+- **Aucune fusion automatique.** La recherche de doublons propose des paires
+  avec leur score et les signaux qui l'ont produit ; fusionner reste une
+  décision humaine, prise devant les deux fiches (voir ci-dessous).
 - **Aucun sexe deviné** pour placer un parent : voir Sosa ci-dessous.
 - **Aucune date inventée** : une date illisible reste un texte, une borne
   inférée reste marquée comme telle ([TEMPORAL_MODEL.md](TEMPORAL_MODEL.md)).

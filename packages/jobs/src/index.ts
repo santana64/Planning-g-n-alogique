@@ -62,6 +62,18 @@ export const PAYLOAD_SCHEMAS = {
   [QUEUE_NAMES.duplicateScan]: duplicateScanPayload,
 } as const;
 
+/**
+ * The job id that makes a tree's duplicate scan unique.
+ *
+ * A hyphen, not a colon: BullMQ builds its Redis keys by joining with `:`
+ * and refuses a custom id containing one — "Custom Id cannot contain :",
+ * thrown from inside `add`, which the caller can only report as "the queue
+ * is not answering". Written here so the rule sits with the queue.
+ */
+export function duplicateScanJobId(treeId: string): string {
+  return `scan-${treeId}`;
+}
+
 // --- Retry policy -----------------------------------------------------------
 
 /**

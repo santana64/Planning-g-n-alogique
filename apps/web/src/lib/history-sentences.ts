@@ -238,6 +238,24 @@ export function describeRevision(facts: RevisionFacts): Described {
         })`,
         changes,
       };
+    case 'Person:MERGE': {
+      // A merge retires a record. The history says which one, into which,
+      // and what came across: it is the only trace of the fiche that left.
+      const merged = text(before, 'mergedName') ?? 'une fiche';
+      const kept = text(after, 'keptName');
+      const moved = [
+        [Number(after?.['events'] ?? 0), 'événement'] as const,
+        [Number(after?.['relationships'] ?? 0), 'lien'] as const,
+      ]
+        .filter(([count]) => count > 0)
+        .map(([count, word]) => `${count} ${word}${count > 1 ? 's' : ''}`);
+      return {
+        sentence: `a fusionné ${merged} dans ${kept ?? 'une autre fiche'}${
+          moved.length > 0 ? ` — ${moved.join(', ')} repris` : ''
+        }`,
+        changes,
+      };
+    }
     case 'Tree:CREATE':
       return { sentence: 'a créé l’arbre', changes };
     case 'Tree:IMPORT':

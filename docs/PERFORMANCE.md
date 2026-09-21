@@ -80,6 +80,14 @@ Médiane (pire) en millisecondes ; les écritures sont mesurées une fois.
   transaction de 120 s dépassé : fichier perdu). Tout est désormais décidé en
   mémoire (identifiants UUIDv7, durées de vie, refus), puis écrit par
   `createMany` de 1 000 lignes : 1,5 s, 7,3 s et 27 s.
+- **La recherche de doublons tourne dans le worker.** Comparer chacun à chacun
+  est quadratique ; le rapprochement passe donc par l'index trigramme (au plus
+  huit voisins par personne, 5 000 paires par passage) et le score se calcule
+  en mémoire. Mesurée sur l'arbre de 20 000 personnes : **2,9 s puis 2,6 s**
+  pour 5 000 paires examinées et 92 rapprochements trouvés. Trop long pour une
+  requête HTTP — d'où la file — et la transaction est bornée à 30 s
+  explicitement, le défaut de Prisma (5 s) coupant la requête au-delà de
+  quelques milliers de personnes.
 - **L'export ne cherche plus les familles de chaque personne dans toutes les
   familles.** Quadratique : 8,2 s à 20 000 personnes, 0,8 s avec des index.
 - **PostgreSQL suffit pour la recherche** : 39 ms à 20 000 personnes avec

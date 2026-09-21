@@ -107,6 +107,32 @@ describe('describeRevision', () => {
     ).toBe('a importé un fichier GEDCOM : 4 personnes, 5 liens, 6 événements');
   });
 
+  it('tells a merge as what became of the record that left', () => {
+    expect(
+      describeRevision(
+        facts({
+          entityType: 'Person',
+          action: 'MERGE',
+          summary: 'Jean CHASSAIGNE fusionné dans Jean CHASSAGNE',
+          before: { mergedId: 'p2', mergedName: 'Jean CHASSAIGNE' },
+          after: { keptId: 'p1', keptName: 'Jean CHASSAGNE', events: 2, relationships: 1 },
+        }),
+      ).sentence,
+    ).toBe('a fusionné Jean CHASSAIGNE dans Jean CHASSAGNE — 2 événements, 1 lien repris');
+
+    // Nothing moved: the sentence stops rather than saying "0 lien".
+    expect(
+      describeRevision(
+        facts({
+          entityType: 'Person',
+          action: 'MERGE',
+          before: { mergedName: 'Marie DUBOIS' },
+          after: { keptName: 'Marie DUBOIS', events: 0, relationships: 0 },
+        }),
+      ).sentence,
+    ).toBe('a fusionné Marie DUBOIS dans Marie DUBOIS');
+  });
+
   it('names a member by their account, and not at all once it is erased', () => {
     const change = {
       entityType: 'TreeMember',

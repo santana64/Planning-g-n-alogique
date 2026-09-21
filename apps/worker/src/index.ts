@@ -4,7 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { Worker, type Job } from 'bullmq';
 import pino from 'pino';
 import { assertDeployable, getServerEnv, scrubErrorReport } from '@chronolignee/config/server';
-import { createDatabase, purgeDeletedTree, treesAwaitingPurge } from '@chronolignee/db';
+import {
+  createDatabase,
+  purgeDeletedTree,
+  scanDuplicates,
+  treesAwaitingPurge,
+} from '@chronolignee/db';
 import { getObjectStore, treePrefixes } from '@chronolignee/storage';
 import {
   QUEUE_NAMES,
@@ -157,7 +162,40 @@ gedcomWorker.on('failed', (job, error) => {
     });
 });
 
-const workers = [gedcomWorker];
+/**
+ * Looking for people recorded twice.
+ *
+ * Reads the whole tree and joins it against itself through the trigram
+ * index: seven seconds at twenty thousand people (docs/PERFORMANCE.md), which
+ * is no time to hold a request open. The job id is the tree's, so a second
+ * click while one runs changes nothing.
+ */
+const duplicateWorker = new Worker(
+  QUEUE_NAMES.duplicateScan,
+  async (job: Job) => {
+    const payload = assertPayload(QUEUE_NAMES.duplicateScan, job.data);
+    const log = logger.child({ jobId: job.id, treeId: payload.treeId });
+    log.info('duplicate scan started');
+    const result = await scanDuplicates(db, { treeId: payload.treeId });
+    log.info(
+      { examined: result.examined, found: result.found, recorded: result.recorded },
+      'duplicate scan finished',
+    );
+    return result;
+  },
+  { connection, concurrency: 1, ...WORKER_RETENTION },
+);
+
+duplicateWorker.on('failed', (job, error) => {
+  logger.error({ jobId: job?.id, error: error.name }, 'duplicate scan failed');
+  sentry?.captureException(error, { tags: { queue: QUEUE_NAMES.duplicateScan } });
+});
+
+reportConnectionErrors(duplicateWorker, (error, suppressed) =>
+  logger.error({ error: error.name, suppressed }, 'queue unavailable, retrying'),
+);
+
+const workers = [gedcomWorker, duplicateWorker];
 
 /**
  * Finish erasing deleted trees.

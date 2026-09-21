@@ -30,13 +30,15 @@ passent ([TESTING.md](TESTING.md)), mais seule une exécution réelle le prouve.
 
 ## 2. Ce qu'un généalogiste attend et qui manque
 
-### Détection de doublons et fusion
+### Doublons : ce qui reste
 
-La table `duplicate_candidates` existe (score, explication, statut) ; **aucun
-calculateur ne l'alimente** et il n'y a pas d'écran de fusion. Le travail : un
-score déterministe (noms normalisés, chevauchement des périodes, lieux,
-parents, conjoints, enfants, identifiants de source), une explication par
-signal, un écran de comparaison côte à côte — **jamais de fusion automatique**.
+La recherche, l'écran de comparaison et la fusion existent
+([GENEALOGY_RULES.md](GENEALOGY_RULES.md)). Restent : une recherche lancée
+**automatiquement après un import** (aujourd'hui, c'est un clic), le
+rapprochement **entre deux arbres** d'un même compte, le constat
+`DUPLICATE_CANDIDATE` sur la fiche elle-même, et l'**annulation** d'une fusion
+— la fiche retirée est effacée en douceur, donc techniquement récupérable,
+mais aucun écran ne le propose.
 
 ### L'écran « Recherche »
 

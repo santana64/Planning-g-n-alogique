@@ -1,6 +1,14 @@
 import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
-import { reportConnectionErrors } from './index';
+import { duplicateScanJobId, reportConnectionErrors } from './index';
+
+describe('duplicateScanJobId', () => {
+  it('is one id per tree, and never one BullMQ refuses', () => {
+    const id = '0198f3a0-1c2d-7a3b-8c4d-5e6f70819a2b';
+    expect(duplicateScanJobId(id)).toBe(`scan-${id}`);
+    expect(duplicateScanJobId(id)).not.toContain(':');
+  });
+});
 
 describe('reportConnectionErrors', () => {
   it('reports the first failure, then one per interval with the count left out', () => {

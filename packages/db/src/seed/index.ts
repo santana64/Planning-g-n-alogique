@@ -10,6 +10,7 @@ import {
   normaliseSurname,
 } from '../normalise';
 import { lifespanColumns, projectPersonLifespan } from '../projections/person-lifespan';
+import { scanDuplicates } from '../services/duplicates';
 import {
   CONFLICTING_CLAIMS,
   EXTRA_PARENT_LINKS,
@@ -91,7 +92,7 @@ async function main(): Promise<void> {
     await seedExtraLinks(db, tree.id, personIds);
     await seedLifeEvents(db, tree.id, personIds, placeIds, sourceIds);
     await seedConflictingClaims(db, tree.id, personIds, sourceIds);
-    await seedDuplicateCandidate(db, tree.id, personIds);
+    await seedDuplicateCandidate(db, tree.id);
     await seedResearchTasks(db, tree.id, personIds);
     await seedHistoricalEvents(db, tree.id);
     await projectLifespans(db, tree.id);
@@ -562,41 +563,21 @@ async function seedConflictingClaims(
   log(`${CONFLICTING_CLAIMS.length} affirmations (dont contradictoires)`);
 }
 
-async function seedDuplicateCandidate(db: Database, treeId: string, personIds: Ids): Promise<void> {
-  const a = personIds.get('augustin');
-  const b = personIds.get('augustin-variant');
-  if (!a || !b) return;
-
-  // The pair is stored in a fixed order, which is what the CHECK constraint
-  // enforces: (A,B) and (B,A) are the same pair and must surface once.
-  const [left, right] = a < b ? [a, b] : [b, a];
-
-  await db.duplicateCandidate.create({
-    data: {
-      treeId,
-      leftId: left,
-      rightId: right,
-      score: 0.87,
-      scorerVersion: 'deterministic-v1',
-      explanation: {
-        signals: [
-          { name: 'givenName', weight: 0.25, score: 1, detail: 'Augustin = Augustin' },
-          { name: 'surname', weight: 0.3, score: 0.82, detail: 'CHASSAGNE ~ CHASSAIGNE (trigram)' },
-          {
-            name: 'birthWindow',
-            weight: 0.2,
-            score: 0.9,
-            detail: '22 sep 1801 chevauche « vers 1801 »',
-          },
-          { name: 'deathWindow', weight: 0.15, score: 0.95, detail: '17 avr 1871 dans 1871' },
-          { name: 'occupation', weight: 0.1, score: 1, detail: 'Charpentier = Charpentier' },
-        ],
-        note: 'Variante de transcription probable. Aucune fusion automatique.',
-      },
-      status: 'OPEN',
-    },
-  });
-  log('1 doublon candidat (à examiner, jamais fusionné automatiquement)');
+/**
+ * The pending duplicate is found, not written by hand.
+ *
+ * The demo carries Augustin CHASSAGNE twice, once as a transcription
+ * variant. Running the real scanner over the seeded tree means the
+ * demonstration shows what the product actually produces — the same score,
+ * the same signals, in the shape the review screen reads — instead of a row
+ * invented here that no code path could produce.
+ */
+async function seedDuplicateCandidate(db: Database, treeId: string): Promise<void> {
+  const result = await scanDuplicates(db, { treeId });
+  log(
+    `${result.recorded} doublon candidat sur ${result.examined} paires examinées ` +
+      '(à examiner, jamais fusionné automatiquement)',
+  );
 }
 
 async function seedResearchTasks(db: Database, treeId: string, personIds: Ids): Promise<void> {

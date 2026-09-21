@@ -19,6 +19,7 @@ import { loadAtlas } from '../repositories/atlas';
 import { loadEvidenceCoverage } from '../repositories/evidence-coverage';
 import { buildGedcomPlan } from '../repositories/gedcom-export';
 import { loadGenealogyGraph } from '../repositories/graph';
+import { scanDuplicates } from '../services/duplicates';
 import { searchPeople } from '../repositories/search';
 import { importGedcomPlan } from '../services/import-gedcom';
 
@@ -38,7 +39,10 @@ try {
   // CI injects the variables directly.
 }
 
-const SIZES = [1_000, 5_000, 20_000] as const;
+const SIZES = (process.env['BENCHMARK_SIZES'] ?? '1000,5000,20000')
+  .split(',')
+  .map((size) => Number(size.trim()))
+  .filter((size) => Number.isFinite(size) && size > 0);
 const TODAY_JDN = dateToJdn(new Date());
 const BATCH = 5_000;
 
@@ -202,6 +206,19 @@ async function benchmark(db: Database, size: number): Promise<Measure[]> {
       loadAtlas(db, { treeId, isHidden: () => false }),
     );
     await record('Couverture des sources', () => loadEvidenceCoverage(db, treeId));
+    // The duplicate scan reads the whole tree and joins it against itself
+    // through the trigram index: the one query whose cost is not obvious.
+    // Timed once per size — it writes rows — and its candidates are dropped
+    // with the tree.
+    const scanStarted = performance.now();
+    const scan = await scanDuplicates(db, { treeId, todayJdn: TODAY_JDN });
+    const scanMs = performance.now() - scanStarted;
+    results.push({
+      size,
+      operation: `Recherche de doublons (${scan.examined} paires examinées)`,
+      medianMs: scanMs,
+      worstMs: scanMs,
+    });
     await record('Export GEDCOM (lecture + écriture)', async () =>
       writeGedcom(await buildGedcomPlan(db, treeId)),
     );

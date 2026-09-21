@@ -1,7 +1,13 @@
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { dateToJdn, gregorianToJdn, wasAliveOn } from '@chronolignee/domain';
-import { auditTree, type Finding, type GenealogyGraph } from '@chronolignee/genealogy';
+import {
+  DEFAULT_DUPLICATE_THRESHOLD,
+  DUPLICATE_SCORER_VERSION,
+  auditTree,
+  type Finding,
+  type GenealogyGraph,
+} from '@chronolignee/genealogy';
 import { createDatabase, loadGenealogyGraph, type Database } from '../src/index';
 
 /**
@@ -256,7 +262,14 @@ describe('the duplicate is surfaced and left alone', () => {
   it('records the pair with an explanation rather than merging it', async () => {
     const candidate = await db.duplicateCandidate.findFirst({
       where: { treeId },
-      select: { score: true, status: true, explanation: true, leftId: true, rightId: true },
+      select: {
+        score: true,
+        status: true,
+        explanation: true,
+        leftId: true,
+        rightId: true,
+        scorerVersion: true,
+      },
     });
 
     expect(candidate?.status).toBe('OPEN');
@@ -264,8 +277,26 @@ describe('the duplicate is surfaced and left alone', () => {
     // Both people still exist: nothing was merged automatically.
     expect(graph.has(candidate?.leftId ?? '')).toBe(true);
     expect(graph.has(candidate?.rightId ?? '')).toBe(true);
-    // The score is explained, not asserted.
-    expect((candidate?.explanation as { signals?: unknown[] })?.signals?.length).toBeGreaterThan(3);
+
+    // The row comes from the real scanner, in the shape the review screen
+    // reads. The seed once wrote an explanation of its own invention, with a
+    // `score` per signal instead of a `value`, and the screen — which reads
+    // `value` — displayed "aucun signal net" under a 87 % match.
+    expect(candidate?.scorerVersion).toBe(DUPLICATE_SCORER_VERSION);
+    const explanation = candidate?.explanation as {
+      threshold?: unknown;
+      signals?: Array<{ name?: unknown; value?: unknown; weight?: unknown }>;
+    };
+    expect(explanation?.threshold).toBe(DEFAULT_DUPLICATE_THRESHOLD);
+    expect(explanation?.signals?.length).toBeGreaterThan(3);
+    expect(
+      explanation?.signals?.every(
+        (signal) =>
+          typeof signal.name === 'string' &&
+          typeof signal.value === 'number' &&
+          typeof signal.weight === 'number',
+      ),
+    ).toBe(true);
   });
 });
 

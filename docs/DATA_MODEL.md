@@ -50,12 +50,12 @@ graphe côté web.
 
 ### Personnes et liens
 
-| Table                  | Rôle                                                                                                           |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `people`               | Sexe **inscrit** (tel que le registre l'écrit), statut vivant, confidentialité, caches dérivés (voir plus bas) |
-| `person_names`         | Noms structurés : type, prénom, particule, nom, nom de naissance, surnom, forme affichée, période, préféré     |
-| `relationships`        | Relation orientée ; pour une filiation, source = parent, cible = enfant. Fenêtre de validité, confiance        |
-| `duplicate_candidates` | Paires suspectes avec score et explication — **table prête, aucun calculateur ne l'alimente encore**           |
+| Table                  | Rôle                                                                                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `people`               | Sexe **inscrit** (tel que le registre l'écrit), statut vivant, confidentialité, caches dérivés (voir plus bas)                      |
+| `person_names`         | Noms structurés : type, prénom, particule, nom, nom de naissance, surnom, forme affichée, période, préféré                          |
+| `relationships`        | Relation orientée ; pour une filiation, source = parent, cible = enfant. Fenêtre de validité, confiance                             |
+| `duplicate_candidates` | Paires suspectes : score, explication signal par signal, statut (ouverte, écartée, fusionnée) — écrite par la recherche de doublons |
 
 Types de relation : `PARENT_BIOLOGICAL`, `PARENT_ADOPTIVE`, `PARENT_FOSTER`,
 `PARENT_STEP`, `PARENT_GUARDIAN`, `PARENT_UNKNOWN`, `SPOUSE`, `PARTNER`,
@@ -189,5 +189,7 @@ compatible avec la version précédente pendant la bascule
 à 2026 en France et en Argentine, 13 mariages, un divorce, deux adoptions, une
 émigration Tours → Buenos Aires, des dates républicaines et illisibles, des
 sources contradictoires, un implexe, des vivants, une anomalie volontaire, un
-doublon suspect et trois questions de recherche (ces deux derniers sans écran
-pour l'instant). Aucune personne réelle. Il ne va jamais en production.
+doublon suspect et trois questions de recherche (ces dernières sans écran pour
+l'instant). Le doublon n'est pas écrit à la main : le seed lance la vraie
+recherche sur l'arbre qu'il vient de créer, pour que la démonstration montre ce
+que le produit trouve. Aucune personne réelle. Il ne va jamais en production.

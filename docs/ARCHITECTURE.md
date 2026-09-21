@@ -132,12 +132,14 @@ droits à chaque demande. Les originaux ne sont jamais modifiés.
 
 ## File de travaux
 
-Redis 8 + BullMQ. Une file est active : `gedcom-import` (producteur : le web,
-consommateur : le worker, un import à la fois, une seule tentative). Les
-charges utiles sont validées par Zod à l'entrée de la file et à la sortie.
-`packages/jobs` déclare aussi `document-analysis`, `media-derivatives` et
-`duplicate-scan` : **aucun producteur ni consommateur** pour l'instant
-(voir [ROADMAP](ROADMAP.md)).
+Redis 8 + BullMQ. Deux files sont actives : `gedcom-import` (producteur : le
+web, consommateur : le worker, un import à la fois, une seule tentative) et
+`duplicate-scan` (une recherche par arbre à la fois : l'identifiant du travail
+porte celui de l'arbre, donc un second clic pendant la recherche ne lance rien).
+Les charges utiles sont validées par Zod à l'entrée de la file et à la sortie.
+`packages/jobs` déclare aussi `document-analysis` et `media-derivatives` :
+**aucun producteur ni consommateur** pour l'instant (voir
+[ROADMAP](ROADMAP.md)).
 
 ## Internationalisation
 

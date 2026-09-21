@@ -28,6 +28,7 @@ export function TreeNav({
     | 'map'
     | 'archive'
     | 'proposals'
+    | 'duplicates'
     | 'import'
     | 'history'
     | 'sharing'
@@ -59,6 +60,7 @@ export function TreeNav({
             href: `/app/${treeSlug}/propositions`,
             label: 'Propositions',
           },
+          { key: 'duplicates' as const, href: `/app/${treeSlug}/doublons`, label: 'Doublons' },
         ]
       : []),
     ...(can(role, 'import')

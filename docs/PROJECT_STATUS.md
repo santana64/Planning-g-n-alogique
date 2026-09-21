@@ -1,8 +1,9 @@
 # État du projet
 
 **Dernière mise à jour** : 2026-09-21
-**Phase courante** : 11 — durcissement (performance, sécurité, accessibilité,
-responsive, observabilité, sauvegardes, déploiement, documentation)
+**Phase courante** : après la phase 11 — chantiers de la
+[ROADMAP](ROADMAP.md). Dernier livré : la détection de doublons, l'écran de
+comparaison et la fusion.
 
 Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
@@ -17,8 +18,8 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Prochaine action        | [§ Prochaine action](#prochaine-action)                                                   |
 
 **Dernière exécution complète** (2026-09-21, poste de développement) :
-format, lint, types **verts** ; **677** tests unitaires, **208** d'intégration,
-**71** de bout en bout, tous verts ; `pnpm build` vert ; images Docker web et
+format, lint, types **verts** ; **694** tests unitaires, **214** d'intégration,
+**73** de bout en bout, tous verts ; `pnpm build` vert ; images Docker web et
 worker construites ; la CI rejouée localement dans un clone vierge passe toutes
 ses étapes, et le parcours d'installation du README rejoué à la lettre (base et
 seau neufs) donne les 40 personnes de la démonstration.
@@ -447,6 +448,26 @@ dehors le propriétaire de décennies de recherche.
 | E2E                    | 3 tests lisant les messages dans Mailpit, et chaque inscription de la suite confirme son adresse      |
 | Développement et CI    | Mailpit dans `docker-compose` et dans les deux travaux de CI qui en ont besoin                        |
 
+### Doublons : recherche, comparaison, fusion (après phase 11)
+
+Ce qu'un généalogiste rencontre dès son deuxième import, et la table qui
+l'attendait depuis la phase 1.
+
+| Élément            | Preuve                                                                                                                 |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Score              | `packages/genealogy/src/duplicates.ts` : huit signaux pondérés, quatre refus avant l'arithmétique ; 13 tests unitaires |
+| Rapprochement      | trigrammes sur le nom normalisé, au plus 8 voisins par personne et 5 000 paires par passage                            |
+| Recherche          | file `duplicate-scan`, un travail par arbre ; 2,9 s puis 2,6 s sur 20 000 personnes ([PERFORMANCE.md](PERFORMANCE.md)) |
+| Base               | `scanDuplicates`, `mergePeople`, `openDuplicates`, `dismissDuplicate` ; 6 tests d'intégration contre la vraie base     |
+| Écran              | liste expliquée signal par signal, comparaison côte à côte, fusion confirmée en deux temps                             |
+| Autorisation       | la revue exige `contribute`, la fusion `delete` ; une paire nommant une personne masquée n'est pas affichée du tout    |
+| Rien n'est arbitré | deux dates de naissance deviennent deux événements sur la fiche gardée ; la fiche retirée est effacée en douceur       |
+| Historique         | révision `MERGE` : qui, quand, ce qui a bougé — phrase française dans l'historique de l'arbre                          |
+| Démonstration      | le seed lance la vraie recherche : le doublon montré est celui que le produit trouve (96 %, cinq signaux)              |
+| E2E                | 2 tests : recherche par le worker, père et fils écartés, paire rejetée, fusion, 404 pour qui ne peut pas écrire        |
+
+**Tests** : 694 unitaires + 214 d'intégration + 73 E2E.
+
 ---
 
 ## Bugs réels trouvés et corrigés
@@ -746,6 +767,35 @@ dehors le propriétaire de décennies de recherche.
     de garde écrit après le même oubli en phase 8 : il compare les manifestes
     du dépôt aux deux Dockerfiles.
 
+67. **Un identifiant de travail avec deux-points.** La recherche de doublons
+    portait l'identifiant `scan:<arbre>` pour n'avoir qu'un passage par arbre.
+    BullMQ compose ses clés Redis avec `:` et refuse un identifiant qui en
+    contient — depuis l'intérieur de `add`, donc l'écran n'avait qu'une chose à
+    dire : « le service de traitement ne répond pas ». Trouvé par le test de
+    bout en bout, jamais par un test unitaire. Corrigé (`scan-<arbre>`), la
+    règle est descendue dans `packages/jobs` avec son test, et l'échec réel est
+    désormais journalisé au lieu d'être confondu avec une panne de Redis.
+
+68. **Une page serveur important une fonction d'un module client.** Les
+    libellés des signaux vivaient dans le composant de liste (`'use client'`) ;
+    la page de comparaison, rendue sur le serveur, les appelait. Next refuse
+    (« Attempted to call agreeingSignals() from the server ») et l'écran
+    affichait « This page couldn't load ». Les libellés sont maintenant dans un
+    module neutre, lisible des deux côtés.
+
+69. **Une année de vie calculée avec une année moyenne.** La liste des doublons
+    divisait le jour julien par 365,2425 : une personne née le 1er janvier 1840
+    s'affichait « 1839 – ? », sur le seul écran dont le travail est de
+    distinguer deux personnes par leurs dates. Vu à l'œil sur une capture, pas
+    par un test. Passage par le calendrier (`jdnToGregorian`), fonction
+    extraite et testée sur le Nouvel An.
+
+70. **Le doublon de la démonstration ne s'expliquait pas.** Le seed écrivait
+    l'explication à la main, dans une forme que plus aucun code ne produit
+    (`score`/`detail`, un signal « occupation ») : l'écran lisait `value`, ne
+    trouvait rien, et affichait « aucun signal net ». Le seed lance désormais
+    la vraie recherche sur l'arbre qu'il vient de créer.
+
 ---
 
 ## En cours
@@ -760,7 +810,7 @@ Rien. Point de reprise propre : la phase 11 est terminée et committée.
 | ----- | ------------------------------------------------------------- | ------------------------------------------- |
 | 2     | CRUD personne / relation / événement, formulaires             | **fait**                                    |
 | 3     | Import GEDCOM 7 + écran de revue                              | **fait** — écrit par le worker              |
-| 4     | Graphe, ascendance, descendance, recherche                    | **fait** — sans doublons                    |
+| 4     | Graphe, ascendance, descendance, recherche                    | **fait**                                    |
 | 5     | Moteur temporel, Gantt, voyage temporel, « qui était vivant » | **fait** — sans agrégation au zoom lointain |
 | 6     | Carte MapLibre, migrations                                    | **fait** — arcs au curseur                  |
 | 7     | Archives S3, documents, citations                             | **fait** — sans visionneuse                 |
@@ -770,10 +820,9 @@ Rien. Point de reprise propre : la phase 11 est terminée et committée.
 | 11    | Durcissement production                                       | **fait**                                    |
 
 Ce qui manque, par ordre d'importance, avec le travail que cela demande :
-[ROADMAP.md](ROADMAP.md). En tête : la réinitialisation du mot de passe et la
-vérification d'adresse (il faut un fournisseur de courriel), la traduction des
-écrans de l'application, une exécution réelle de la CI, la détection de
-doublons, l'écran « Recherche », la visionneuse de documents.
+[ROADMAP.md](ROADMAP.md). En tête : un fournisseur de courriel réel, la
+traduction des écrans de l'application, une exécution réelle de la CI, l'écran
+« Recherche », la visionneuse de documents.
 
 ---
 
@@ -844,8 +893,8 @@ moteur de recherche externe (PostgreSQL suffit largement).
 - **Les écrans de l'application ne sont pas traduits** : `/en` les sert en
   français (82 clés traduites couvrent l'accueil, l'authentification et
   quelques libellés).
-- **Tables prêtes sans écran** : doublons, tâches de recherche, pages de
-  documents, médias et identification sur photographie.
+- **Tables prêtes sans écran** : tâches de recherche, pages de documents,
+  médias et identification sur photographie.
 
 ### Exploitation
 
@@ -906,12 +955,13 @@ moteur de recherche externe (PostgreSQL suffit largement).
 
 ## Prochaine action
 
-**La détection de doublons et son écran de fusion** : la table
-`duplicate_candidates` (score, explication, statut) attend depuis la phase 1,
-aucun calculateur ne l'alimente, et c'est ce qu'un généalogiste rencontre dès
-son deuxième import. Le travail est décrit dans [ROADMAP.md](ROADMAP.md), § 2 :
-un score déterministe par signaux, une explication par signal, un écran de
-comparaison côte à côte — et jamais de fusion automatique.
+**La traduction des écrans de l'application.** C'est le dernier point de la
+§ 1 de [ROADMAP.md](ROADMAP.md) qui ne dépende de personne d'autre : 82 clés
+sont traduites (accueil, authentification, libellés), mais les écrans d'un
+arbre sont écrits en français dans les composants et `/en` les sert en
+français. Le travail : extraire les chaînes vers les catalogues `next-intl`,
+écran par écran, en commençant par la fiche, la liste et la frise — en gardant
+le français comme langue par défaut, sans préfixe d'URL.
 
 Deux choses ne dépendent pas du code et restent en attente : des identifiants
 SMTP réels pour vérifier qu'un message sort bien de l'instance, et un dépôt

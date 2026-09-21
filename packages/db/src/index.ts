@@ -21,3 +21,4 @@ export * from './services/place';
 export * from './services/relationship';
 export * from './services/schemas';
 export * from './services/tree';
+export * from './services/duplicates';
