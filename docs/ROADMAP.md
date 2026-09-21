@@ -6,18 +6,13 @@ ordre d'importance pour un usage réel, avec ce qu'il faudrait faire.
 
 ## 1. Avant d'ouvrir l'application à quelqu'un d'autre
 
-### Réinitialisation du mot de passe et vérification d'adresse
+### Un fournisseur de courriel de production
 
-Aujourd'hui : ni l'une ni l'autre. Un mot de passe oublié enferme dehors le
-propriétaire de décennies de recherche, et une invitation repose sur un lien à
-usage unique parce qu'aucune adresse n'est vérifiée.
-
-Il faut un **fournisseur de courriel** — donc des identifiants, que ce projet
-ne peut pas se donner tout seul. Le travail : une abstraction d'envoi
-(interface + transport SMTP + capture locale type MailPit dans
-`docker-compose`), les écrans « mot de passe oublié » et « nouveau mot de
-passe », `requireEmailVerification` activé, et l'envoi des invitations par
-courriel en plus du lien. Le jeton ne doit jamais apparaître dans un journal.
+Fait : l'envoi (`packages/mail`, SMTP), la confirmation d'adresse, le mot de
+passe oublié, l'invitation envoyée, et Mailpit en développement comme en CI
+([SECURITY.md](SECURITY.md)). Reste ce que ce dépôt ne peut pas se donner :
+des identifiants SMTP réels, un domaine d'envoi, SPF/DKIM/DMARC, et la preuve
+qu'un message arrive vraiment dans une boîte extérieure.
 
 ### Traduction des écrans de l'application
 

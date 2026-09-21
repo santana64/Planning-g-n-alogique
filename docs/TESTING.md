@@ -5,9 +5,9 @@ la dernière exécution complète (voir [PROJECT_STATUS.md](PROJECT_STATUS.md)).
 
 | Niveau       | Quoi                                                       | Où                                                             | Combien                |
 | ------------ | ---------------------------------------------------------- | -------------------------------------------------------------- | ---------------------- |
-| Unitaire     | Pur, sans I/O : dates, règles, mises en page, formulations | `packages/*/src/**/*.test.ts`, `apps/*/src/`                   | **669** en 40 fichiers |
-| Intégration  | Contre la vraie base, le vrai stockage                     | `packages/*/tests/*.integration.test.ts`, `apps/worker/tests/` | **205** en 17 fichiers |
-| Bout en bout | Un navigateur, l'application construite, le worker         | `apps/web/e2e/*.spec.ts`                                       | **68** en 8 fichiers   |
+| Unitaire     | Pur, sans I/O : dates, règles, mises en page, formulations | `packages/*/src/**/*.test.ts`, `apps/*/src/`                   | **677** en 41 fichiers |
+| Intégration  | Contre la vraie base, le vrai stockage, le vrai SMTP       | `packages/*/tests/*.integration.test.ts`, `apps/worker/tests/` | **208** en 18 fichiers |
+| Bout en bout | Un navigateur, l'application construite, le worker         | `apps/web/e2e/*.spec.ts`                                       | **71** en 9 fichiers   |
 
 ```bash
 pnpm test:unit          # < 5 s, à chaque sauvegarde
@@ -69,6 +69,7 @@ n'est écrit par personne n'est pas un import.
 | `motion-and-keyboard.spec.ts` | Mouvement réduit (avec **et** sans la préférence), frise et invitation au clavier seul                                                                 |
 | `stewardship-a11y.spec.ts`    | axe sur les écrans de gestion, et aucun défilement horizontal à 375 px                                                                                 |
 | `operations.spec.ts`          | Sondes de santé, identifiant malformé → 404                                                                                                            |
+| `mail.spec.ts`                | Confirmation d'adresse, renvoi du lien, mot de passe oublié, lien déjà utilisé — les messages sont lus dans Mailpit                                    |
 | `responsive.spec.ts`          | Projet « mobile » (Pixel 7) : accueil, frise, tableau                                                                                                  |
 
 Règles de la suite :
@@ -81,10 +82,13 @@ Règles de la suite :
 - **Un seul worker en local**, deux en CI. Ce n'est pas une concession sur ce
   qui est vérifié : à huit navigateurs concurrents, un seul `next start` ne
   suit plus et des lectures anonymes expirent — mesuré, base sans contention.
-- La suite consomme **environ cinq inscriptions** par exécution, contre un
-  plafond de vingt par heure et par IP : au-delà de quatre exécutions dans
+- La suite consomme **environ six inscriptions** par exécution, contre un
+  plafond de vingt par heure et par IP : au-delà de trois exécutions dans
   l'heure, les tests authentifiés échouent — c'est la limite de débit qui
   fonctionne, pas une régression.
+- Chaque inscription **confirme son adresse** en lisant le message dans
+  Mailpit, comme une personne le ferait : le lien de confirmation est donc
+  exercé à chaque exécution.
 - Après une exécution, les comptes et arbres de test (`@chronolignee.invalid`)
   se nettoient en SQL ; la démonstration n'est jamais touchée.
 
@@ -124,10 +128,11 @@ approximatives ou absentes dans les proportions des registres).
 ## Intégration continue
 
 `.github/workflows/ci.yml`, quatre travaux : **qualité** (format, lint, types,
-unitaires), **intégration** (PostgreSQL + MinIO, migrations, contrôle de
-dérive du schéma, seed, tests), **bout en bout** (PostgreSQL + Redis + MinIO,
-build, Playwright, rapport archivé en cas d'échec), **images** (les deux images
-de production sont construites, jamais poussées).
+unitaires), **intégration** (PostgreSQL + MinIO + Mailpit, migrations, contrôle
+de dérive du schéma, seed, tests), **bout en bout** (PostgreSQL + Redis + MinIO
+
+- Mailpit, build, Playwright, rapport archivé en cas d'échec), **images** (les
+  deux images de production sont construites, jamais poussées).
 
 `AI_PROVIDER=fake` pour tout le workflow, et le fournisseur payant est refusé
 par le code quand `CI` est défini.

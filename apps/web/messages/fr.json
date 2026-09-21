@@ -51,6 +51,18 @@
     "signInTitle": "Reprendre votre recherche",
     "signUpTitle": "Commencer votre généalogie",
     "passwordHint": "12 caractères minimum",
+    "forgotIntro": "Indiquez l'adresse de votre compte : nous vous enverrons un lien pour choisir un nouveau mot de passe.",
+    "forgotSubmit": "Envoyer le lien",
+    "forgotSent": "Si un compte existe avec cette adresse, un message vient de partir. Vérifiez aussi vos indésirables.",
+    "resetTitle": "Choisir un nouveau mot de passe",
+    "resetIntro": "Ce lien ne sert qu’une fois. Après validation, vous pourrez vous connecter avec le nouveau mot de passe.",
+    "newPassword": "Nouveau mot de passe",
+    "resetSubmit": "Enregistrer le mot de passe",
+    "resetDone": "Mot de passe enregistré.",
+    "verifyIntro": "Un lien de confirmation vient d'être envoyé à {email}. Ouvrez-le pour activer votre compte.",
+    "verifySpam": "Rien reçu au bout de quelques minutes ? Regardez dans les indésirables, ou renvoyez le lien.",
+    "verifyResend": "Renvoyer le lien",
+    "verifyResent": "Lien renvoyé.",
     "errors": {
       "invalidCredentials": "Adresse e-mail ou mot de passe incorrect.",
       "emailTaken": "Cette adresse est déjà utilisée.",
@@ -58,7 +70,8 @@
       "invalidEmail": "Adresse e-mail invalide.",
       "nameRequired": "Le nom est requis.",
       "rateLimited": "Trop de tentatives. Réessayez dans quelques minutes.",
-      "unexpected": "Connexion impossible pour le moment."
+      "unexpected": "Connexion impossible pour le moment.",
+      "resetLinkInvalid": "Ce lien n'est plus valable. Demandez-en un nouveau."
     }
   },
   "certainty": {

@@ -48,8 +48,9 @@ sont des décisions sur l'exposition d'autrui.
   recopié : un nom écrit dans une révision survivrait à l'effacement du compte.
   Les notes de recherche y apparaissent comme « modifiées », pas leur texte.
 - **Invitations** : l'adresse invitée, le rôle, l'échéance, et un **haché** du
-  lien — jamais le lien. Aucun courriel n'est envoyé : l'invitant transmet le
-  lien lui-même.
+  lien — jamais le lien. Le lien part par courriel à l'invité quand l'instance
+  peut envoyer, et reste affiché à l'invitant, qui peut le transmettre
+  lui-même.
 - **Journaux** : identifiants, comptes et durées. Jamais un nom, une adresse,
   une transcription, un mot de passe ou un jeton ; une erreur n'y laisse que
   son nom de classe.
@@ -99,12 +100,26 @@ resté ouvert ne suffisent pas) et l'adresse du compte tapée en entier.
   jours côté fournisseur, mauvais défaut pour des textes qui nomment des
   vivants.
 
+## Courriel
+
+Trois messages seulement : confirmer une adresse, réinitialiser un mot de
+passe, inviter à un arbre. Chacun contient un lien et rien d'autre — pas de
+pixel de suivi, pas d'image distante, aucune information généalogique. Ce qui
+quitte l'instance vers le serveur d'envoi est donc l'adresse du destinataire,
+le nom de l'arbre pour une invitation, et le lien.
+
+En développement, rien ne sort : Mailpit (docker-compose) attrape tout et
+l'affiche sur `http://localhost:8025`. Sans transport configuré
+(`MAIL_TRANSPORT=none`), aucun message n'est produit.
+
+Les journaux disent qu'un message est parti, son type et une adresse masquée
+(`c•••@exemple.fr`) — jamais le lien, jamais le jeton.
+
 ## Limites connues
 
-- Les adresses ne sont pas vérifiées (aucun fournisseur de courriel configuré
-  par défaut). Une invitation lie un lien à usage unique et une adresse ; qui
-  détient le lien d'une adresse encore sans compte peut créer ce compte. Voir
-  `SECURITY.md`.
+- **Sans fournisseur de courriel**, les adresses ne sont pas vérifiées et la
+  réinitialisation du mot de passe n'existe pas : une invitation repose alors
+  sur son lien seul. Voir `SECURITY.md`.
 - Les identifiants techniques de l'auteur d'une fiche (`createdById`) restent
   dans les lignes de l'arbre après l'effacement du compte : ils ne désignent
   plus rien.

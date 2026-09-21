@@ -67,6 +67,26 @@ export interface RequestErrorContext {
  * from a reader can be matched to a line here — the route pattern (never the
  * URL, which names trees and people) and the error's class.
  */
+/**
+ * The reader closed the tab, hit back, or lost the network while a page was
+ * still streaming.
+ *
+ * Next reports it like any other render failure, and it is not one: nothing
+ * is wrong with the server, and treating it as an error fills the log — and
+ * an error tracker — with other people's impatience. Recognised by the few
+ * shapes Node and Next give it, recorded quietly, never reported.
+ */
+function isClientGone(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const code = (error as NodeJS.ErrnoException).code;
+  return (
+    error.name === 'AbortError' ||
+    code === 'ECONNRESET' ||
+    code === 'ERR_STREAM_PREMATURE_CLOSE' ||
+    error.message === 'The destination stream closed early.'
+  );
+}
+
 export async function reportRequestError(
   error: unknown,
   method: string,
@@ -79,6 +99,15 @@ export async function reportRequestError(
   // Imported here, not at the top: the logger reads the environment when it
   // loads, and the start-up check above must be the first to do that.
   const { logger } = await import('./lib/logger');
+
+  if (isClientGone(error)) {
+    logger.debug(
+      { event: 'request.abandoned', method, route: context.routePath },
+      'request abandoned by the client',
+    );
+    return;
+  }
+
   logger.error(
     {
       event: 'request.failed',

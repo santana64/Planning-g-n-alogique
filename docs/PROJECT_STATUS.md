@@ -17,10 +17,11 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Prochaine action        | [§ Prochaine action](#prochaine-action)                                                   |
 
 **Dernière exécution complète** (2026-09-21, poste de développement) :
-format, lint, types **verts** ; **669** tests unitaires, **205** d'intégration,
-**68** de bout en bout, tous verts ; `pnpm build` vert ; images Docker web et
+format, lint, types **verts** ; **677** tests unitaires, **208** d'intégration,
+**71** de bout en bout, tous verts ; `pnpm build` vert ; images Docker web et
 worker construites ; la CI rejouée localement dans un clone vierge passe toutes
-ses étapes.
+ses étapes, et le parcours d'installation du README rejoué à la lettre (base et
+seau neufs) donne les 40 personnes de la démonstration.
 
 ---
 
@@ -426,7 +427,25 @@ l'application fait des données personnelles dans `docs/PRIVACY.md`.
 | Installation propre                  | clone vierge, base et seau neufs : install → generate → migrate → seed → tests → build → E2E   |
 | Documentation                        | 17 documents dans `docs/`, écrits depuis le code et relus contre lui                           |
 
-**Tests** : 669 unitaires + 205 d'intégration + 68 E2E.
+**Tests** : 677 unitaires + 208 d'intégration + 71 E2E.
+
+### Courriel : confirmation, mot de passe oublié, invitations (après phase 11)
+
+Le premier manque de la feuille de route : un mot de passe oublié enfermait
+dehors le propriétaire de décennies de recherche.
+
+| Élément                | Preuve                                                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| Paquet d'envoi         | `packages/mail` : interface, transport SMTP (nodemailer), trois messages ; 6 tests unitaires          |
+| Envoi réel             | test d'intégration contre Mailpit : le message part, arrive, porte son lien en texte et en HTML       |
+| Confirmation d'adresse | exigée dès qu'un transport existe ; lien 24 h, renvoyé sur demande et à toute connexion non confirmée |
+| Mot de passe oublié    | lien à usage unique, 1 h ; réponse identique que l'adresse existe ou non ; lien déjà utilisé refusé   |
+| Invitation             | envoyée à l'invité **et** affichée à l'invitant ; sujet et lien vérifiés dans Mailpit (E2E)           |
+| Sans fournisseur       | `MAIL_TRANSPORT=none` : les deux écrans disparaissent (404), l'invitation repose sur son lien         |
+| Échappement            | un arbre nommé `<script>` sort échappé dans la partie HTML (test)                                     |
+| Journaux               | type du message et adresse masquée ; jamais le lien, jamais le jeton                                  |
+| E2E                    | 3 tests lisant les messages dans Mailpit, et chaque inscription de la suite confirme son adresse      |
+| Développement et CI    | Mailpit dans `docker-compose` et dans les deux travaux de CI qui en ont besoin                        |
 
 ---
 
@@ -714,6 +733,19 @@ l'application fait des données personnelles dans `docs/PRIVACY.md`.
     Motion, Zustand, TanStack Query), et le script `lint` du paquet web
     appelait `next lint`, supprimé de Next 16.
 
+64. **Une connexion abandonnée était journalisée comme une panne.** Quand un
+    lecteur ferme l'onglet pendant qu'une page se rend, Next remonte
+    « The destination stream closed early. » : une ligne d'erreur, et un
+    rapport Sentry, pour l'impatience de quelqu'un. Reconnue et enregistrée en
+    `debug`, jamais rapportée.
+
+65. **Le tableau de bord n'avait pas de titre de niveau 1** : la page
+    commençait en `h2`, et le nom du produit y tenait lieu de titre.
+
+66. **Le nouveau paquet manquait dans les images Docker** — attrapé par le test
+    de garde écrit après le même oubli en phase 8 : il compare les manifestes
+    du dépôt aux deux Dockerfiles.
+
 ---
 
 ## En cours
@@ -803,10 +835,12 @@ moteur de recherche externe (PostgreSQL suffit largement).
 
 ### Fonctionnalités manquantes qui se voient
 
-- **Pas de réinitialisation de mot de passe ni de vérification d'adresse** :
-  aucun fournisseur de courriel n'est configuré. Une invitation repose sur son
-  lien (usage unique, une adresse, 7 jours) ; qui détient le lien d'une adresse
-  sans compte peut créer ce compte.
+- **Le courriel de production reste à brancher** : l'envoi, la confirmation
+  d'adresse, le mot de passe oublié et l'invitation fonctionnent contre Mailpit
+  (développement, CI), mais aucun message n'a jamais atteint une boîte
+  extérieure depuis ce dépôt : il y faut des identifiants SMTP, un domaine et
+  SPF/DKIM/DMARC. Avec `MAIL_TRANSPORT=none`, les adresses ne sont pas
+  vérifiées et une invitation repose sur son lien seul.
 - **Les écrans de l'application ne sont pas traduits** : `/en` les sert en
   français (82 clés traduites couvrent l'accueil, l'authentification et
   quelques libellés).
@@ -830,10 +864,11 @@ moteur de recherche externe (PostgreSQL suffit largement).
 
 ### Tests
 
-- La suite E2E consomme **environ cinq inscriptions** par exécution, contre un
-  plafond de vingt par heure et par IP : au-delà de quatre exécutions dans
+- La suite E2E consomme **environ six inscriptions** par exécution, contre un
+  plafond de vingt par heure et par IP : au-delà de trois exécutions dans
   l'heure, les tests authentifiés échouent — c'est la limite de débit qui
-  fonctionne.
+  fonctionne. Chaque inscription confirme son adresse en lisant le message
+  dans Mailpit, qui doit donc tourner (`pnpm infra:up`).
 - **Un seul worker Playwright en local** (deux en CI) : à huit navigateurs
   concurrents, un seul `next start` ne suit plus, et des lectures anonymes
   expirent. Mesuré : aucune contention côté PostgreSQL.
@@ -871,14 +906,13 @@ moteur de recherche externe (PostgreSQL suffit largement).
 
 ## Prochaine action
 
-Le produit est utilisable et documenté ; la suite dépend d'une décision, pas
-d'un correctif :
+**La détection de doublons et son écran de fusion** : la table
+`duplicate_candidates` (score, explication, statut) attend depuis la phase 1,
+aucun calculateur ne l'alimente, et c'est ce qu'un généalogiste rencontre dès
+son deuxième import. Le travail est décrit dans [ROADMAP.md](ROADMAP.md), § 2 :
+un score déterministe par signaux, une explication par signal, un écran de
+comparaison côte à côte — et jamais de fusion automatique.
 
-1. **Si un fournisseur de courriel peut être configuré** (identifiants
-   nécessaires) : écrire l'envoi (transport + capture locale), la
-   réinitialisation du mot de passe, la vérification d'adresse et l'envoi des
-   invitations. C'est ce qui manque le plus à une instance ouverte à d'autres
-   personnes.
-2. **Sinon** : la détection de doublons et son écran de fusion — la table, le
-   score et l'explication sont prévus, rien ne les alimente
-   ([ROADMAP.md](ROADMAP.md), § 2).
+Deux choses ne dépendent pas du code et restent en attente : des identifiants
+SMTP réels pour vérifier qu'un message sort bien de l'instance, et un dépôt
+distant pour que la CI tourne ailleurs que localement.

@@ -94,6 +94,15 @@ export const serverEnvSchema = z
     GEOCODER_PROVIDER: z.enum(['none', 'nominatim']).default('none'),
     GEOCODER_API_KEY: z.string().optional(),
 
+    /**
+     * Mail. `none` means the instance cannot send: the password reset and
+     * the address confirmation are then absent rather than broken, and an
+     * invitation rests on its link alone.
+     */
+    MAIL_TRANSPORT: z.enum(['none', 'smtp']).default('none'),
+    SMTP_URL: z.string().startsWith('smtp').optional(),
+    MAIL_FROM: z.string().min(3).default('Chronolignée <chronolignee@localhost>'),
+
     MAX_UPLOAD_BYTES: positiveInt.default(52_428_800),
     MAX_IMAGE_PIXELS: positiveInt.default(50_000_000),
 
@@ -112,6 +121,14 @@ export const serverEnvSchema = z
   .superRefine((env, ctx) => {
     // Selecting the real provider without a key would fail on the first job,
     // long after deploy. Catch it at parse time instead.
+    if (env.MAIL_TRANSPORT === 'smtp' && !env.SMTP_URL) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SMTP_URL'],
+        message: 'MAIL_TRANSPORT=smtp requires SMTP_URL (smtp://user:password@host:port).',
+      });
+    }
+
     if (env.AI_PROVIDER === 'anthropic' && !env.ANTHROPIC_API_KEY) {
       ctx.addIssue({
         code: 'custom',

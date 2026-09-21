@@ -2,6 +2,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { AuthShell } from '@/components/auth/auth-shell';
 import { AuthForm } from '@/components/auth/auth-form';
+import { mailEnabled } from '@/lib/mail';
 import { safeReturnPath } from '@/lib/mask-email';
 
 export default async function SignInPage({
@@ -32,7 +33,7 @@ export default async function SignInPage({
         </blockquote>
       }
     >
-      <AuthForm mode="sign-in" next={next} />
+      <AuthForm mode="sign-in" next={next} verificationRequired={mailEnabled} />
       <p className="text-text-muted mt-6 text-sm">
         {t('noAccount')}{' '}
         <Link

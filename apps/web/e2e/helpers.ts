@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { waitForMailLink } from './mailpit';
 
 /**
  * Fill a field and check the value actually stayed.
@@ -75,18 +76,28 @@ export async function addPerson(
 }
 
 /**
- * Sign up in a context of its own.
+ * Sign up in a context of its own, address confirmed.
  *
  * Kept to the tests that need a second person — an invitee, an account to
  * erase — because sign-up is rate-limited per IP and every call here spends
  * one of twenty an hour.
+ *
+ * The confirmation is part of signing up here because it is part of signing
+ * up in production: the instance can send, so an unconfirmed account cannot
+ * sign in. The link is read from Mailpit, which caught the message.
  */
 export async function signUp(
   page: Page,
   account: { name: string; email: string; password: string },
+  /** Where confirming the address lands: the application, or an invitation. */
+  landsOn: RegExp = /\/app|\/invitation\//,
 ): Promise<void> {
   await page.getByLabel('Nom').fill(account.name);
   await page.getByLabel('Adresse e-mail').fill(account.email);
   await page.getByLabel('Mot de passe').fill(account.password);
   await page.getByRole('button', { name: 'Créer un compte' }).click();
+  await expect(page.getByText(/lien de confirmation/i)).toBeVisible();
+
+  await page.goto(await waitForMailLink(account.email, { subject: /confirmez votre adresse/i }));
+  await page.waitForURL(landsOn, { timeout: 30_000 });
 }

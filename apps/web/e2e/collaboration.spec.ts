@@ -1,6 +1,7 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { EDITING_STATE_PATH } from './global-setup';
 import { addPerson, createTree, fillStable, signUp } from './helpers';
+import { waitForMail } from './mailpit';
 
 /**
  * Several people, one tree, and what each may do.
@@ -54,6 +55,14 @@ test.describe('sharing a tree', () => {
     const link = await page.getByLabel('Lien d’invitation').inputValue();
     expect(link).toMatch(/\/invitation\/[A-Za-z0-9_-]{43}$/);
     await expect(page.getByRole('list', { name: 'Invitations en attente' })).toContainText(email);
+
+    // The invitation also leaves by mail, with the same link and the name of
+    // the tree — and the inviter keeps the link, because a message can be
+    // lost and the family may already have a channel of its own.
+    const invitation = await waitForMail(email, { subject: /invitation à/i });
+    expect(invitation.subject).toContain(treeName);
+    expect(invitation.text).toContain(link);
+    expect(invitation.text).toContain('comme contributeur');
 
     // --- The invitee joins through the link -----------------------------
     const guest = await stranger(browser);

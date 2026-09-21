@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { signUp } from './helpers';
 
 /**
  * The flows that must never break.
@@ -697,11 +698,7 @@ test.describe('authorisation', () => {
     // does not exist does. A 403 would confirm the archive is real.
     const email = `e2e-404-${Date.now()}-${Math.random().toString(36).slice(2)}@chronolignee.invalid`;
     await page.goto('/sign-up');
-    await page.getByLabel('Nom').fill('Test 404');
-    await page.getByLabel('Adresse e-mail').fill(email);
-    await page.getByLabel('Mot de passe').fill(`E2e-${Date.now()}-abcdefgh`);
-    await page.getByRole('button', { name: 'Créer un compte' }).click();
-    await expect(page).toHaveURL(/\/app/);
+    await signUp(page, { name: 'Test 404', email, password: `E2e-${Date.now()}-abcdefgh` });
 
     const response = await page.goto('/app/famille-inexistante-xyz/chronologie');
     expect(response?.status()).toBe(404);
@@ -722,15 +719,16 @@ test.describe('authorisation', () => {
 });
 
 test.describe('sign up and sign in', () => {
-  test('creates an account and lands in the application', async ({ page }) => {
+  test('creates an account, confirms it by mail, and lands in the application', async ({
+    page,
+  }) => {
     const email = `e2e-${Date.now()}-${Math.random().toString(36).slice(2)}@chronolignee.invalid`;
     const password = `E2e-${Math.random().toString(36).slice(2)}-${Date.now()}`;
 
     await page.goto('/sign-up');
-    await page.getByLabel('Nom').fill('Test E2E');
-    await page.getByLabel('Adresse e-mail').fill(email);
-    await page.getByLabel('Mot de passe').fill(password);
-    await page.getByRole('button', { name: 'Créer un compte' }).click();
+    // The helper does what a person does: sign up, then open the link from
+    // the message that arrives (docs/SECURITY.md).
+    await signUp(page, { name: 'Test E2E', email, password });
 
     await expect(page).toHaveURL(/\/app/);
     await expect(page.getByText(email)).toBeVisible();

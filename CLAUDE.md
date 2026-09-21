@@ -22,7 +22,7 @@ vie est un intervalle temporel, les relations relient les intervalles.
 
 ```bash
 pnpm setup              # install + infra + generate + migrate + seed (première fois)
-pnpm infra:up           # postgres 5434, redis 6380, minio 9000/9001
+pnpm infra:up           # postgres 5434, redis 6380, minio 9000/9001, mailpit 1025/8025
 pnpm dev                # web + worker (le worker écrit les imports)
 pnpm verify             # format:check + lint + typecheck + test:unit  ← avant tout commit
 pnpm test:integration   # nécessite pnpm infra:up
@@ -47,6 +47,7 @@ interactive sans TTY.
 | `ai`        | fournisseurs, extraction vérifiée                            | domain                                |
 | `storage`   | S3, clés d'objets, validation de fichiers                    | rien                                  |
 | `jobs`      | files, charges utiles, reprises                              | rien                                  |
+| `mail`      | envoi SMTP, confirmation, mot de passe oublié, invitation    | rien                                  |
 | `config`    | validation d'environnement (Zod), garde de déploiement       | rien                                  |
 | `ui`        | jetons de design, palettes, incertitude                      | rien                                  |
 
@@ -70,6 +71,10 @@ pas dans `engine`.
   le prochain `migrate dev` écrit sa suppression (trigrammes, GiST).
 - **L'import GEDCOM s'écrit dans le worker** : le web met en file (Redis),
   le worker écrit. Sans worker, l'import reste « en file d'attente ».
+- **La vérification d'adresse suit le courriel** : avec `MAIL_TRANSPORT=smtp`,
+  une inscription doit confirmer son adresse (Mailpit attrape le message en
+  local, `http://localhost:8025`) ; avec `none`, la vérification et le mot de
+  passe oublié disparaissent de l'interface.
 - **Les tests unitaires d'`apps/web` importent en chemin relatif** : l'alias
   `@/` n'est pas résolu hors de Next.
 - **Un test E2E instable dit quelque chose** : le reproduire (ralentir une

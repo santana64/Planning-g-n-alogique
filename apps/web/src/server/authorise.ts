@@ -27,6 +27,8 @@ export interface WriteGrant {
   readonly context: PersonWriteContext;
   /** The signed-in account. */
   readonly userId: string;
+  /** Their display name, for the messages an action sends in their name. */
+  readonly userName: string;
 }
 
 export type WriteAuthorisation = WriteGrant | { readonly error: ActionState };
@@ -86,6 +88,7 @@ export async function authoriseWrite(
     access: { ...access, role: access.role },
     context: { treeId: access.treeId, actorId: session.user.id },
     userId: session.user.id,
+    userName: session.user.name,
   };
 }
 

@@ -2,6 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect, type FullConfig } from '@playwright/test';
+import { waitForMailLink } from './mailpit';
 
 /**
  * One account for the whole run, created before any worker starts.
@@ -34,6 +35,12 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   await page.getByLabel('Adresse e-mail').fill(email);
   await page.getByLabel('Mot de passe').fill(`E2e-${Date.now()}-abcdefgh`);
   await page.getByRole('button', { name: 'Créer un compte' }).click();
+
+  // The instance can send mail, so the address must be confirmed before the
+  // account works — exactly as it will in production. The link is read from
+  // Mailpit, which caught it.
+  const link = await waitForMailLink(email, { subject: /confirmez votre adresse/i });
+  await page.goto(link);
 
   // Fail loudly here rather than letting every editing test die separately
   // with a timeout that says nothing about the account never existing.

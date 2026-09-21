@@ -2,8 +2,10 @@
 
 import { useId, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { signIn, signUp } from '@/lib/auth-client';
+import { Field } from './field';
+import { VerificationNotice } from './verification-notice';
 
 type Mode = 'sign-in' | 'sign-up';
 
@@ -35,12 +37,27 @@ function messageKeyFor(mode: Mode, status: number | undefined, code: string | un
  * `next` is where to go once signed in — an invitation, typically. The page
  * validates it (`safeReturnPath`) before passing it here; this form never
  * reads it from the URL itself.
+ *
+ * `verificationRequired` says whether this instance can send mail, and
+ * therefore whether a new account has to confirm its address before it can
+ * be used. When it does, the form stays on the page and explains rather than
+ * pushing someone to an application that would bounce them straight back.
  */
-export function AuthForm({ mode, next = null }: { mode: Mode; next?: string | null }) {
+export function AuthForm({
+  mode,
+  next = null,
+  verificationRequired = false,
+}: {
+  mode: Mode;
+  next?: string | null;
+  verificationRequired?: boolean;
+}) {
   const t = useTranslations('auth');
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  /** The address waiting for a confirmation, when there is one. */
+  const [awaiting, setAwaiting] = useState<string | null>(null);
 
   const formId = useId();
   const nameId = `${formId}-name`;
@@ -66,13 +83,30 @@ export function AuthForm({ mode, next = null }: { mode: Mode; next?: string | nu
       return;
     }
 
+    // `callbackURL` is where a confirmation link lands: back on the invitation
+    // someone was in the middle of accepting, not on a generic home page they
+    // then have to leave again. Signing in needs it too — an unconfirmed
+    // address sends the link again from there.
+    const callbackURL = next ?? '/app';
     const result =
       mode === 'sign-in'
-        ? await signIn.email({ email, password })
-        : await signUp.email({ email, password, name });
+        ? await signIn.email({ email, password, callbackURL })
+        : await signUp.email({ email, password, name, callbackURL });
 
     if (result.error) {
+      // The address exists but has not been confirmed. Better Auth has just
+      // sent the link again (`sendOnSignIn`), so the page says so instead of
+      // showing a dead end.
+      if (result.error.code === 'EMAIL_NOT_VERIFIED') {
+        setAwaiting(email);
+        return;
+      }
       setErrorKey(messageKeyFor(mode, result.error.status, result.error.code));
+      return;
+    }
+
+    if (mode === 'sign-up' && verificationRequired) {
+      setAwaiting(email);
       return;
     }
 
@@ -81,6 +115,8 @@ export function AuthForm({ mode, next = null }: { mode: Mode; next?: string | nu
       router.refresh();
     });
   }
+
+  if (awaiting) return <VerificationNotice email={awaiting} />;
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
@@ -128,53 +164,15 @@ export function AuthForm({ mode, next = null }: { mode: Mode; next?: string | nu
       >
         {mode === 'sign-in' ? t('signIn') : t('signUp')}
       </button>
-    </form>
-  );
-}
 
-function Field({
-  id,
-  name,
-  label,
-  type,
-  autoComplete,
-  required,
-  hint,
-  describedBy,
-}: {
-  id: string;
-  name: string;
-  label: string;
-  type: string;
-  autoComplete: string;
-  required?: boolean;
-  hint?: string;
-  describedBy?: string;
-}) {
-  const hintId = hint ? `${id}-hint` : undefined;
-  const described = [hintId, describedBy].filter(Boolean).join(' ') || undefined;
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      {/* A real <label>, not a placeholder. Placeholder-as-label disappears the
-          moment someone starts typing, which is exactly when they need it. */}
-      <label htmlFor={id} className="text-text-secondary text-sm">
-        {label}
-      </label>
-      <input
-        id={id}
-        name={name}
-        type={type}
-        autoComplete={autoComplete}
-        required={required}
-        aria-describedby={described}
-        className="bg-surface-1 border-border-default text-text-primary focus:border-accent rounded-[var(--radius-md)] border px-3 py-2 transition-colors duration-[var(--duration-fast)] outline-none"
-      />
-      {hint && (
-        <p id={hintId} className="text-text-faint text-xs">
-          {hint}
-        </p>
+      {mode === 'sign-in' && verificationRequired && (
+        <Link
+          href="/mot-de-passe-oublie"
+          className="text-text-muted hover:text-text-primary self-start text-sm underline underline-offset-2"
+        >
+          {t('forgotPassword')}
+        </Link>
       )}
-    </div>
+    </form>
   );
 }

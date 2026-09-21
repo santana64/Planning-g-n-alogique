@@ -3,6 +3,7 @@
 import { getLocale } from 'next-intl/server';
 import { TREE_ROLES, type TreeRole } from '@chronolignee/domain';
 import {
+  INVITATION_TTL_DAYS,
   MembershipRefused,
   acceptInvitation,
   changeMemberRole,
@@ -11,10 +12,13 @@ import {
   revokeInvitation,
   type MembershipRefusal,
 } from '@chronolignee/db';
+import { treeInvitationMessage } from '@chronolignee/mail';
+import { ROLE_NAMES } from '@/components/sharing/role-labels';
 import { getPathname, redirect } from '@/i18n/navigation';
 import { db } from '@/lib/db';
 import { env } from '@/lib/env';
 import { logger } from '@/lib/logger';
+import { sendMail } from '@/lib/mail';
 import { getSession } from '@/lib/session';
 import type { ActionState } from './action-state';
 import { resolveTreeAccess } from './access';
@@ -84,11 +88,30 @@ export async function inviteMemberAction(
       { userId: authorised.userId },
     );
     const path = getPathname({ href: `/invitation/${created.token}`, locale: await getLocale() });
+    const link = new URL(path, env.APP_URL).toString();
+
+    // Sent when the instance can send, and shown either way: the link is what
+    // the inviter can pass on by whatever channel the family already uses,
+    // and a message that never arrives must not leave them with nothing.
+    const sent = await sendMail(
+      'tree-invitation',
+      treeInvitationMessage({
+        to: email,
+        url: link,
+        treeName: authorised.access.treeName,
+        inviterName: authorised.userName,
+        roleLabel: ROLE_NAMES[role],
+        validForDays: INVITATION_TTL_DAYS,
+      }),
+    );
+
     revalidateTree(treeSlug);
     return {
       status: 'success',
-      message: `Invitation prête pour ${email.toLowerCase()}. Transmettez-lui ce lien : il ne sera plus affiché.`,
-      link: new URL(path, env.APP_URL).toString(),
+      message: sent
+        ? `Invitation envoyée à ${email.toLowerCase()}. Voici le même lien, au cas où : il ne sera plus affiché.`
+        : `Invitation prête pour ${email.toLowerCase()}. Transmettez-lui ce lien : il ne sera plus affiché.`,
+      link,
       expiresAt: created.expiresAt.toISOString(),
     };
   } catch (error) {

@@ -27,6 +27,7 @@ et autorisés paquet par paquet (`allowBuilds`).
 | PostgreSQL | `postgis/postgis:18-3.6`     | PostgreSQL 18.6, PostGIS 3.6.4 | **5434**    |
 | Redis      | `redis:8-alpine`             | Redis 8                        | **6380**    |
 | MinIO      | `quay.io/minio/minio:latest` | —                              | 9000 / 9001 |
+| Mailpit    | `axllent/mailpit:latest`     | v1.31.2                        | 1025 / 8025 |
 
 Ports décalés parce que 5432, 5433 et 6379 sont pris par d'autres projets sur
 cette machine. Extensions PostgreSQL : `citext`, `pg_trgm`, `postgis`,
@@ -57,6 +58,7 @@ cette machine. Extensions PostgreSQL : `citext`, `pg_trgm`, `postgis`,
 | bullmq                                            | 6.3.6    | file des imports ; apporte son propre client Redis                                                  |
 | @aws-sdk/client-s3, @aws-sdk/s3-request-presigner | 3.1132.0 | stockage privé, URLs présignées                                                                     |
 | file-type                                         | 22.1.0   | validation aux nombres magiques                                                                     |
+| nodemailer                                        | 10.0.10  | envoi SMTP ; le paquet fournit ses types                                                            |
 | @anthropic-ai/sdk                                 | 0.125.0  | sorties structurées, repli de refus côté serveur                                                    |
 
 ## Observabilité

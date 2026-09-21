@@ -32,6 +32,7 @@ requête (l'écriture d'un import) et le ménage (purge des arbres supprimés).
 | `packages/ai`        | Fournisseurs d'IA (Anthropic, double de test), extraction vérifiée, choix de récits        | domain                            |
 | `packages/storage`   | Client S3, clés d'objets, validation des fichiers                                          | —                                 |
 | `packages/jobs`      | Noms de files, schémas de charge utile, politique de reprise                               | —                                 |
+| `packages/mail`      | Envoi SMTP et les trois messages : confirmation, mot de passe oublié, invitation           | —                                 |
 | `packages/config`    | Validation de l'environnement, garde de déploiement, nettoyage des rapports d'erreur       | —                                 |
 | `packages/ui`        | Jetons de design, palette des branches, langage visuel de l'incertitude                    | —                                 |
 | `apps/web`           | Interface et API                                                                           | tous les paquets                  |
@@ -111,10 +112,14 @@ moins, hachage scrypt). Sessions en base, cookie `httpOnly`, `SameSite=Lax`,
 `Secure` en production, préfixe `chronolignee`. Un cache de session signé de
 5 minutes évite une lecture en base à chaque navigation (une révocation prend
 donc effet en 5 minutes au plus). Limites de débit : connexion 5/min,
-inscription 20/h par IP. Vérification d'adresse et réinitialisation du mot de
-passe : **non disponibles** tant qu'aucun fournisseur de courriel n'est
-branché ([ROADMAP](ROADMAP.md)). Modèle de menace dans
-[SECURITY.md](SECURITY.md).
+inscription 20/h par IP.
+
+**Vérification d'adresse et mot de passe oublié** suivent la configuration du
+courriel : dès qu'un transport SMTP est configuré, une adresse doit être
+confirmée avant de servir, et un mot de passe se réinitialise par un lien à
+usage unique valable une heure. Sans transport, les deux sont **absents** de
+l'interface plutôt que cassés, et une invitation repose sur son lien. Modèle
+de menace dans [SECURITY.md](SECURITY.md).
 
 ## Stockage des fichiers
 

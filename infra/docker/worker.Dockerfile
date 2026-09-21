@@ -29,6 +29,7 @@ COPY packages/engine/package.json ./packages/engine/
 COPY packages/gedcom/package.json ./packages/gedcom/
 COPY packages/genealogy/package.json ./packages/genealogy/
 COPY packages/jobs/package.json ./packages/jobs/
+COPY packages/mail/package.json ./packages/mail/
 COPY packages/storage/package.json ./packages/storage/
 COPY packages/ui/package.json ./packages/ui/
 

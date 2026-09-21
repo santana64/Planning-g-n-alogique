@@ -13,6 +13,7 @@ risque acceptable, et ce document commence donc par ce qui la prévient.
 | PostgreSQL 18  | Toutes les données ; extensions `citext`, `pg_trgm`, `postgis`, `unaccent` | géré ou `postgis/postgis:18-3.6`                        |
 | Redis          | File des imports, du web vers le worker                                    | Redis 8                                                 |
 | Stockage objet | Documents numérisés, fichiers GEDCOM importés                              | S3 ou compatible (MinIO en local)                       |
+| Courriel       | Confirmation d'adresse, mot de passe oublié, invitations                   | SMTP (Mailpit en local)                                 |
 
 ```bash
 docker build -f infra/docker/web.Dockerfile -t chronolignee-web .
@@ -38,6 +39,15 @@ publique) avec :
 
 Il sort alors avec un code non nul, pour que le déploiement échoue là où on le
 voit, au lieu de servir des 500.
+
+**Courriel** : `MAIL_TRANSPORT=smtp` avec `SMTP_URL`
+(`smtp://utilisateur:motdepasse@hôte:port`, ou `smtps://` pour le port 465) et
+`MAIL_FROM`. Avec `none`, l'instance ne peut pas envoyer : la vérification
+d'adresse et la réinitialisation du mot de passe **disparaissent** de
+l'interface (elles ne sont pas cassées, elles sont absentes) et une invitation
+repose sur son lien. Vérifier après déploiement qu'un message part réellement :
+un mot de passe oublié est le moment le plus mauvais pour découvrir que SMTP
+était mal configuré.
 
 `BETTER_AUTH_SECRET` : 32 octets aléatoires au moins, un par environnement
 (`node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`).

@@ -87,6 +87,23 @@ services:
       echo 'MinIO bucket chronolignee-archives ready (private)'
       "
 
+  # Mail, caught rather than sent. Password resets, address confirmations and
+  # invitations are real messages in development: they arrive in Mailpit's
+  # inbox (http://localhost:8025) instead of in someone's mailbox, and the
+  # end-to-end suite reads them there through its API.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: chronolignee-mailpit
+    restart: unless-stopped
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 volumes:
   postgres_data:
   redis_data:

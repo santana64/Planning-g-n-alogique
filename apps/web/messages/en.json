@@ -51,6 +51,18 @@
     "signInTitle": "Resume your research",
     "signUpTitle": "Start your genealogy",
     "passwordHint": "12 characters minimum",
+    "forgotIntro": "Give the address of your account: we will send a link to choose a new password.",
+    "forgotSubmit": "Send the link",
+    "forgotSent": "If an account exists for that address, a message has just gone out. Check your spam folder too.",
+    "resetTitle": "Choose a new password",
+    "resetIntro": "This link works once. Once saved, you can sign in with the new password.",
+    "newPassword": "New password",
+    "resetSubmit": "Save the password",
+    "resetDone": "Password saved.",
+    "verifyIntro": "A confirmation link has just been sent to {email}. Open it to activate your account.",
+    "verifySpam": "Nothing after a few minutes? Look in your spam folder, or send the link again.",
+    "verifyResend": "Send the link again",
+    "verifyResent": "Link sent again.",
     "errors": {
       "invalidCredentials": "Incorrect email address or password.",
       "emailTaken": "That address is already in use.",
@@ -58,7 +70,8 @@
       "invalidEmail": "Invalid email address.",
       "nameRequired": "Name is required.",
       "rateLimited": "Too many attempts. Try again in a few minutes.",
-      "unexpected": "Unable to sign in right now."
+      "unexpected": "Unable to sign in right now.",
+      "resetLinkInvalid": "This link is no longer valid. Ask for a new one."
     }
   },
   "certainty": {

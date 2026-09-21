@@ -81,6 +81,7 @@ const config: NextConfig = {
     '@chronolignee/db',
     '@chronolignee/config',
     '@chronolignee/jobs',
+    '@chronolignee/mail',
   ],
 
   experimental: {

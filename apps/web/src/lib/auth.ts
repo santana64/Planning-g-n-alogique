@@ -1,8 +1,10 @@
 import 'server-only';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { emailVerificationMessage, passwordResetMessage } from '@chronolignee/mail';
 import { db } from './db';
 import { env } from './env';
+import { mailEnabled, sendMail } from './mail';
 
 /**
  * Authentication.
@@ -20,6 +22,11 @@ import { env } from './env';
  *    not defensible for an account that guards decades of a family's research
  *    and the personal data of living relatives.
  */
+/** An hour, like the reset link everyone is used to. */
+const RESET_VALID_SECONDS = 60 * 60;
+/** A day: a confirmation often waits until the evening. */
+const VERIFICATION_VALID_SECONDS = 60 * 60 * 24;
+
 export const auth = betterAuth({
   database: prismaAdapter(db, { provider: 'postgresql' }),
 
@@ -32,11 +39,31 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 12,
     maxPasswordLength: 256,
-    // No mail provider is configured by default, so addresses cannot be
-    // verified; invitations rest on a single-use link bound to an address
-    // instead. Turn this on with a provider — see docs/SECURITY.md.
-    requireEmailVerification: false,
+    // Only where an address can actually be confirmed. Requiring a
+    // verification that no transport can deliver would lock everyone out of
+    // an instance that simply has no mail provider (see docs/SECURITY.md).
+    requireEmailVerification: mailEnabled,
     autoSignIn: true,
+    resetPasswordTokenExpiresIn: RESET_VALID_SECONDS,
+    sendResetPassword: async ({ user, url }) => {
+      await sendMail(
+        'password-reset',
+        passwordResetMessage({ to: user.email, url, validForHours: RESET_VALID_SECONDS / 3600 }),
+      );
+    },
+  },
+
+  emailVerification: {
+    sendOnSignUp: true,
+    // A sign-in attempt on an unconfirmed address sends the link again: the
+    // first message is the one that gets lost, and asking someone to find a
+    // "resend" button is asking them to give up.
+    sendOnSignIn: true,
+    autoSignInAfterVerification: true,
+    expiresIn: VERIFICATION_VALID_SECONDS,
+    sendVerificationEmail: async ({ user, url }) => {
+      await sendMail('email-verification', emailVerificationMessage({ to: user.email, url }));
+    },
   },
 
   user: {

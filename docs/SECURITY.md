@@ -36,17 +36,28 @@
   précédente ; révocable.
 - La page d'invitation n'est ni indexée ni source de `Referer`, et ne montre
   l'adresse que masquée (`c•••@exemple.fr`).
-- **Limite** : les adresses ne sont pas vérifiées (pas de fournisseur de
-  courriel par défaut). Le lien est donc le secret : qui le détient peut créer
-  le compte de l'adresse invitée si elle n'en a pas encore. À la mise en place
-  d'un fournisseur de courriel, activer `requireEmailVerification`.
+- Le lien part **par courriel** à l'adresse invitée quand l'instance peut
+  envoyer, et reste affiché à l'invitant : un message se perd, et une famille
+  a souvent déjà son canal.
+- **Sans fournisseur de courriel** (`MAIL_TRANSPORT=none`), le lien est le seul
+  secret : qui le détient peut créer le compte de l'adresse invitée si elle
+  n'en a pas encore — les adresses ne sont alors pas vérifiables.
 
 ## Authentification
 
 - Better Auth, mots de passe de 12 caractères minimum, cookies `httpOnly`,
   `SameSite=Lax`, `Secure` en production.
 - Limites de débit : connexion 5/min, inscription 20/h, réinitialisation 3/h
-  (par IP). Une exécution E2E complète consomme environ 4 inscriptions.
+  (par IP). Une exécution E2E complète consomme environ 6 inscriptions.
+- **Vérification de l'adresse** : exigée dès que l'instance peut envoyer
+  (`requireEmailVerification` suit la configuration du courriel). Sans
+  transport, l'exiger enfermerait tout le monde dehors. Lien valable 24 h,
+  renvoyé sur demande et à toute tentative de connexion non confirmée.
+- **Mot de passe oublié** : lien à usage unique, valable 1 heure, jeton jamais
+  écrit ailleurs que dans le message — ni journal, ni page. La demande répond
+  **la même chose** que l'adresse existe ou non : une réponse différente ferait
+  de cette page un moyen de savoir qui est inscrit. Le lien déjà utilisé ne
+  propose plus de formulaire.
 - **Opérations irréversibles** : supprimer un compte exige une connexion de
   moins de 15 minutes et l'adresse tapée — pas un mot de passe, qui ferait de
   cette page un oracle hors des limites de débit de la connexion.

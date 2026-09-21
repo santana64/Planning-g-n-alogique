@@ -39,9 +39,10 @@ export default async function AppPage({ params }: { params: Promise<{ locale: st
     <main id="main" className="bg-surface-0 min-h-dvh px-6 py-14">
       <div className="mx-auto max-w-[var(--content-max)]">
         <header className="border-border-subtle flex items-center justify-between border-b pb-5">
-          <span className="font-editorial text-text-primary text-lg tracking-tight">
-            Chronolignée
-          </span>
+          {/* The page's own heading, not a wordmark: a screen reader arriving
+              here should land on what this page is, and every other screen of
+              the application starts with its level-one heading. */}
+          <h1 className="font-editorial text-text-primary text-lg tracking-tight">Chronolignée</h1>
           <div className="flex items-center gap-4">
             <Link href="/compte" className="text-text-muted hover:text-accent text-sm">
               {session?.user.email}
