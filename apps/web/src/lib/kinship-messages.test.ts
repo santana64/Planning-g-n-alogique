@@ -95,6 +95,27 @@ describe('the collateral line', () => {
     expect(kinshipLabel(relation({ code: 'NIBLING', up: 1, down: 2 }), 'FEMALE')).toBe('Nièce');
     expect(kinshipLabel(relation({ code: 'NIBLING', up: 1, down: 3 }), 'MALE')).toBe('Petit-neveu');
   });
+
+  it('agrees the prefix with a niece: petite-nièce, never petit-nièce', () => {
+    expect(kinshipLabel(relation({ code: 'NIBLING', up: 1, down: 3 }), 'FEMALE')).toBe(
+      'Petite-nièce',
+    );
+  });
+
+  it('goes on with arrière-, never by repeating grand- or petit-', () => {
+    expect(kinshipLabel(relation({ code: 'PIBLING', up: 4, down: 1 }), 'FEMALE')).toBe(
+      'Arrière-grand-tante',
+    );
+    expect(kinshipLabel(relation({ code: 'PIBLING', up: 5, down: 1 }), 'MALE')).toBe(
+      'Arrière-arrière-grand-oncle',
+    );
+    expect(kinshipLabel(relation({ code: 'NIBLING', up: 1, down: 4 }), 'MALE')).toBe(
+      'Arrière-petit-neveu',
+    );
+    expect(kinshipLabel(relation({ code: 'NIBLING', up: 1, down: 4 }), 'FEMALE')).toBe(
+      'Arrière-petite-nièce',
+    );
+  });
 });
 
 describe('what it refuses to guess', () => {
@@ -103,6 +124,12 @@ describe('what it refuses to guess', () => {
     // the product refuses. The record said nothing; so does the label.
     expect(kinshipLabel(relation({ code: 'SIBLING', up: 1, down: 1 }))).toBe('Frère ou sœur');
     expect(kinshipLabel(relation({ code: 'PIBLING', up: 2, down: 1 }))).toBe('Oncle ou tante');
+    expect(kinshipLabel(relation({ code: 'PIBLING', up: 3, down: 1 }))).toBe(
+      'Grand-oncle ou grand-tante',
+    );
+    expect(kinshipLabel(relation({ code: 'NIBLING', up: 1, down: 3 }))).toBe(
+      'Petit-neveu ou petite-nièce',
+    );
     expect(kinshipLabel(relation({ code: 'DESCENDANT', up: 1 }))).toBe('Parent');
   });
 

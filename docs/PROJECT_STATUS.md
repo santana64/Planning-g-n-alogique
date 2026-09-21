@@ -1,9 +1,26 @@
 # État du projet
 
-**Dernière mise à jour** : 2026-09-19
-**Phase courante** : 10 terminée (confidentialité, droits, partage, historique, RGPD) ; phase 11 (durcissement) à suivre
+**Dernière mise à jour** : 2026-09-21
+**Phase courante** : 11 — durcissement (performance, sécurité, accessibilité,
+responsive, observabilité, sauvegardes, déploiement, documentation)
 
 Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
+
+| Section                 | Où                                                                                        |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
+| Terminé et vérifié      | ci-dessous, phase par phase                                                               |
+| En cours                | [§ En cours](#en-cours)                                                                   |
+| Reste à faire           | [§ Reste à faire](#reste-à-faire) et [ROADMAP.md](ROADMAP.md)                             |
+| Problèmes connus        | [§ Points à surveiller](#points-à-surveiller)                                             |
+| Constats de performance | [§ Constats de performance](#constats-de-performance) et [PERFORMANCE.md](PERFORMANCE.md) |
+| Décisions importantes   | [§ Décisions importantes](#décisions-importantes)                                         |
+| Prochaine action        | [§ Prochaine action](#prochaine-action)                                                   |
+
+**Dernière exécution complète** (2026-09-21, poste de développement) :
+format, lint, types **verts** ; **669** tests unitaires, **205** d'intégration,
+**68** de bout en bout, tous verts ; `pnpm build` vert ; images Docker web et
+worker construites ; la CI rejouée localement dans un clone vierge passe toutes
+ses étapes.
 
 ---
 
@@ -385,6 +402,32 @@ l'application fait des données personnelles dans `docs/PRIVACY.md`.
 
 **Tests** : 648 unitaires + 200 d'intégration + 57 E2E.
 
+### Durcissement (phase 11)
+
+| Élément                              | Preuve                                                                                         |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| Mesures 100 → 20 000 personnes       | tableaux de `docs/PERFORMANCE.md`, jeux synthétiques déterministes                             |
+| Cache du graphe par révision d'arbre | 0,6 s économisées par requête à 20 000 ; correct à plusieurs instances                         |
+| Import écrit par le worker           | la requête n'écrit plus ; progression réelle (lignes écrites / à écrire), test d'intégration   |
+| Redis indisponible                   | refus en 5,4 s, import remis à « analysé », reprise après retour — mesuré en arrêtant Redis    |
+| Sondes de santé                      | `/api/health`, `/api/health/ready` (503 nommant la dépendance), worker `:3001/health`          |
+| Images Docker                        | web et worker reconstruites, non-root ; conteneur worker **healthy** en 9 s                    |
+| Traces OpenTelemetry                 | reçues par un collecteur OTLP local (`POST /v1/traces`)                                        |
+| Rapports d'erreur                    | nettoyés (type + pile, ni requête, ni utilisateur, ni message), test unitaire                  |
+| Journaux de file                     | une ligne structurée par coupure au lieu de 95 piles brutes                                    |
+| Sauvegardes                          | `backup-db.sh` + `verify-backup.sh` : restauration réelle vérifiée, sauvegarde altérée refusée |
+| Encodages GEDCOM                     | UTF-8/UTF-16/ANSEL/Windows-1252/Mac Roman lus, DOS refusé ; 10 tests dont une propriété        |
+| Import GEDCOM de bout en bout        | fichier « ANSI » accentué → revue → worker → fiche → historique (E2E)                          |
+| Mouvement réduit                     | E2E avec **et** sans la préférence (accueil, horloge du récit)                                 |
+| Clavier                              | frise atteinte, focus visible à chaque arrêt, invitation créée puis annulée au clavier seul    |
+| Accessibilité                        | axe sans violation sur les écrans de gestion et la revue d'import                              |
+| Téléphone                            | aucun défilement horizontal sur les 11 écrans d'un arbre, à 375 px                             |
+| Contrôle de dérive du schéma         | `pnpm db:drift` : aucune différence entre migrations et schéma                                 |
+| Installation propre                  | clone vierge, base et seau neufs : install → generate → migrate → seed → tests → build → E2E   |
+| Documentation                        | 17 documents dans `docs/`, écrits depuis le code et relus contre lui                           |
+
+**Tests** : 669 unitaires + 205 d'intégration + 68 E2E.
+
 ---
 
 ## Bugs réels trouvés et corrigés
@@ -595,128 +638,247 @@ l'application fait des données personnelles dans `docs/PRIVACY.md`.
 46. **Un contributeur pouvait supprimer.** Tout membre non lecteur passait le
     même contrôle « peut éditer ». Chaque action exige désormais sa capacité.
 
+47. **Une fiche dont les dates se contredisent était refusée par la base.**
+    Un décès antérieur à la naissance (ou un vivant né dans le futur)
+    produisait une fenêtre inversée, refusée par la contrainte
+    `people_lifespan_window_ordered` (23514) : la fiche ne pouvait pas être
+    enregistrée, et un import entier échouait pour une faute de frappe. La
+    fenêtre se réduit désormais à son premier jour, marquée contradictoire, et
+    l'audit affiche l'erreur.
+
+48. **L'import de 20 000 personnes ne finissait pas.** Écriture ligne à ligne
+    (6,6 s pour 1 000), export quadratique, et le graphe entier relu à chaque
+    requête. Écriture par lots (26,9 s pour 20 000), index dans l'export,
+    cache du graphe par révision d'arbre.
+
+49. **La navigation d'un arbre débordait sur téléphone.** Tous les écrans d'un
+    arbre défilaient horizontalement à 375 px.
+
+50. **La frise ne montrait pas où était le focus** (`outline-none` sur un
+    conteneur `role="application"` focusable), et affichait son niveau de
+    détail en anglais (« person », « event ») dans une interface française.
+
+51. **Un identifiant malformé dans une adresse rendait une erreur 500** : la
+    requête atteignait PostgreSQL, qui refuse un uuid invalide. Désormais 404,
+    comme pour une page qui n'existe pas.
+
+52. **Un fichier GEDCOM ancien perdait ses accents en silence.** Tout fichier
+    était décodé en UTF-8 : un export 5.5.1 en « ANSI » (Windows-1252) ou en
+    ANSEL importait « LEF�VRE » sans un mot. Les octets décident
+    maintenant, l'en-tête conseille, et un encodage illisible est refusé.
+
+53. **Le champ de fichier de l'import n'avait pas d'étiquette accessible.**
+
+54. **Un contributeur se voyait proposer l'import** (palette, arbre vide, page)
+    avant d'être refusé par le téléversement. Chaque entrée exige désormais le
+    droit d'importer.
+
+55. **L'index spatial GiST n'était pas déclaré dans le schéma Prisma** : le
+    prochain `migrate dev` aurait écrit sa suppression — le même piège que les
+    index trigrammes, trouvé en faisant enfin tourner le contrôle de dérive.
+
+56. **La CI n'aurait pas pu passer.** Le dépôt n'a pas de remote, donc elle
+    n'avait jamais tourné : client Prisma jamais généré avant le seed, aucun
+    stockage objet pour les E2E, service MinIO impossible à démarrer sans
+    commande, contrôle de dérive écrit avec des options supprimées par
+    Prisma 7 — et pointé sur la base principale comme base fantôme, que Prisma
+    vide.
+
+57. **L'écriture d'un import tenait la requête HTTP** (~30 s à 20 000
+    personnes), ce que le cahier des charges interdit. Passée au worker, avec
+    une mise en file idempotente et l'état « terminé » écrit dans la même
+    transaction que les données.
+
+58. **Une coupure de Redis écrivait 95 piles d'erreurs brutes** hors du journal
+    structuré (BullMQ les imprime lui-même faute d'écouteur).
+
+59. **Un test E2E instable disait quelque chose.** L'aide `addPerson` cliquait
+    « Ajouter une personne » puis saisissait sans attendre la nouvelle page :
+    elle remplissait le formulaire d'édition de la personne précédente (mêmes
+    libellés) et envoyait le nouveau formulaire vide. Reproduit en ralentissant
+    la navigation précédente, corrigé dans l'aide.
+
+60. **`daysInMonth` grégorien passait par `Date.UTC`**, qui lit les années
+    0–99 comme 1900–1999 : février de l'an 0 (bissextile) comptait 28 jours.
+    Calcul arithmétique, testé contre les conversions JDN sur quatre siècles.
+
+61. **Parenté mal accordée** : « petit-nièce » au lieu de « petite-nièce », et
+    « grand-grand-oncle » / « petit-petit-neveu » au lieu de
+    « arrière-grand-oncle » / « arrière-petit-neveu ».
+
+62. **L'image du worker plantait au démarrage** avec un `.env` de
+    développement : `pino-pretty` est une dépendance de développement, absente
+    de l'image.
+
+63. **Treize dépendances déclarées n'étaient importées nulle part** (Radix ×10,
+    Motion, Zustand, TanStack Query), et le script `lint` du paquet web
+    appelait `next lint`, supprimé de Next 16.
+
 ---
 
 ## En cours
 
-Rien. Point de reprise propre.
+Rien. Point de reprise propre : la phase 11 est terminée et committée.
 
 ---
 
 ## Reste à faire
 
-| Phase | Contenu                                                           | État                             |
-| ----- | ----------------------------------------------------------------- | -------------------------------- |
-| 2     | Services CRUD personne / relation                                 | **fait**                         |
-| 2     | Formulaires d'édition, liste, éditeur de liens                    | **fait**                         |
-| 2     | Éditeur d'événements hors naissance / décès                       | **fait**                         |
-| 3     | Import GEDCOM 7 + écran de revue                                  | **fait**                         |
-| 4     | Services de graphe (ancêtres, descendants, branches), recherche   | **fait** — sans doublons         |
-| 5     | Moteur Chronolignée, Gantt, voyage temporel, « qui était vivant » | **fait**                         |
-| 6     | Carte MapLibre, migrations                                        | **fait** — arcs au curseur       |
-| 7     | Archives S3, visionneuse de documents                             | **fait** — sans visionneuse      |
-| 8     | Pipeline IA, propositions, assistant                              | **fait** — texte seul            |
-| 9     | Constellation, profondeur temporelle, mode Récit, Directeur       | **fait** — sans WebXR ni rivière |
-| 10    | Collaboration, confidentialité des vivants                        | **fait**                         |
-| 11    | Durcissement production                                           | partiel                          |
+| Phase | Contenu                                                       | État                                        |
+| ----- | ------------------------------------------------------------- | ------------------------------------------- |
+| 2     | CRUD personne / relation / événement, formulaires             | **fait**                                    |
+| 3     | Import GEDCOM 7 + écran de revue                              | **fait** — écrit par le worker              |
+| 4     | Graphe, ascendance, descendance, recherche                    | **fait** — sans doublons                    |
+| 5     | Moteur temporel, Gantt, voyage temporel, « qui était vivant » | **fait** — sans agrégation au zoom lointain |
+| 6     | Carte MapLibre, migrations                                    | **fait** — arcs au curseur                  |
+| 7     | Archives S3, documents, citations                             | **fait** — sans visionneuse                 |
+| 8     | Pipeline IA, propositions, assistant                          | **fait** — texte seul, sans assistant       |
+| 9     | Constellation, profondeur temporelle, Récit, Directeur        | **fait** — sans WebXR ni rivière            |
+| 10    | Collaboration, confidentialité des vivants, RGPD              | **fait**                                    |
+| 11    | Durcissement production                                       | **fait**                                    |
 
-Manques identifiés hors phases : détection de doublons, édition des
-coordonnées d'un lieu, lecture d'images par l'IA, assistant de recherche,
-visionneuse de documents page à page, envoi des invitations par courriel (et
-vérification des adresses) une fois un fournisseur configuré.
+Ce qui manque, par ordre d'importance, avec le travail que cela demande :
+[ROADMAP.md](ROADMAP.md). En tête : la réinitialisation du mot de passe et la
+vérification d'adresse (il faut un fournisseur de courriel), la traduction des
+écrans de l'application, une exécution réelle de la CI, la détection de
+doublons, l'écran « Recherche », la visionneuse de documents.
+
+---
+
+## Constats de performance
+
+Mesures complètes, méthode et matériel : [PERFORMANCE.md](PERFORMANCE.md).
+L'essentiel, à 20 000 personnes, sur ce poste :
+
+| Opération                            | Mesure                  |
+| ------------------------------------ | ----------------------- |
+| Chargement du graphe (première fois) | 631 ms                  |
+| Recherche par nom (`pg_trgm`)        | 39 ms                   |
+| Liste de personnes (page)            | 5,5 ms                  |
+| Carte (lieux + trajets)              | 179 ms                  |
+| Couverture des preuves               | 201 ms                  |
+| Export GEDCOM complet                | 822 ms                  |
+| Écriture d'un import                 | 26,9 s (dans le worker) |
+| Mise en page du Gantt                | 37,9 ms                 |
+| Mise en page de la constellation     | 61,5 ms                 |
+| Audit de l'arbre entier              | 120 ms                  |
+| Graphe en mémoire                    | 18,2 Mo                 |
+
+Ce que les mesures ont changé : écriture d'import par lots, index dans
+l'export, cache du graphe par révision, et la décision de **ne pas** ajouter de
+moteur de recherche externe (PostgreSQL suffit largement).
 
 ---
 
 ## Décisions importantes
 
-- **Prisma épinglé en 7.10.0** — `latest` = `8.0.0-rc.15` (RC). ADR 0002.
-- **TypeScript 5.9.3, pas 7.0.2** — `typescript-eslint` exige `<6.1.0`. ADR 0002.
+- **PostgreSQL, pas de base orientée graphe** — [ADR 0001](adr/0001-postgresql-instead-of-graph-database.md).
+- **Prisma épinglé en 7.10.0** — `latest` = une version candidate 8. [ADR 0002](adr/0002-dependency-pins.md).
+- **TypeScript 5.9.3, pas 7** — `typescript-eslint` exige `<6.1.0`. [ADR 0002](adr/0002-dependency-pins.md).
+- **Le jour julien comme axe canonique** — [ADR 0003](adr/0003-julian-day-number-as-temporal-axis.md).
+- **L'IA propose, l'humain valide** — [ADR 0004](adr/0004-ai-proposes-humans-approve.md).
 - **Node 22.15.1, pas 24 LTS** — seul runtime présent sur la machine.
-- **PostgreSQL, pas Neo4j** — ADR 0001.
-- **JDN comme axe canonique** — ADR 0003.
-- **L'IA propose, l'humain valide** — ADR 0004.
+- **L'écriture d'un import va dans le worker**, l'analyse reste dans la
+  requête : c'est l'analyse que l'utilisateur attend, pas l'écriture.
+- **Pas d'ECS, pas d'ELK, pas de Graphology, pas de worker de mise en page** :
+  les mises en page dédiées tiennent le budget mesuré ([ENGINE.md](ENGINE.md)).
+- **Le catalogue ne contient que ce qui est importé** : treize dépendances
+  déclarées mais jamais utilisées ont été retirées ([DEPENDENCIES.md](DEPENDENCIES.md)).
 
 ## Hypothèses assumées
 
-- Port PostgreSQL **5434** : 5432 et 5433 sont occupés par d'autres projets de
-  cette machine (`reglo-reglo-db-1`, `revenue-operator-postgres`).
+- Port PostgreSQL **5434**, Redis **6380** : 5432, 5433 et 6379 sont occupés
+  par d'autres projets de cette machine.
 - Tolérance de `ABOUT` : ±5 ans. `ESTIMATED` : ±10 ans. `CALCULATED` : ±1 an.
-  Décision produit, pas fait — modifiable dans `DEFAULT_ESTIMATION_POLICY`.
+  Décision produit, modifiable dans `DEFAULT_ESTIMATION_POLICY`.
 - Durée de vie maximale : 123 ans.
 - Dates numériques lues **jour d'abord** (convention française), sauf quand les
   nombres lèvent l'ambiguïté.
-- Calendrier hébraïque : conservé pour l'aller-retour GEDCOM, mais non converti
-  en JDN. Ces dates n'ont pas de position temporelle plutôt qu'une position
-  inventée.
+- Calendrier hébraïque : conservé pour l'aller-retour GEDCOM, non converti —
+  ces dates n'ont pas de position plutôt qu'une position inventée.
+- Un fichier GEDCOM sans encodage déclaré et invalide en UTF-8 est lu en
+  Windows-1252, et la revue dit que c'est une supposition.
 
 ## Points à surveiller
 
-- **Modèle par défaut : `claude-opus-5`**, et non Fable 5.1, qui impose une
+### Fonctionnalités manquantes qui se voient
+
+- **Pas de réinitialisation de mot de passe ni de vérification d'adresse** :
+  aucun fournisseur de courriel n'est configuré. Une invitation repose sur son
+  lien (usage unique, une adresse, 7 jours) ; qui détient le lien d'une adresse
+  sans compte peut créer ce compte.
+- **Les écrans de l'application ne sont pas traduits** : `/en` les sert en
+  français (82 clés traduites couvrent l'accueil, l'authentification et
+  quelques libellés).
+- **Tables prêtes sans écran** : doublons, tâches de recherche, pages de
+  documents, médias et identification sur photographie.
+
+### Exploitation
+
+- **La CI n'a jamais tourné sur GitHub** (pas de remote). Ses étapes sont
+  rejouées localement dans un clone vierge, et passent.
+- **Sans worker, un import reste « en file d'attente »** : l'écran le dit au
+  bout de 15 s. Le web a besoin de Redis pour mettre en file.
+- L'image du worker pèse 929 Mo (SDK AWS et moteurs Prisma) : acceptable, pas
+  optimal.
+- `packages/db/generated` est ignoré par git : `pnpm db:generate` après un
+  clone. Les commandes Prisma bloquent sans TTY : les préfixer par `CI=true`.
+- Sourcer `.env` dans un shell exporte `NODE_ENV=development`, ce qui désactive
+  la garde de déploiement : pour la tester à la main, fixer `NODE_ENV=production`.
+- Une migration reste à appliquer avant de déployer ce code :
+  `20260919200000_import_job_result` (et `20260919140000_revision_export`).
+
+### Tests
+
+- La suite E2E consomme **environ cinq inscriptions** par exécution, contre un
+  plafond de vingt par heure et par IP : au-delà de quatre exécutions dans
+  l'heure, les tests authentifiés échouent — c'est la limite de débit qui
+  fonctionne.
+- **Un seul worker Playwright en local** (deux en CI) : à huit navigateurs
+  concurrents, un seul `next start` ne suit plus, et des lectures anonymes
+  expirent. Mesuré : aucune contention côté PostgreSQL.
+- Après une exécution, nettoyer les comptes `@chronolignee.invalid` et leurs
+  arbres (SQL dans [TESTING.md](TESTING.md)).
+
+### IA
+
+- **Modèle par défaut `claude-opus-5`**, et non Fable 5.1, qui impose une
   rétention de 30 jours côté fournisseur — mauvais défaut pour des
-  transcriptions qui nomment des vivants. Le `.env` local contient encore
-  `claude-fable-5-1` (inutilisé tant que `AI_PROVIDER=fake`).
-- Le fournisseur Anthropic n'a **jamais été appelé pour de vrai** dans ce
-  projet : aucune clé n'est configurée. Son comportement est vérifié contre un
-  client factice et contre les types du SDK installé (0.125.0). Le premier appel
-  réel mérite d'être observé.
-- Repli serveur en cas de refus activé (`fallbacks: 'default'`).
+  transcriptions qui nomment des vivants.
+- Le fournisseur Anthropic n'a **jamais été appelé pour de vrai** ici : aucune
+  clé configurée. Vérifié contre un client simulé et les types du SDK 0.125.0.
+  Le premier appel réel mérite d'être observé.
 
-- **Contention du poste, pas du produit.** En parallèle maximale, la suite E2E
-  échouait une fois sur trois : des attentes côté client expiraient à 30 s.
-  Établi par mesure : aucune attente de verrou ni saturation côté PostgreSQL,
-  console navigateur propre, et des requêtes **anonymes en lecture seule**
-  expiraient aussi. Les exécutions saines durent 18 s, les contendues 1,8 min.
-  Un seul processus `next start` ne sert pas huit navigateurs concurrents.
-  Workers fixés à 1 en local, 2 en CI (avec reprises). Le nombre de workers ne
-  change rien à ce que les tests vérifient.
+### Rendu
 
-- La suite E2E consomme **environ 4 inscriptions par exécution** : le compte
-  partagé (`globalSetup`), le test d'inscription, l'invitée et le compte
-  effacé de la suite de collaboration. Au plafond de 20 par heure et par IP,
-  cela fait quatre exécutions complètes par heure.
-
-- La suite E2E consommait **3 inscriptions par exécution**, contre un plafond de
-  20 par heure et par IP. Enchaîner plus de six exécutions complètes dans
-  l'heure fait échouer les tests authentifiés : c'est le rate-limit qui
-  fonctionne, pas une régression. Attendre, ou viser un fichier précis.
-
-- Un échec E2E observé **une fois sur environ huit exécutions complètes**, juste
-  après une reconstruction : `waitForURL` expirait sur la première action
-  serveur d'un `next start` froid. Budget porté de 15 à 30 s — l'assertion est
-  inchangée. Six exécutions propres depuis, mais l'observation est trop mince
-  pour affirmer que la cause est établie.
-
-- L'image du worker pèse 929 Mo, dominée par le SDK AWS et les moteurs Prisma.
-  Acceptable, pas optimal.
-- **Adresses non vérifiées** : faute de fournisseur de courriel, une
-  invitation repose sur son lien (usage unique, une adresse, 7 jours). Qui
-  détient le lien d'une adresse encore sans compte peut créer ce compte.
-- Les résumés de révision écrits avant la phase 10 contiennent des codes
-  (« BIRTH corrigé ») ; l'historique les traduit à la lecture.
-- La migration `20260919140000_revision_export` ajoute `EXPORT` aux actions
-  d'audit : `migrate deploy` avant de déployer ce code.
-
-- **Le chemin WebGPU n'a pas été vu à l'écran.** Dans le navigateur intégré,
-  le rendu WebGPU est détecté et dessine (compteur d'images), mais le panneau
-  masqué empêche la capture et la relecture d'un canevas WebGPU. Les E2E
-  passent par WebGL 2 (Chromium headless n'a pas d'adaptateur WebGPU), et
-  c'est ce chemin qui est vérifié au pixel. À regarder sur une vraie machine.
-- Le module three.js pèse 919 Ko (248 Ko gzip), chargé seulement sur la
-  constellation et seulement après la sonde des capacités.
-- L'éventail et la constellation chargent le graphe entier de l'arbre à
-  chaque requête, comme l'ascendance. Sans objet sur la démonstration ; à mesurer au-delà de
+- **Le chemin WebGPU n'a pas été relu au pixel** : dans le navigateur intégré
+  il est détecté et dessine, mais la capture d'un canevas WebGPU n'a pas
+  abouti ; les E2E vérifient le repli WebGL 2.
+- three.js pèse 919 Ko (248 Ko compressés), chargé seulement sur la
+  constellation, après la sonde des capacités.
+- L'éventail et la constellation chargent le graphe entier de l'arbre (comme
+  l'ascendance) : sans objet sur la démonstration, à mesurer au-delà de
   quelques dizaines de milliers de personnes.
-- Sourcer `.env` dans un shell exporte `NODE_ENV=development`, qui désactive
-  la garde de déploiement. Pour la tester à la main, fixer
-  `NODE_ENV=production` explicitement — constaté en la vérifiant.
+
+### Environnement de développement
 
 - **Incident Docker Desktop (2026-09-19)** : démarrage impossible
   (`dockerInference … The file cannot be accessed by the system`). Réparé en
-  renommant `%LOCALAPPDATA%\Docker\run` en `run.stale-20260919-084145` — la
-  socket n'était pas supprimable. Jamais « Reset to factory defaults », qui
-  efface les volumes : données intactes. Le dossier renommé peut être supprimé
-  après un redémarrage de Windows.
+  renommant `%LOCALAPPDATA%\Docker\run`. Jamais « Reset to factory defaults »,
+  qui efface les volumes.
 
-- Les commandes Prisma bloquent sans TTY : préfixer par `CI=true`.
-- `packages/db/generated` est ignoré par git ; `pnpm db:generate` est requis
-  après un clone.
+---
+
+## Prochaine action
+
+Le produit est utilisable et documenté ; la suite dépend d'une décision, pas
+d'un correctif :
+
+1. **Si un fournisseur de courriel peut être configuré** (identifiants
+   nécessaires) : écrire l'envoi (transport + capture locale), la
+   réinitialisation du mot de passe, la vérification d'adresse et l'envoi des
+   invitations. C'est ce qui manque le plus à une instance ouverte à d'autres
+   personnes.
+2. **Sinon** : la détection de doublons et son écran de fusion — la table, le
+   score et l'explication sont prévus, rien ne les alimente
+   ([ROADMAP.md](ROADMAP.md), § 2).

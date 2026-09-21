@@ -27,9 +27,10 @@ pnpm infra:up      # PostgreSQL 18 + PostGIS, Redis, MinIO
 cp .env.example .env
 # renseigner BETTER_AUTH_SECRET :
 #   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+pnpm db:generate   # le client Prisma n'est pas versionné
 pnpm db:migrate
 pnpm db:seed
-pnpm dev
+pnpm dev           # web (3000) + worker : le worker écrit les imports GEDCOM
 ```
 
 Ou en une commande, après avoir créé le `.env` :
@@ -56,10 +57,12 @@ pnpm setup
 | `pnpm verify`           | format + lint + typecheck + tests unitaires       |
 | `pnpm test:unit`        | tests purs, sans I/O                              |
 | `pnpm test:integration` | tests contre la vraie base (nécessite `infra:up`) |
-| `pnpm test:e2e`         | Playwright                                        |
+| `pnpm test:e2e`         | Playwright, contre l'application construite       |
 | `pnpm db:migrate`       | nouvelle migration                                |
+| `pnpm db:drift`         | migrations ≟ schéma Prisma                        |
 | `pnpm db:studio`        | explorateur de base                               |
 | `pnpm benchmark`        | mesures du moteur temporel                        |
+| `pnpm benchmark:db`     | mesures des requêtes, jusqu'à 20 000 personnes    |
 
 Préfixer les commandes Prisma par `CI=true` hors terminal interactif : elles
 bloquent sinon sur une invite.
@@ -101,15 +104,19 @@ Voir [ADR 0003](docs/adr/0003-julian-day-number-as-temporal-axis.md).
 ## Structure
 
 ```
-apps/web        interface Next.js
-apps/worker     jobs longs (import GEDCOM, extraction IA, vignettes)
+apps/web        interface Next.js, actions serveur, API
+apps/worker     écriture des imports GEDCOM, purge des arbres supprimés
 
-packages/domain     dates, invariants, types purs — ne dépend de rien
-packages/db         Prisma, codec de dates, normalisation
-packages/genealogy  traversée de graphe et règles
-packages/gedcom     import / export GEDCOM 7
-packages/engine     moteur temporel WebGPU
-packages/config     validation d'environnement
+packages/domain     dates, invariants, confidentialité, droits — ne dépend de rien
+packages/genealogy  traversée de graphe, validation, numérotations
+packages/gedcom     lecture (UTF-8, ANSEL, Windows-1252…) et écriture GEDCOM 7
+packages/engine     caméra temporelle, niveaux de détail, mises en page (calcul pur)
+packages/db         Prisma, codec de dates, services, dépôts, données de démonstration
+packages/ai         fournisseurs d'IA, extraction vérifiée
+packages/storage    stockage S3 privé, validation des fichiers
+packages/jobs       files de travaux
+packages/config     validation d'environnement, garde de déploiement
+packages/ui         jetons de design, palettes, langage de l'incertitude
 ```
 
 Les dépendances pointent **vers l'intérieur**, et ESLint l'impose :
@@ -119,9 +126,19 @@ Les dépendances pointent **vers l'intérieur**, et ESLint l'impose :
 
 ## Documentation
 
-- [`CLAUDE.md`](CLAUDE.md) — guide de session, pièges de la stack
-- [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) — état réel d'avancement
+- [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) — **l'état réel**, ce qui
+  est vérifié, ce qui manque, ce qu'il faut surveiller
+- [`docs/VISION.md`](docs/VISION.md) · [`ARCHITECTURE`](docs/ARCHITECTURE.md) ·
+  [`DATA_MODEL`](docs/DATA_MODEL.md) · [`TEMPORAL_MODEL`](docs/TEMPORAL_MODEL.md) ·
+  [`GENEALOGY_RULES`](docs/GENEALOGY_RULES.md) · [`ENGINE`](docs/ENGINE.md) ·
+  [`DESIGN_SYSTEM`](docs/DESIGN_SYSTEM.md) · [`GEDCOM`](docs/GEDCOM.md) ·
+  [`AI`](docs/AI.md)
+- [`SECURITY`](docs/SECURITY.md) · [`PRIVACY`](docs/PRIVACY.md) ·
+  [`PERFORMANCE`](docs/PERFORMANCE.md) · [`TESTING`](docs/TESTING.md) ·
+  [`DEPLOYMENT`](docs/DEPLOYMENT.md) · [`DEPENDENCIES`](docs/DEPENDENCIES.md) ·
+  [`ROADMAP`](docs/ROADMAP.md)
 - [`docs/adr/`](docs/adr/) — décisions coûteuses à annuler
+- [`CLAUDE.md`](CLAUDE.md) — guide de session, pièges de la stack
 
 ## Licence
 

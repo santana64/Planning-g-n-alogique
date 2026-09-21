@@ -3,6 +3,7 @@ import fc from 'fast-check';
 import {
   JDN_UNIX_EPOCH,
   dateToJdn,
+  daysInMonth,
   frenchRepublicanToJdn,
   gregorianToJdn,
   jdnToFrenchRepublican,
@@ -126,6 +127,29 @@ describe('French Republican <-> JDN', () => {
         },
       ),
     );
+  });
+});
+
+describe('daysInMonth', () => {
+  it('knows the proleptic Gregorian leap years, the years before 100 included', () => {
+    // Year 0 (1 BC) is a leap year; 1900, which Date.UTC read it as, is not.
+    expect(daysInMonth('GREGORIAN', 0, 2)).toBe(29);
+    expect(daysInMonth('GREGORIAN', 100, 2)).toBe(28);
+    expect(daysInMonth('GREGORIAN', 400, 2)).toBe(29);
+    expect(daysInMonth('GREGORIAN', 1900, 2)).toBe(28);
+    expect(daysInMonth('GREGORIAN', 2000, 2)).toBe(29);
+    expect(daysInMonth('GREGORIAN', 1877, 6)).toBe(30);
+    expect(daysInMonth('GREGORIAN', 1877, 13)).toBeNull();
+  });
+
+  it('agrees with the JDN conversion for every month of four centuries', () => {
+    for (let year = 1600; year < 2000; year += 1) {
+      for (let month = 1; month <= 12; month += 1) {
+        const next =
+          month === 12 ? gregorianToJdn(year + 1, 1, 1) : gregorianToJdn(year, month + 1, 1);
+        expect(daysInMonth('GREGORIAN', year, month)).toBe(next - gregorianToJdn(year, month, 1));
+      }
+    }
   });
 });
 

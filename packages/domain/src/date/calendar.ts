@@ -137,15 +137,21 @@ export function frenchRepublicanMonthLength(year: number, month: number): number
 
 // --- Dispatch ---------------------------------------------------------------
 
+const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
 export function daysInMonth(calendar: Calendar, year: number, month: number): number | null {
   switch (calendar) {
-    case 'GREGORIAN':
-      return new Date(Date.UTC(year, month, 0)).getUTCDate();
+    // Arithmetic, not Date.UTC: that reads years 0-99 as 1900-1999, and the
+    // proleptic year 0 is a leap year where 1900 is not.
+    case 'GREGORIAN': {
+      if (month < 1 || month > 12) return null;
+      const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+      return month === 2 && leap ? 29 : (MONTH_LENGTHS[month - 1] ?? null);
+    }
     case 'JULIAN': {
-      const lengths = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
       if (month < 1 || month > 12) return null;
       if (month === 2 && year % 4 === 0) return 29;
-      return lengths[month - 1] ?? null;
+      return MONTH_LENGTHS[month - 1] ?? null;
     }
     case 'FRENCH_R':
       return frenchRepublicanMonthLength(year, month);

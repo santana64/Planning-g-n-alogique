@@ -90,19 +90,11 @@ export function kinshipLabel(relation: Kinship, otherSex: KinshipSex = 'UNKNOWN'
       return capitalise(descendantTerm(relation.down, otherSex));
     case 'SIBLING':
       return otherSex === 'MALE' ? 'Frère' : otherSex === 'FEMALE' ? 'Sœur' : 'Frère ou sœur';
-    case 'PIBLING': {
+    case 'PIBLING':
       // Uncle, great-uncle, and so on: one step off the direct line.
-      const greats = 'grand-'.repeat(Math.max(0, relation.up - 2));
-      const base =
-        otherSex === 'MALE' ? 'oncle' : otherSex === 'FEMALE' ? 'tante' : 'oncle ou tante';
-      return capitalise(`${greats}${base}`);
-    }
-    case 'NIBLING': {
-      const greats = 'petit-'.repeat(Math.max(0, relation.down - 2));
-      const base =
-        otherSex === 'MALE' ? 'neveu' : otherSex === 'FEMALE' ? 'nièce' : 'neveu ou nièce';
-      return capitalise(`${greats}${base}`);
-    }
+      return capitalise(bothOrOne(otherSex, (sex) => piblingTerm(relation.up, sex)));
+    case 'NIBLING':
+      return capitalise(bothOrOne(otherSex, (sex) => niblingTerm(relation.down, sex)));
     case 'COUSIN': {
       const base =
         otherSex === 'FEMALE' ? 'Cousine' : otherSex === 'MALE' ? 'Cousin' : 'Cousin ou cousine';
@@ -111,6 +103,27 @@ export function kinshipLabel(relation: Kinship, otherSex: KinshipSex = 'UNKNOWN'
     case 'UNRELATED':
       return 'Aucun lien trouvé dans cet arbre';
   }
+}
+
+/**
+ * French adds one "grand-" and then "arrière-" for each further generation:
+ * grand-oncle, arrière-grand-oncle — never "grand-grand-oncle".
+ */
+function piblingTerm(up: number, sex: 'MALE' | 'FEMALE'): string {
+  const base = sex === 'MALE' ? 'oncle' : 'tante';
+  return up <= 2 ? base : `${'arrière-'.repeat(up - 3)}grand-${base}`;
+}
+
+/** Petit-neveu but petite-nièce: the prefix agrees, and then "arrière-" repeats. */
+function niblingTerm(down: number, sex: 'MALE' | 'FEMALE'): string {
+  if (down <= 2) return sex === 'MALE' ? 'neveu' : 'nièce';
+  return `${'arrière-'.repeat(down - 3)}${sex === 'MALE' ? 'petit-neveu' : 'petite-nièce'}`;
+}
+
+/** The one term when the sex is recorded, both in full when it is not. */
+function bothOrOne(sex: KinshipSex, term: (sex: 'MALE' | 'FEMALE') => string): string {
+  if (sex === 'MALE' || sex === 'FEMALE') return term(sex);
+  return `${term('MALE')} ou ${term('FEMALE')}`;
 }
 
 function capitalise(value: string): string {
