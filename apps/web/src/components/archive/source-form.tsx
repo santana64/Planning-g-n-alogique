@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { createSourceAction } from '@/server/evidence-actions';
@@ -16,33 +17,28 @@ import { Field, Select, SubmitButton, TextArea, TextInput } from '@/components/p
  * trees nobody can check.
  */
 
-const SOURCE_TYPE_OPTIONS = [
-  ['CIVIL_REGISTER', 'État civil'],
-  ['PARISH_REGISTER', 'Registre paroissial'],
-  ['CENSUS', 'Recensement'],
-  ['MILITARY_RECORD', 'Registre militaire'],
-  ['NOTARIAL_ACT', 'Acte notarié'],
-  ['NEWSPAPER', 'Presse'],
-  ['CEMETERY', 'Cimetière'],
-  ['BOOK', 'Ouvrage'],
-  ['WEBSITE', 'Site web'],
-  ['DATABASE', 'Base de données'],
-  ['PHOTOGRAPH', 'Photographie'],
-  ['LETTER', 'Correspondance'],
-  ['ORAL_HISTORY', 'Témoignage oral'],
-  ['DNA', 'ADN'],
-  ['OTHER', 'Autre'],
+const SOURCE_TYPES = [
+  'CIVIL_REGISTER',
+  'PARISH_REGISTER',
+  'CENSUS',
+  'MILITARY_RECORD',
+  'NOTARIAL_ACT',
+  'NEWSPAPER',
+  'CEMETERY',
+  'BOOK',
+  'WEBSITE',
+  'DATABASE',
+  'PHOTOGRAPH',
+  'LETTER',
+  'ORAL_HISTORY',
+  'DNA',
+  'OTHER',
 ] as const;
 
-const RELIABILITY_OPTIONS = [
-  ['VERY_HIGH', 'Acte original consulté'],
-  ['HIGH', 'Copie fiable'],
-  ['MEDIUM', 'Vraisemblable'],
-  ['LOW', 'Incertain'],
-  ['VERY_LOW', 'Hypothèse'],
-] as const;
+const RELIABILITIES = ['VERY_HIGH', 'HIGH', 'MEDIUM', 'LOW', 'VERY_LOW'] as const;
 
 export function SourceForm({ treeSlug }: { treeSlug: string }) {
+  const t = useTranslations('archive');
   const router = useRouter();
   const [state, action, pending] = useActionState<ActionState, FormData>(createSourceAction, IDLE);
 
@@ -58,62 +54,54 @@ export function SourceForm({ treeSlug }: { treeSlug: string }) {
       className="border-border-subtle bg-surface-1/40 flex flex-col gap-4 rounded-[var(--radius-md)] border p-4"
     >
       <input type="hidden" name="treeSlug" value={treeSlug} />
-      <h2 className="font-editorial text-text-primary text-base">Ajouter une source</h2>
+      <h2 className="font-editorial text-text-primary text-base">{t('addSource')}</h2>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field id="source-title" label="Titre">
-          <TextInput
-            id="source-title"
-            name="title"
-            placeholder="Registre paroissial de Tours, 1700-1720"
-          />
+        <Field id="source-title" label={t('sourceTitle')}>
+          <TextInput id="source-title" name="title" placeholder={t('sourceTitlePlaceholder')} />
         </Field>
 
-        <Field id="source-type" label="Nature">
+        <Field id="source-type" label={t('sourceKind')}>
           <Select
             id="source-type"
             name="type"
             defaultValue="PARISH_REGISTER"
-            options={SOURCE_TYPE_OPTIONS}
+            options={SOURCE_TYPES.map((value) => [value, t(`sourceTypes.${value}`)] as const)}
           />
         </Field>
 
-        <Field
-          id="source-call-number"
-          label="Cote"
-          hint="Ce qui permet de redemander le document au dépôt. Le champ le plus utile de cette fiche."
-        >
+        <Field id="source-call-number" label={t('callNumber')} hint={t('callNumberHint')}>
           <TextInput
             id="source-call-number"
             name="callNumber"
-            placeholder="6 NUM 7/261/003"
+            placeholder={t('callNumberPlaceholder')}
             hasHint
           />
         </Field>
 
-        <Field id="source-repository" label="Dépôt">
+        <Field id="source-repository" label={t('repository')}>
           <TextInput
             id="source-repository"
             name="repository"
-            placeholder="Archives départementales d’Indre-et-Loire"
+            placeholder={t('repositoryPlaceholder')}
           />
         </Field>
 
-        <Field id="source-url" label="Adresse en ligne">
+        <Field id="source-url" label={t('onlineAddress')}>
           <TextInput id="source-url" name="url" placeholder="https://archives.touraine.fr/…" />
         </Field>
 
-        <Field id="source-reliability" label="Fiabilité">
+        <Field id="source-reliability" label={t('reliabilityLabel')}>
           <Select
             id="source-reliability"
             name="reliability"
             defaultValue="MEDIUM"
-            options={RELIABILITY_OPTIONS}
+            options={RELIABILITIES.map((value) => [value, t(`reliability.${value}`)] as const)}
           />
         </Field>
       </div>
 
-      <Field id="source-notes" label="Notes">
+      <Field id="source-notes" label={t('notes')}>
         <TextArea id="source-notes" name="notes" rows={2} />
       </Field>
 
@@ -130,7 +118,7 @@ export function SourceForm({ treeSlug }: { treeSlug: string }) {
         </p>
       ) : null}
 
-      <SubmitButton pending={pending}>Ajouter la source</SubmitButton>
+      <SubmitButton pending={pending}>{t('submitSource')}</SubmitButton>
     </form>
   );
 }

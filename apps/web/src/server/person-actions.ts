@@ -24,7 +24,7 @@ import { db } from '@/lib/db';
 import { findingMessage } from '@/lib/finding-messages';
 import type { ActionState } from './action-state';
 import {
-  NOT_FOUND,
+  notFound,
   authoriseWrite,
   peopleOfRelationship,
   peopleWritable,
@@ -128,6 +128,7 @@ export async function createPersonAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
@@ -159,8 +160,8 @@ export async function createPersonAction(
   if (input.names.length === 0) {
     return {
       status: 'error',
-      message: 'Indiquez au moins un nom.',
-      fieldErrors: { 'names.0.given': 'Un prénom ou un nom est nécessaire.' },
+      message: t('person.nameRequired'),
+      fieldErrors: { 'names.0.given': t('person.nameFieldRequired') },
     };
   }
 
@@ -169,7 +170,7 @@ export async function createPersonAction(
     revalidateTree(treeSlug);
     return {
       status: 'success',
-      message: `${created.displayName} a été créé.`,
+      message: t('person.created', { name: created.displayName }),
       personId: created.personId,
     };
   } catch (error) {
@@ -181,12 +182,13 @@ export async function updatePersonAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
 
   const personId = text(form, 'personId');
-  if (!(await peopleWritable(authorised.access, [personId]))) return NOT_FOUND;
+  if (!(await peopleWritable(authorised.access, [personId]))) return await notFound();
 
   const privacy = privacyFrom(form);
   if (privacy) {
@@ -194,7 +196,7 @@ export async function updatePersonAction(
       where: { id: personId, treeId: authorised.access.treeId, deletedAt: null },
       select: { privacy: true },
     });
-    if (!current) return NOT_FOUND;
+    if (!current) return await notFound();
     if (!canSetPersonPrivacy(authorised.access.role, current.privacy, privacy)) {
       return refusal('setPersonPrivacy');
     }
@@ -204,8 +206,8 @@ export async function updatePersonAction(
   if (names.length === 0) {
     return {
       status: 'error',
-      message: 'Indiquez au moins un nom.',
-      fieldErrors: { 'names.0.given': 'Un prénom ou un nom est nécessaire.' },
+      message: t('person.nameRequired'),
+      fieldErrors: { 'names.0.given': t('person.nameFieldRequired') },
     };
   }
 
@@ -228,7 +230,11 @@ export async function updatePersonAction(
       authorised.context,
     );
     revalidateTree(treeSlug);
-    return { status: 'success', message: `${updated.displayName} a été enregistré.`, personId };
+    return {
+      status: 'success',
+      message: t('person.saved', { name: updated.displayName }),
+      personId,
+    };
   } catch (error) {
     return await failure(error);
   }
@@ -243,7 +249,7 @@ export async function deletePersonAction(
   if ('error' in authorised) return authorised.error;
 
   const personId = text(form, 'personId');
-  if (!(await peopleWritable(authorised.access, [personId]))) return NOT_FOUND;
+  if (!(await peopleWritable(authorised.access, [personId]))) return await notFound();
 
   try {
     await deletePerson(db, personId, authorised.context);
@@ -263,13 +269,14 @@ export async function createRelationshipAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
 
   const sourceId = text(form, 'sourceId');
   const targetId = text(form, 'targetId');
-  if (!(await peopleWritable(authorised.access, [sourceId, targetId]))) return NOT_FOUND;
+  if (!(await peopleWritable(authorised.access, [sourceId, targetId]))) return await notFound();
 
   try {
     const result = await createRelationship(
@@ -289,7 +296,7 @@ export async function createRelationshipAction(
 
     return {
       status: 'success',
-      message: 'Le lien a été créé.',
+      message: t('person.linkCreated'),
       // Reported, never blocking. A mother of 58 is unusual and real; refusing
       // it would force the researcher to falsify the register to store it.
       warnings: await warningsFrom(result.warnings),
@@ -303,18 +310,19 @@ export async function deleteRelationshipAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug, 'delete');
   if ('error' in authorised) return authorised.error;
 
   const relationshipId = text(form, 'relationshipId');
   const people = await peopleOfRelationship(authorised.access.treeId, relationshipId);
-  if (!people || !(await peopleWritable(authorised.access, people))) return NOT_FOUND;
+  if (!people || !(await peopleWritable(authorised.access, people))) return await notFound();
 
   try {
     await deleteRelationship(db, relationshipId, authorised.context);
     revalidateTree(treeSlug);
-    return { status: 'success', message: 'Le lien a été supprimé.' };
+    return { status: 'success', message: t('person.linkDeleted') };
   } catch (error) {
     return await failure(error);
   }
@@ -328,17 +336,18 @@ export async function deleteRelationshipAction(
  * "erreur" would leave the user to guess which of two people is wrong.
  */
 async function failure(error: unknown): Promise<ActionState> {
+  const t = await getTranslations('actions');
   if (error instanceof RelationshipRefused) {
     return {
       status: 'error',
-      message: 'Ce lien rendrait l’arbre incohérent.',
+      message: t('person.linkInconsistent'),
       warnings: await warningsFrom(error.findings),
     };
   }
   if (error instanceof ZodError) {
     return {
       status: 'error',
-      message: 'Certains champs sont invalides.',
+      message: t('invalidFields'),
       fieldErrors: fieldErrorsFrom(error),
     };
   }
@@ -347,5 +356,5 @@ async function failure(error: unknown): Promise<ActionState> {
   }
   // Nothing from the database reaches the user: a Prisma message can carry
   // column names, constraint names and fragments of other people's data.
-  return { status: 'error', message: 'L’enregistrement a échoué.' };
+  return { status: 'error', message: t('person.writeFailed') };
 }

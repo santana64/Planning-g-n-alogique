@@ -1,6 +1,6 @@
 'use server';
 
-import { getLocale } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { TREE_ROLES, type TreeRole } from '@chronolignee/domain';
 import {
   INVITATION_TTL_DAYS,
@@ -10,10 +10,8 @@ import {
   createInvitation,
   removeMember,
   revokeInvitation,
-  type MembershipRefusal,
 } from '@chronolignee/db';
 import { treeInvitationMessage } from '@chronolignee/mail';
-import { ROLE_NAMES } from '@/components/sharing/role-labels';
 import { getPathname, redirect } from '@/i18n/navigation';
 import { db } from '@/lib/db';
 import { env } from '@/lib/env';
@@ -35,28 +33,18 @@ import type { InviteState } from './sharing-state';
  * instant.
  */
 
-const MESSAGES: Record<MembershipRefusal, string> = {
-  NOT_ALLOWED: 'Votre rôle ne permet pas ce changement.',
-  LAST_OWNER: 'L’arbre doit garder au moins un propriétaire : nommez-en un autre avant.',
-  NOT_FOUND: 'Ce membre ou cette invitation est introuvable.',
-  ALREADY_MEMBER: 'Cette adresse est déjà celle d’un membre de l’arbre.',
-  INVALID_EMAIL: 'Cette adresse e-mail n’est pas valide.',
-  EXPIRED: 'Cette invitation a expiré. Demandez-en une nouvelle à qui vous l’a envoyée.',
-  REVOKED: 'Cette invitation a été annulée.',
-  USED: 'Cette invitation a déjà servi.',
-  WRONG_ACCOUNT:
-    'Cette invitation est adressée à un autre compte. Connectez-vous avec l’adresse invitée.',
-};
-
-function failure(error: unknown): ActionState {
-  if (error instanceof MembershipRefused) return { status: 'error', message: MESSAGES[error.code] };
+async function failure(error: unknown): Promise<ActionState> {
+  const t = await getTranslations('actions');
+  if (error instanceof MembershipRefused) {
+    return { status: 'error', message: t(`sharing.refusal.${error.code}`) };
+  }
   // Nothing from the database reaches the page, nor the log beyond the
   // error's name: a Prisma message can quote an address or a name.
   logger.error(
     { event: 'membership.failed', error: error instanceof Error ? error.name : typeof error },
     'membership change failed',
   );
-  return { status: 'error', message: 'Le changement n’a pas pu être enregistré.' };
+  return { status: 'error', message: t('sharing.changeFailed') };
 }
 
 function text(form: FormData, key: string): string {
@@ -73,12 +61,13 @@ export async function inviteMemberAction(
   _previous: InviteState,
   form: FormData,
 ): Promise<InviteState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug, 'manageMembers');
   if ('error' in authorised) return authorised.error;
 
   const role = roleFrom(form);
-  if (!role) return { status: 'error', message: 'Choisissez un rôle.' };
+  if (!role) return { status: 'error', message: t('sharing.chooseRole') };
   const email = text(form, 'email');
 
   try {
@@ -100,7 +89,8 @@ export async function inviteMemberAction(
         url: link,
         treeName: authorised.access.treeName,
         inviterName: authorised.userName,
-        roleLabel: ROLE_NAMES[role],
+        // The inviter's language: it is the only one this request knows.
+        roleLabel: (await getTranslations('tree.roles'))(role),
         validForDays: INVITATION_TTL_DAYS,
       }),
     );
@@ -108,14 +98,14 @@ export async function inviteMemberAction(
     revalidateTree(treeSlug);
     return {
       status: 'success',
-      message: sent
-        ? `Invitation envoyée à ${email.toLowerCase()}. Voici le même lien, au cas où : il ne sera plus affiché.`
-        : `Invitation prête pour ${email.toLowerCase()}. Transmettez-lui ce lien : il ne sera plus affiché.`,
+      message: t(sent ? 'sharing.invitationSent' : 'sharing.invitationReady', {
+        email: email.toLowerCase(),
+      }),
       link,
       expiresAt: created.expiresAt.toISOString(),
     };
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
 }
 
@@ -123,6 +113,7 @@ export async function revokeInvitationAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug, 'manageMembers');
   if ('error' in authorised) return authorised.error;
@@ -134,9 +125,9 @@ export async function revokeInvitationAction(
       { userId: authorised.userId },
     );
     revalidateTree(treeSlug);
-    return { status: 'success', message: 'Invitation annulée : le lien ne fonctionne plus.' };
+    return { status: 'success', message: t('sharing.invitationRevoked') };
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
 }
 
@@ -144,12 +135,13 @@ export async function changeRoleAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug, 'manageMembers');
   if ('error' in authorised) return authorised.error;
 
   const role = roleFrom(form);
-  if (!role) return { status: 'error', message: 'Choisissez un rôle.' };
+  if (!role) return { status: 'error', message: t('sharing.chooseRole') };
 
   try {
     await changeMemberRole(
@@ -158,9 +150,9 @@ export async function changeRoleAction(
       { userId: authorised.userId },
     );
     revalidateTree(treeSlug);
-    return { status: 'success', message: 'Rôle modifié.' };
+    return { status: 'success', message: t('sharing.roleChanged') };
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
 }
 
@@ -168,6 +160,7 @@ export async function removeMemberAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug, 'manageMembers');
   if ('error' in authorised) return authorised.error;
@@ -179,9 +172,9 @@ export async function removeMemberAction(
       { userId: authorised.userId },
     );
     revalidateTree(treeSlug);
-    return { status: 'success', message: 'Le membre a été retiré de l’arbre.' };
+    return { status: 'success', message: t('sharing.memberRemoved') };
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
 }
 
@@ -190,18 +183,19 @@ export async function leaveTreeAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const session = await getSession();
   const access = session ? await resolveTreeAccess(treeSlug) : null;
   if (!session || !access || access.role === null) {
-    return { status: 'error', message: "Vous n'êtes pas membre de cet arbre." };
+    return { status: 'error', message: t('sharing.notAMember') };
   }
 
   const membership = await db.treeMember.findUnique({
     where: { treeId_userId: { treeId: access.treeId, userId: session.user.id } },
     select: { id: true },
   });
-  if (!membership) return { status: 'error', message: "Vous n'êtes pas membre de cet arbre." };
+  if (!membership) return { status: 'error', message: t('sharing.notAMember') };
 
   try {
     await removeMember(
@@ -210,7 +204,7 @@ export async function leaveTreeAction(
       { userId: session.user.id },
     );
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
   revalidateTree(treeSlug);
   revalidateDashboard();
@@ -223,8 +217,9 @@ export async function acceptInvitationAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const session = await getSession();
-  if (!session) return { status: 'error', message: 'Connectez-vous pour accepter l’invitation.' };
+  if (!session) return { status: 'error', message: t('sharing.signInToAccept') };
 
   let treeSlug: string;
   try {
@@ -234,7 +229,7 @@ export async function acceptInvitationAction(
     });
     treeSlug = joined.treeSlug;
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
   logger.info({ event: 'membership.joined', userId: session.user.id }, 'invitation accepted');
   revalidateTree(treeSlug);

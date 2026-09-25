@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { deleteTreeAction } from '@/server/tree-settings-actions';
 
@@ -21,6 +22,7 @@ export function DeleteTree({
   counts: { readonly people: number; readonly documents: number; readonly members: number };
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(deleteTreeAction, IDLE);
+  const t = useTranslations('settings');
   const [typed, setTyped] = useState('');
   const matches = typed.trim() === treeName.trim();
 
@@ -28,16 +30,13 @@ export function DeleteTree({
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="treeSlug" value={treeSlug} />
       <p className="text-text-secondary text-sm">
-        Supprimer l’arbre efface définitivement ses {counts.people} personnes, leurs événements,
-        leurs sources, ses {counts.documents} documents et leurs fichiers, et tout son historique.
-        {counts.members > 1
-          ? ` Les ${counts.members - 1} autres membres perdent leur accès.`
-          : ''}{' '}
-        Rien ne pourra être récupéré.
+        {t('deleteWarning', { people: counts.people, documents: counts.documents })}{' '}
+        {counts.members > 1 ? `${t('othersLoseAccess', { count: counts.members - 1 })} ` : ''}
+        {t('nothingRecovered')}
       </p>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="delete-confirmation" className="text-text-secondary text-sm font-medium">
-          Tapez « {treeName} » pour confirmer
+          {t('typeToConfirm', { value: treeName })}
         </label>
         <input
           id="delete-confirmation"
@@ -58,7 +57,7 @@ export function DeleteTree({
         disabled={!matches || pending}
         className="text-danger border-danger/50 hover:bg-danger/10 self-start rounded-[var(--radius-md)] border px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Supprimer définitivement l’arbre
+        {t('deleteForGood')}
       </button>
     </form>
   );

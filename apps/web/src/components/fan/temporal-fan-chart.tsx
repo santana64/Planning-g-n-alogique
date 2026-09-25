@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import { Link, getPathname } from '@/i18n/navigation';
 import type { TemporalFanView } from '@/server/temporal-fan';
 import {
@@ -32,17 +33,6 @@ import {
 /** How far into the opening, in radians, the year ruler sits. */
 const RULER_OFFSET = (3 * Math.PI) / 180;
 
-function placedLabel(count: number): string {
-  return count <= 1
-    ? `${count} position d’ancêtre placée dans le temps`
-    : `${count} positions d’ancêtres placées dans le temps`;
-}
-
-function yearsLabel(years: number): string {
-  const rounded = Math.round(years);
-  return rounded === 1 ? '1 an' : `${rounded} ans`;
-}
-
 export function TemporalFanChart({
   view,
   treeSlug,
@@ -52,6 +42,8 @@ export function TemporalFanChart({
   treeSlug: string;
   locale: string;
 }) {
+  const t = useTranslations('fan');
+  const years = (value: number): string => t('years', { count: Math.round(value) });
   const personHref = (personId: string) => `/app/${treeSlug}/personnes/${personId}`;
   const scale = Math.max(view.maxYears, ...view.rings.map((ring) => ring.offsetYears), 1);
   const fanStart = angleAt(0);
@@ -156,9 +148,11 @@ export function TemporalFanChart({
                   className="transition-opacity hover:opacity-70"
                 >
                   <title>
-                    {`${sector.sosa} · ${person?.name ?? ''} — né·e ${person?.birthLabel ?? '?'}${
-                      sector.anomalous ? ' — né·e après la personne centrale : à vérifier' : ''
-                    }`}
+                    {t(sector.anomalous ? 'sectorTitleAnomalous' : 'sectorTitle', {
+                      sosa: sector.sosa,
+                      name: person?.name ?? '',
+                      birth: person?.birthLabel ?? '?',
+                    })}
                   </title>
                 </path>
               </a>
@@ -223,29 +217,30 @@ export function TemporalFanChart({
       </svg>
 
       <figcaption id="fan-caption" className="text-text-faint text-center text-xs">
-        Éventail temporel de {view.subjectName} : {placedLabel(view.sectors.length)}.
+        {t('caption', {
+          name: view.subjectName,
+          placed: t('placed', { count: view.sectors.length }),
+        })}
       </figcaption>
 
       <details className="border-border-subtle rounded-[var(--radius-md)] border px-4 py-3">
-        <summary className="text-text-secondary cursor-pointer text-sm">
-          Le détail, position par position
-        </summary>
+        <summary className="text-text-secondary cursor-pointer text-sm">{t('detail')}</summary>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm">
-            <caption className="sr-only">Ancêtres placés dans l’éventail temporel</caption>
+            <caption className="sr-only">{t('tableCaption')}</caption>
             <thead>
               <tr className="text-text-faint border-border-subtle border-b text-left">
                 <th scope="col" className="py-2 pr-4 font-normal">
-                  Sosa
+                  {t('columns.sosa')}
                 </th>
                 <th scope="col" className="py-2 pr-4 font-normal">
-                  Ancêtre
+                  {t('columns.ancestor')}
                 </th>
                 <th scope="col" className="py-2 pr-4 font-normal">
-                  Naissance
+                  {t('columns.birth')}
                 </th>
                 <th scope="col" className="py-2 font-normal">
-                  Avant la personne centrale
+                  {t('columns.before')}
                 </th>
               </tr>
             </thead>
@@ -264,9 +259,12 @@ export function TemporalFanChart({
                   <td className="tabular py-2 pr-4">{view.people[sector.personId]?.birthLabel}</td>
                   <td className="tabular text-text-muted py-2">
                     {sector.uncertain
-                      ? `entre ${yearsLabel(sector.innerYears)} et ${yearsLabel(sector.outerYears)}`
-                      : yearsLabel(sector.innerYears)}
-                    {sector.anomalous ? ' — incohérent' : ''}
+                      ? t('between', {
+                          from: years(sector.innerYears),
+                          to: years(sector.outerYears),
+                        })
+                      : years(sector.innerYears)}
+                    {sector.anomalous ? t('inconsistent') : ''}
                   </td>
                 </tr>
               ))}

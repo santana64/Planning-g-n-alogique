@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { acceptProposalAction, rejectProposalAction } from '@/server/proposal-actions';
 import type { ProposalRow } from '@/server/proposals';
@@ -36,12 +37,13 @@ export function ProposalReview({
   // place, under the reviewer's cursor: a second click meant to confirm would
   // accept a different statement. So decided items stay where they were,
   // showing their outcome, until the reviewer leaves the page.
+  const t = useTranslations('proposals');
   const [initial] = useState(rows);
   const known = new Set(initial.map((row) => row.proposalId));
   const shown = [...initial, ...rows.filter((row) => !known.has(row.proposalId))];
 
   if (shown.length === 0) {
-    return <p className="text-text-faint text-sm">Aucune proposition en attente.</p>;
+    return <p className="text-text-faint text-sm">{t('none')}</p>;
   }
 
   return (
@@ -72,6 +74,10 @@ function ProposalItem({
     rejectProposalAction,
     IDLE,
   );
+  const t = useTranslations('proposals');
+  const predicateLabel = t.has(`predicates.${row.predicate}`)
+    ? t(`predicates.${row.predicate}`)
+    : row.predicate;
   const [editing, setEditing] = useState(false);
   const [rejectingOpen, setRejectingOpen] = useState(false);
 
@@ -89,7 +95,7 @@ function ProposalItem({
         role="status"
         className="text-text-muted border-border-subtle rounded-[var(--radius-md)] border border-dashed px-3 py-2 text-sm"
       >
-        {row.predicateLabel} — {row.valueText} :{' '}
+        {predicateLabel} — {row.valueText} :{' '}
         {acceptState.status === 'success' ? acceptState.message : rejectState.message}
       </p>
     );
@@ -97,25 +103,25 @@ function ProposalItem({
 
   return (
     <article
-      aria-label={`${row.predicateLabel} : ${row.valueText}`}
+      aria-label={t('rowLabel', { predicate: predicateLabel, value: row.valueText })}
       className="border-border-default bg-surface-1/60 flex flex-col gap-3 rounded-[var(--radius-md)] border p-3"
     >
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="flex flex-wrap items-baseline gap-2">
-          <span className="text-text-faint text-xs tracking-wide uppercase">
-            {row.predicateLabel}
-          </span>
+          <span className="text-text-faint text-xs tracking-wide uppercase">{predicateLabel}</span>
           <span className="font-editorial text-text-primary text-base">{row.valueText}</span>
           {showSubject ? (
             <span className="text-text-muted text-xs">
-              {row.personName ? `— ${row.personName}` : `— « ${row.subjectName} », non relié`}
+              {row.personName
+                ? t('about', { name: row.personName })
+                : t('unlinked', { name: row.subjectName })}
             </span>
           ) : null}
         </p>
         <span className="text-text-faint text-xs">
-          proposé par {row.readBy}
+          {t('proposedBy', { reader: row.readBy ?? t('byRules') })}
           {row.modelConfidence !== null
-            ? ` · confiance déclarée ${Math.round(row.modelConfidence * 100)} %`
+            ? t('declaredConfidence', { percent: Math.round(row.modelConfidence * 100) })
             : ''}
         </span>
       </header>
@@ -141,7 +147,7 @@ function ProposalItem({
           // guessing. The reviewer says who, or rejects.
           <PersonPicker
             name="personId"
-            label={`Qui est « ${row.subjectName} » ?`}
+            label={t('whoIs', { name: row.subjectName })}
             treeSlug={treeSlug}
             excludeId=""
           />
@@ -150,7 +156,7 @@ function ProposalItem({
         {editing ? (
           <div className="flex flex-col gap-1.5">
             <label htmlFor={`edit-${row.proposalId}`} className="text-text-secondary text-sm">
-              Valeur corrigée
+              {t('correctedValue')}
             </label>
             <input
               id={`edit-${row.proposalId}`}
@@ -158,9 +164,7 @@ function ProposalItem({
               defaultValue={row.valueText}
               className="border-border-default bg-surface-1 text-text-primary focus:border-accent rounded-[var(--radius-md)] border px-3 py-2 focus:outline-none"
             />
-            <p className="text-text-faint text-xs">
-              Enregistré comme « accepté avec correction » : la lecture d’origine reste consultable.
-            </p>
+            <p className="text-text-faint text-xs">{t('correctedNote')}</p>
           </div>
         ) : null}
 
@@ -176,7 +180,7 @@ function ProposalItem({
             disabled={accepting || rejecting}
             className="bg-accent text-accent-contrast hover:bg-accent-hover rounded-[var(--radius-md)] px-3 py-1.5 text-sm font-medium transition-colors duration-[var(--duration-fast)] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {accepting ? 'Enregistrement…' : editing ? 'Accepter la correction' : 'Accepter'}
+            {accepting ? t('saving') : editing ? t('acceptCorrection') : t('accept')}
           </button>
           {editing ? null : (
             <button
@@ -184,7 +188,7 @@ function ProposalItem({
               onClick={() => setEditing(true)}
               className="text-text-muted hover:text-text-primary text-sm"
             >
-              Corriger puis accepter
+              {t('correctThenAccept')}
             </button>
           )}
           <button
@@ -192,7 +196,7 @@ function ProposalItem({
             onClick={() => setRejectingOpen((current) => !current)}
             className="text-text-muted hover:text-danger text-sm"
           >
-            Rejeter
+            {t('reject')}
           </button>
         </div>
       </form>
@@ -203,12 +207,12 @@ function ProposalItem({
           <input type="hidden" name="proposalId" value={row.proposalId} />
           <div className="flex min-w-60 flex-1 flex-col gap-1.5">
             <label htmlFor={`note-${row.proposalId}`} className="text-text-secondary text-sm">
-              Pourquoi ? <span className="text-text-faint">(facultatif)</span>
+              {t('why')} <span className="text-text-faint">{t('optional')}</span>
             </label>
             <input
               id={`note-${row.proposalId}`}
               name="note"
-              placeholder="confondu avec son père"
+              placeholder={t('whyPlaceholder')}
               className="border-border-default bg-surface-1 text-text-primary focus:border-accent rounded-[var(--radius-md)] border px-3 py-2 focus:outline-none"
             />
           </div>
@@ -217,7 +221,7 @@ function ProposalItem({
             disabled={rejecting || accepting}
             className="border-danger/40 text-danger hover:bg-danger/10 rounded-[var(--radius-md)] border px-3 py-1.5 text-sm disabled:opacity-60"
           >
-            {rejecting ? 'Enregistrement…' : 'Confirmer le rejet'}
+            {rejecting ? t('saving') : t('confirmReject')}
           </button>
         </form>
       ) : null}

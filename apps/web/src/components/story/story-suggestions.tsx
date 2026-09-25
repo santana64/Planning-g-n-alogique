@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import { useTranslations } from 'next-intl';
 import { chooseStoriesAction } from '@/server/story-actions';
 import { STORY_CHOICE_IDLE } from '@/server/story-choice-state';
 import type { StorySuggestion } from '@/server/story';
@@ -27,6 +28,7 @@ export function StorySuggestions({
   /** Offered to editors only, when a provider is configured. */
   provider: { readonly label: string; readonly external: boolean } | null;
 }) {
+  const t = useTranslations('story');
   const [state, action, pending] = useActionState(chooseStoriesAction, STORY_CHOICE_IDLE);
   const byId = new Map(suggestions.map((suggestion) => [suggestion.id, suggestion]));
 
@@ -44,9 +46,9 @@ export function StorySuggestions({
   const chosenBy =
     state.status === 'chosen'
       ? state.byModel
-        ? `Sélection proposée par ${state.label}. Chaque récit reste tiré des données de l’arbre.`
-        : `${state.label} : l’ordre des règles, sans phrase ajoutée.`
-      : 'Sélection par règles (sans IA) : les motifs les plus marqués de l’arbre.';
+        ? t('chosenByModel', { label: state.label })
+        : t('chosenByRulesLabel', { label: state.label })
+      : t('chosenByRules');
 
   return (
     <div className="flex flex-col gap-6">
@@ -67,7 +69,7 @@ export function StorySuggestions({
             {angle ? (
               <p className="border-history/50 text-text-muted border-l-2 pl-3 text-sm">
                 <span className="text-text-faint text-xs tracking-wide uppercase">
-                  Écrit par le modèle ·{' '}
+                  {t('writtenByModel')}
                 </span>
                 {angle}
               </p>
@@ -76,10 +78,10 @@ export function StorySuggestions({
               <StoryPlayer
                 chapters={suggestion.chapters}
                 title={suggestion.title}
-                label={`Lire « ${suggestion.title} »`}
+                label={t('readOne', { title: suggestion.title })}
               />
               <span className="text-text-faint text-xs">
-                {suggestion.chapters.length} chapitre{suggestion.chapters.length > 1 ? 's' : ''}
+                {t('chapters', { count: suggestion.chapters.length })}
               </span>
             </div>
           </li>
@@ -91,10 +93,7 @@ export function StorySuggestions({
           <input type="hidden" name="treeSlug" value={treeSlug} />
           {provider.external ? (
             <p className="text-text-muted max-w-2xl text-xs">
-              Les titres et les raisons de ces {suggestions.length} récits — noms et années de
-              personnes décédées, personne de vivant — seront envoyés à {provider.label} pour qu’il
-              choisisse. Il n’écrit aucun récit ; il peut ajouter une phrase, signalée comme la
-              sienne.
+              {t('sendNotice', { count: suggestions.length, label: provider.label })}
             </p>
           ) : null}
           <button
@@ -102,7 +101,7 @@ export function StorySuggestions({
             disabled={pending}
             className="border-border-default text-text-secondary hover:text-text-primary self-start rounded-[var(--radius-md)] border px-3 py-1.5 text-sm disabled:opacity-50"
           >
-            {pending ? 'Sélection en cours…' : `Demander une sélection à ${provider.label}`}
+            {pending ? t('choosing') : t('askFor', { label: provider.label })}
           </button>
           {state.status === 'error' ? (
             <p className="text-danger text-sm" role="alert">

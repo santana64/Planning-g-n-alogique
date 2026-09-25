@@ -1,12 +1,10 @@
 'use client';
 
 import { useActionState } from 'react';
+import { useFormatter, useTranslations } from 'next-intl';
 import { IDLE, type ActionState } from '@/server/action-state';
 import type { PendingInvitationView } from '@/server/sharing';
 import { revokeInvitationAction } from '@/server/sharing-actions';
-import { ROLE_NAMES } from './role-labels';
-
-const DAY = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long' });
 
 export function PendingInvitations({
   treeSlug,
@@ -15,18 +13,21 @@ export function PendingInvitations({
   treeSlug: string;
   invitations: readonly PendingInvitationView[];
 }) {
+  const t = useTranslations('sharing');
+  const roles = useTranslations('tree.roles');
+  const format = useFormatter();
   const [state, action, pending] = useActionState<ActionState, FormData>(
     revokeInvitationAction,
     IDLE,
   );
 
   if (invitations.length === 0) {
-    return <p className="text-text-faint text-sm">Aucune invitation en attente.</p>;
+    return <p className="text-text-faint text-sm">{t('noPending')}</p>;
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <ul aria-label="Invitations en attente" className="flex flex-col">
+      <ul aria-label={t('pending')} className="flex flex-col">
         {invitations.map((invitation) => (
           <li
             key={invitation.invitationId}
@@ -35,8 +36,14 @@ export function PendingInvitations({
             <span className="flex flex-col">
               <span className="text-text-primary text-sm">{invitation.email}</span>
               <span className="text-text-faint text-xs">
-                {ROLE_NAMES[invitation.role]} · par {invitation.invitedBy} · jusqu’au{' '}
-                {DAY.format(new Date(invitation.expiresAt))}
+                {t('invitationLine', {
+                  role: roles(invitation.role),
+                  by: invitation.invitedBy,
+                  until: format.dateTime(new Date(invitation.expiresAt), {
+                    day: 'numeric',
+                    month: 'long',
+                  }),
+                })}
               </span>
             </span>
             {invitation.revocable ? (
@@ -46,10 +53,10 @@ export function PendingInvitations({
                 <button
                   type="submit"
                   disabled={pending}
-                  aria-label={`Annuler l’invitation de ${invitation.email}`}
+                  aria-label={t('cancelInvitation', { email: invitation.email })}
                   className="text-text-faint hover:text-danger text-sm disabled:opacity-60"
                 >
-                  Annuler
+                  {t('cancel')}
                 </button>
               </form>
             ) : null}

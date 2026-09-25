@@ -56,6 +56,22 @@ test('tells a person record in English, events included', async ({ page }) => {
   await expect(main).not.toContainText('Liens');
 });
 
+test('serves the timeline, the map and the archive in English', async ({ page }) => {
+  await page.goto('/en/demo');
+  await expect(page.getByRole('button', { name: 'Show the table' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Travel in time' })).toBeVisible();
+
+  const main = page.locator('main');
+  await page.goto(`/en/app/${DEMO}/carte`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Map');
+  await expect(main).not.toContainText('Carte');
+
+  await page.goto(`/en/app/${DEMO}/archives`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Archive');
+  await expect(main).toContainText('of the events are sourced');
+  await expect(main).not.toContainText('sourcés');
+});
+
 test('says in either language that nothing matched', async ({ page }) => {
   const main = page.locator('main');
 

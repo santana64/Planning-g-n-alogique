@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { LineChoice } from '@chronolignee/engine';
 import { Link } from '@/i18n/navigation';
 import { loadLineageStory } from '@/server/story';
@@ -48,14 +48,11 @@ function Sentences({
   );
 }
 
-const LINES: readonly {
-  readonly param: string;
-  readonly line: LineChoice;
-  readonly label: string;
-}[] = [
-  { param: 'ancienne', line: 'oldest', label: 'La plus ancienne' },
-  { param: 'paternelle', line: 'paternal', label: 'Paternelle' },
-  { param: 'maternelle', line: 'maternal', label: 'Maternelle' },
+/** The query value stays French: it is part of an address people share. */
+const LINES: readonly { readonly param: string; readonly line: LineChoice }[] = [
+  { param: 'ancienne', line: 'oldest' },
+  { param: 'paternelle', line: 'paternal' },
+  { param: 'maternelle', line: 'maternal' },
 ];
 
 export default async function RecitPage({
@@ -72,11 +69,12 @@ export default async function RecitPage({
   const chosen = LINES.find((entry) => entry.param === ligne) ?? LINES[0];
   if (!chosen) notFound();
 
+  const t = await getTranslations('story');
   const view = await loadLineageStory(treeSlug, personId, chosen.line);
   if (!view) notFound();
 
   const chapters = view.plan ? renderStory({ ...view, plan: view.plan }) : [];
-  const title = `Remonter la lignée ${view.subjectHidden ? '' : `— ${view.subjectName}`}`.trim();
+  const title = view.subjectHidden ? t('headingHidden') : t('heading', { name: view.subjectName });
 
   return (
     <main id="main" className="bg-surface-0 min-h-dvh px-6 py-10">
@@ -95,17 +93,18 @@ export default async function RecitPage({
           >
             ← {view.subjectName}
           </Link>
-          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">
-            Remonter la lignée
-          </h1>
-          <p className="text-text-muted max-w-2xl text-sm">
-            Génération après génération, vers le passé. Chaque phrase vient d’un fait enregistré et
-            renvoie à ses sources ; ce qui n’est pas dans l’arbre n’est pas dans le récit.
-          </p>
+          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">{t('title')}</h1>
+          <p className="text-text-muted max-w-2xl text-sm">{t('lead')}</p>
+          {/* The generated narrative is French prose built from the records.
+              Said plainly to a reader in another language rather than served
+              as though it were translated. */}
+          {locale !== 'fr' ? (
+            <p className="text-text-faint max-w-2xl text-xs">{t('narrativeLanguage')}</p>
+          ) : null}
         </div>
 
-        <nav aria-label="Lignée" className="flex items-baseline gap-3">
-          <span className="text-text-faint text-xs tracking-wide uppercase">Lignée</span>
+        <nav aria-label={t('lineage')} className="flex items-baseline gap-3">
+          <span className="text-text-faint text-xs tracking-wide uppercase">{t('lineage')}</span>
           {LINES.map((entry) => (
             <Link
               key={entry.param}
@@ -117,21 +116,26 @@ export default async function RecitPage({
                   : 'text-text-muted hover:text-text-primary text-sm'
               }
             >
-              {entry.label}
+              {t(`lines.${entry.line}`)}
             </Link>
           ))}
         </nav>
 
         {view.subjectHidden ? (
           <p className="border-source/30 bg-source/10 text-source rounded-[var(--radius-md)] border px-4 py-3">
-            Cette personne est protégée. Son récit n’est pas affiché : il commencerait par sa propre
-            naissance.
+            {t('subjectHidden')}
           </p>
         ) : (
           <>
-            <StoryPlayer chapters={chapters} title={`${title} (${chosen.label.toLowerCase()})`} />
+            <StoryPlayer
+              chapters={chapters}
+              title={t('playerTitle', {
+                title,
+                line: t(`lines.${chosen.line}`).toLowerCase(),
+              })}
+            />
 
-            <ol aria-label="Récit" className="flex flex-col">
+            <ol aria-label={t('story')} className="flex flex-col">
               {chapters.map((chapter) => {
                 const notes = collectNotes(chapter);
                 return (
@@ -189,7 +193,7 @@ export default async function RecitPage({
                       ))}
                       {notes.length > 0 ? (
                         <ol
-                          aria-label="Sources"
+                          aria-label={t('sources')}
                           className="text-text-muted mt-3 flex flex-col gap-0.5 text-xs"
                         >
                           {notes.map((note, position) => (

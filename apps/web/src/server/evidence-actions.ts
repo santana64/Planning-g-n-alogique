@@ -1,5 +1,6 @@
 'use server';
 
+import { getTranslations } from 'next-intl/server';
 import { ZodError } from 'zod';
 import {
   createCitation,
@@ -12,7 +13,7 @@ import { db } from '@/lib/db';
 import type { ActionState } from './action-state';
 import { resolveTreeAccess } from './access';
 import {
-  NOT_FOUND,
+  notFound,
   authoriseWrite,
   peopleOfCitation,
   peopleOfEvent,
@@ -33,23 +34,25 @@ function text(form: FormData, key: string): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function failure(error: unknown): ActionState {
+async function failure(error: unknown): Promise<ActionState> {
+  const t = await getTranslations('actions');
   if (error instanceof ZodError) {
     const issue = error.issues[0];
-    return { status: 'error', message: issue?.message ?? 'Certains champs sont invalides.' };
+    return { status: 'error', message: issue?.message ?? t('invalidFields') };
   }
   if (error instanceof Error && /introuvable|No Source|No Event|No Document/.test(error.message)) {
-    return { status: 'error', message: 'La source ou la fiche citée est introuvable.' };
+    return { status: 'error', message: t('evidence.notFound') };
   }
   // Nothing from the database reaches the user: a Prisma message can carry
   // column names, constraint names and fragments of other people's data.
-  return { status: 'error', message: "L'enregistrement a échoué." };
+  return { status: 'error', message: t('evidence.writeFailed') };
 }
 
 export async function createSourceAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
@@ -71,9 +74,9 @@ export async function createSourceAction(
       authorised.context,
     );
     revalidateTree(treeSlug);
-    return { status: 'success', message: 'La source a été ajoutée.' };
+    return { status: 'success', message: t('evidence.sourceAdded') };
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
 }
 
@@ -81,6 +84,7 @@ export async function createCitationAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
@@ -89,7 +93,7 @@ export async function createCitationAction(
   const documentId = text(form, 'documentId');
   if (eventId) {
     const people = await peopleOfEvent(authorised.access.treeId, eventId);
-    if (!people || !(await peopleWritable(authorised.access, people))) return NOT_FOUND;
+    if (!people || !(await peopleWritable(authorised.access, people))) return await notFound();
   }
 
   try {
@@ -108,9 +112,9 @@ export async function createCitationAction(
       authorised.context,
     );
     revalidateTree(treeSlug);
-    return { status: 'success', message: 'La citation a été enregistrée.' };
+    return { status: 'success', message: t('evidence.citationSaved') };
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
 }
 
@@ -118,20 +122,21 @@ export async function deleteCitationAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug, 'delete');
   if ('error' in authorised) return authorised.error;
 
   const citationId = text(form, 'citationId');
   const people = await peopleOfCitation(authorised.access.treeId, citationId);
-  if (!people || !(await peopleWritable(authorised.access, people))) return NOT_FOUND;
+  if (!people || !(await peopleWritable(authorised.access, people))) return await notFound();
 
   try {
     await deleteCitation(db, citationId, authorised.context);
     revalidateTree(treeSlug);
-    return { status: 'success', message: 'La citation a été retirée.' };
+    return { status: 'success', message: t('evidence.citationRemoved') };
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
 }
 

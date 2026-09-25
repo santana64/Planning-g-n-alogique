@@ -1,10 +1,10 @@
 import { notFound } from 'next/navigation';
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { features } from '@/lib/env';
 import { loadConstellation, type ConstellationStar } from '@/server/constellation';
 import { ConstellationView } from '@/components/constellation/constellation-view';
-import { SKY, coverageSentence, hopSentence } from '@/components/constellation/appearance';
+import { SKY, coverageSentence } from '@/components/constellation/appearance';
 import { TreeNav } from '@/components/people/tree-nav';
 
 /**
@@ -57,6 +57,7 @@ export default async function ConstellationPage({
     else byHop.set(star.hop, [star]);
   }
   const hasHidden = view.stars.some((star) => star.hidden);
+  const t = await getTranslations('constellation');
   const wider = REACH.find((count) => count > reach);
   const constellationHref = (personId: string | null, hops: number) =>
     `/app/${treeSlug}/constellation?${personId ? `focus=${personId}&` : ''}liens=${hops}`;
@@ -72,21 +73,15 @@ export default async function ConstellationPage({
         />
 
         <div className="flex flex-col gap-1">
-          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">
-            Constellation
-          </h1>
+          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">{t('title')}</h1>
           <p className="text-text-muted max-w-2xl text-sm">
-            La famille autour d’une personne. La distance au centre est le nombre de liens ; l’éclat
-            d’une étoile est la part de ses événements qu’une source appuie. Une branche pâle est
-            une branche à documenter.
-            {features.temporalDepth
-              ? ' En profondeur, chacun recule de son année de naissance : le présent au premier plan, les siècles derrière.'
-              : ''}
+            {t('lead')}
+            {features.temporalDepth ? t('leadDepth') : ''}
           </p>
         </div>
 
-        <nav aria-label="Étendue" className="flex items-baseline gap-3">
-          <span className="text-text-faint text-xs tracking-wide uppercase">Liens</span>
+        <nav aria-label={t('reach')} className="flex items-baseline gap-3">
+          <span className="text-text-faint text-xs tracking-wide uppercase">{t('links')}</span>
           {REACH.map((count) => (
             <Link
               key={count}
@@ -105,12 +100,11 @@ export default async function ConstellationPage({
 
         {view.focusHidden ? (
           <p className="border-source/30 bg-source/10 text-source rounded-[var(--radius-md)] border px-4 py-3">
-            Cette personne est protégée. Sa constellation n’est pas affichée : elle serait centrée
-            sur quelqu’un dont rien n’est publié.
+            {t('focusHidden')}
           </p>
         ) : view.focusId === null ? (
           <p className="border-border-subtle text-text-muted rounded-[var(--radius-lg)] border border-dashed p-8">
-            Aucune personne à placer au centre pour l’instant.
+            {t('noCentre')}
           </p>
         ) : (
           <>
@@ -131,16 +125,16 @@ export default async function ConstellationPage({
               <li className="flex items-center gap-2">
                 <Swatch color={SKY.star} glow={1} />
                 <Swatch color={SKY.star} glow={0.38} />
-                éclat : part des événements sourcés
+                {t('legendGlow')}
               </li>
               <li className="flex items-center gap-2">
                 <Swatch color={SKY.focus} glow={1} />
-                personne centrale
+                {t('legendFocus')}
               </li>
               {hasHidden ? (
                 <li className="flex items-center gap-2">
                   <Swatch color={SKY.hidden} glow={0.6} />
-                  personne protégée, non publiée
+                  {t('legendHidden')}
                 </li>
               ) : null}
               <li className="flex items-center gap-2">
@@ -149,7 +143,7 @@ export default async function ConstellationPage({
                   className="inline-block h-px w-5"
                   style={{ backgroundColor: SKY.parentLink }}
                 />
-                filiation
+                {t('legendParent')}
               </li>
               <li className="flex items-center gap-2">
                 <span
@@ -157,7 +151,7 @@ export default async function ConstellationPage({
                   className="inline-block h-px w-5"
                   style={{ backgroundColor: SKY.otherParentLink }}
                 />
-                adoption, accueil, tutelle
+                {t('legendOtherParent')}
               </li>
               <li className="flex items-center gap-2">
                 <span
@@ -165,20 +159,20 @@ export default async function ConstellationPage({
                   className="inline-block h-px w-5"
                   style={{ backgroundColor: SKY.partnerLink }}
                 />
-                union
+                {t('legendPartner')}
               </li>
             </ul>
 
             {view.truncated ? (
               <p className="text-text-muted text-sm">
-                D’autres personnes existent au-delà de {reach} liens.{' '}
+                {t('beyond', { count: reach })}{' '}
                 {wider !== undefined ? (
                   <Link
                     href={constellationHref(view.focusId, wider)}
                     // Inside a sentence, colour alone does not say "link".
                     className="text-accent underline underline-offset-2"
                   >
-                    Élargir à {wider} liens
+                    {t('widen', { count: wider })}
                   </Link>
                 ) : null}
               </p>
@@ -189,12 +183,12 @@ export default async function ConstellationPage({
                 id="constellation-people"
                 className="text-text-faint text-xs tracking-wide uppercase"
               >
-                Les {view.stars.length} personnes de la constellation
+                {t('peopleHeading', { count: view.stars.length })}
               </h2>
               {[...byHop.entries()].map(([hop, group]) => (
                 <div key={hop} className="flex flex-col gap-1">
                   <h3 className="text-text-secondary text-sm font-medium">
-                    {hop === 0 ? 'Au centre' : hopSentence(hop).replace(/^à/, 'À')}
+                    {hop === 0 ? t('atCentre') : t('hopsHeading', { count: hop })}
                   </h3>
                   <ul className="flex flex-col">
                     {group.map((star) => (
@@ -216,13 +210,15 @@ export default async function ConstellationPage({
                           <span className="tabular text-text-muted text-xs">{star.lifeLabel}</span>
                         ) : null}
                         {star.hidden ? null : (
-                          <span className="text-text-faint text-xs">{coverageSentence(star)}</span>
+                          <span className="text-text-faint text-xs">
+                            {coverageSentence(t, star)}
+                          </span>
                         )}
                         {!star.hidden && star.id !== view.focusId ? (
                           <Link
                             href={constellationHref(star.id, reach)}
                             className="text-accent ml-auto text-xs hover:underline"
-                            aria-label={`Centrer la constellation sur ${star.name}`}
+                            aria-label={t('centreOn', { name: star.name })}
                           >
                             Centrer
                           </Link>

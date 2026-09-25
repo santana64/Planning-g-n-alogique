@@ -13,7 +13,7 @@ import {
 import { findingMessage } from '@/lib/finding-messages';
 import { db } from '@/lib/db';
 import type { ActionState } from './action-state';
-import { NOT_FOUND, authoriseWrite, peopleOfEvent, peopleWritable } from './authorise';
+import { notFound, authoriseWrite, peopleOfEvent, peopleWritable } from './authorise';
 import { revalidateTree } from './revalidate';
 
 /**
@@ -38,30 +38,32 @@ const UNION_LINK: Partial<Record<string, 'SPOUSE' | 'PARTNER' | 'DIVORCED_PARTNE
   DIVORCE: 'DIVORCED_PARTNER',
 };
 
-function failure(error: unknown): ActionState {
+async function failure(error: unknown): Promise<ActionState> {
+  const t = await getTranslations('actions');
   if (error instanceof ZodError) {
     const issue = error.issues[0];
-    return { status: 'error', message: issue?.message ?? 'Certains champs sont invalides.' };
+    return { status: 'error', message: issue?.message ?? t('invalidFields') };
   }
   if (error instanceof Error && error.message.includes('introuvable')) {
     return { status: 'error', message: error.message };
   }
   // Nothing from the database reaches the user: a Prisma message can carry
   // column names, constraint names and fragments of other people's data.
-  return { status: 'error', message: "L'événement n'a pas pu être enregistré." };
+  return { status: 'error', message: t('event.writeFailed') };
 }
 
 export async function createEventAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
 
   const personId = text(form, 'personId');
   const secondId = text(form, 'secondId');
-  if (!(await peopleWritable(authorised.access, [personId, secondId]))) return NOT_FOUND;
+  if (!(await peopleWritable(authorised.access, [personId, secondId]))) return await notFound();
 
   const participants: CreateEventInput['participants'] = [
     { personId, role: text(form, 'role') || 'PRINCIPAL' },
@@ -119,9 +121,9 @@ export async function createEventAction(
           const findings = await getTranslations('findings');
           warnings.push(
             linkError instanceof RelationshipRefused
-              ? "Le lien d'union n'a pas pu être créé : " +
+              ? t('event.unionLinkFailed') +
                   linkError.findings.map((finding) => findingMessage(findings, finding)).join(' ')
-              : "L'événement est enregistré, mais le lien d'union existait déjà ou a été refusé.",
+              : t('event.unionLinkRefused'),
           );
         }
       }
@@ -130,11 +132,11 @@ export async function createEventAction(
     revalidateTree(treeSlug);
     return {
       status: 'success',
-      message: "L'événement a été ajouté.",
+      message: t('event.added'),
       ...(warnings.length > 0 ? { warnings } : {}),
     };
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
 }
 
@@ -142,13 +144,14 @@ export async function updateEventAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
 
   const eventId = text(form, 'eventId');
   const people = await peopleOfEvent(authorised.access.treeId, eventId);
-  if (!people || !(await peopleWritable(authorised.access, people))) return NOT_FOUND;
+  if (!people || !(await peopleWritable(authorised.access, people))) return await notFound();
 
   try {
     await updateEvent(
@@ -162,9 +165,9 @@ export async function updateEventAction(
       authorised.context,
     );
     revalidateTree(treeSlug);
-    return { status: 'success', message: "L'événement a été corrigé." };
+    return { status: 'success', message: t('event.corrected') };
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
 }
 
@@ -172,19 +175,20 @@ export async function deleteEventAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug, 'delete');
   if ('error' in authorised) return authorised.error;
 
   const eventId = text(form, 'eventId');
   const people = await peopleOfEvent(authorised.access.treeId, eventId);
-  if (!people || !(await peopleWritable(authorised.access, people))) return NOT_FOUND;
+  if (!people || !(await peopleWritable(authorised.access, people))) return await notFound();
 
   try {
     await deleteEvent(db, eventId, authorised.context);
     revalidateTree(treeSlug);
-    return { status: 'success', message: "L'événement a été retiré." };
+    return { status: 'success', message: t('event.removed') };
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
 }

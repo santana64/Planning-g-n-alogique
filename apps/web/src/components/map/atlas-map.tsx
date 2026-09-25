@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   AttributionControl,
   GeoJSONSource,
@@ -80,6 +81,7 @@ function buildStyle(): StyleSpecification {
 }
 
 export function AtlasMap({ points, arcs, cursorJdn, onSelect, selectedPlaceId }: AtlasMapProps) {
+  const t = useTranslations('atlas');
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Map<string, Marker>>(new Map());
@@ -193,8 +195,9 @@ export function AtlasMap({ points, arcs, cursorJdn, onSelect, selectedPlaceId }:
       element.style.width = `${size}px`;
       element.style.height = `${size}px`;
       element.dataset['selected'] = String(placeId === selectedPlaceId);
-      element.setAttribute('aria-label', `${name} — ${eventCount} événements`);
-      element.title = `${name} — ${eventCount} événements`;
+      const label = t('marker', { name, events: eventCount });
+      element.setAttribute('aria-label', label);
+      element.title = label;
       element.addEventListener('click', (event) => {
         event.stopPropagation();
         onSelect(placeId);
@@ -203,7 +206,7 @@ export function AtlasMap({ points, arcs, cursorJdn, onSelect, selectedPlaceId }:
       const marker = new Marker({ element }).setLngLat(coordinates).addTo(map);
       markersRef.current.set(placeId, marker);
     }
-  }, [points, cursorJdn, selectedPlaceId, onSelect]);
+  }, [points, cursorJdn, selectedPlaceId, onSelect, t]);
 
   return (
     <div

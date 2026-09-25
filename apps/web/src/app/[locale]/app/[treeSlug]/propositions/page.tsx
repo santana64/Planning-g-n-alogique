@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { getAIStatus } from '@/server/ai';
 import { loadPendingForTree } from '@/server/proposals';
 import { ProposalReview } from '@/components/ai/proposal-review';
@@ -23,6 +23,7 @@ export default async function PropositionsPage({
   const { locale, treeSlug } = await params;
   setRequestLocale(locale);
 
+  const t = await getTranslations('proposals');
   const pending = await loadPendingForTree(treeSlug);
   // Proposals are work in progress, for editors only. A visitor who is not
   // one gets the same answer as for a page that does not exist.
@@ -42,28 +43,15 @@ export default async function PropositionsPage({
         />
 
         <div className="flex flex-col gap-2">
-          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">Propositions</h1>
-          <p className="text-text-muted max-w-2xl text-sm">
-            Des énoncés lus dans vos transcriptions, en attente de votre décision. Chacun montre les
-            mots dont il est tiré : c’est eux qu’il faut juger, pas la confiance que le lecteur
-            s’accorde. Rien n’entre dans l’arbre sans votre accord, et une proposition rejetée reste
-            consultable.
+          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">{t('title')}</h1>
+          <p className="text-text-muted max-w-2xl text-sm">{t('lead')}</p>
+          <p className="text-text-faint text-xs">
+            {ai.enabled ? t('reader', { label: ai.label }) : t('readingDisabled')}
           </p>
-          {ai.enabled ? (
-            <p className="text-text-faint text-xs">Lecteur configuré : {ai.label}.</p>
-          ) : (
-            <p className="text-text-faint text-xs">
-              La lecture automatique est désactivée sur cette instance.
-            </p>
-          )}
         </div>
 
         {unassigned > 0 ? (
-          <p className="text-warning text-sm">
-            {unassigned === 1
-              ? '1 proposition nomme quelqu’un que l’arbre ne permet pas d’identifier sans deviner : dites de qui il s’agit, ou rejetez-la.'
-              : `${unassigned} propositions nomment des personnes que l’arbre ne permet pas d’identifier sans deviner : dites de qui il s’agit, ou rejetez-les.`}
-          </p>
+          <p className="text-warning text-sm">{t('unassigned', { count: unassigned })}</p>
         ) : null}
 
         <ProposalReview treeSlug={treeSlug} rows={pending.rows} showSubject />

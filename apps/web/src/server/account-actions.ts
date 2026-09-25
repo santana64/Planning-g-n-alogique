@@ -1,5 +1,6 @@
 'use server';
 
+import { getTranslations } from 'next-intl/server';
 import { cookies } from 'next/headers';
 import { getLocale } from 'next-intl/server';
 import { AccountErasureBlocked, eraseAccount } from '@chronolignee/db';
@@ -25,12 +26,14 @@ export async function eraseAccountAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
+  const common = await getTranslations('common');
   const session = await getSession();
-  if (!session) return { status: 'error', message: 'Connectez-vous pour supprimer votre compte.' };
+  if (!session) return { status: 'error', message: t('account.signIn') };
   if (!isFresh(session.session.createdAt)) {
     return {
       status: 'error',
-      message: 'Reconnectez-vous d’abord : la suppression demande une connexion récente.',
+      message: t('account.freshSession'),
     };
   }
   const typed = form.get('email');
@@ -40,7 +43,7 @@ export async function eraseAccountAction(
   ) {
     return {
       status: 'error',
-      message: 'Tapez exactement l’adresse de votre compte : rien n’a été supprimé.',
+      message: t('account.typeExactly'),
     };
   }
 
@@ -51,16 +54,16 @@ export async function eraseAccountAction(
     if (error instanceof AccountErasureBlocked) {
       return {
         status: 'error',
-        message: `Nommez d’abord un autre propriétaire pour : ${error.trees
-          .map((tree) => `« ${tree.name} »`)
-          .join(', ')}.`,
+        message: t('account.nameAnotherOwner', {
+          trees: error.trees.map((tree) => common('quoted', { value: tree.name })).join(', '),
+        }),
       };
     }
     logger.error(
       { event: 'account.erase_failed', error: error instanceof Error ? error.name : typeof error },
       'account erasure failed',
     );
-    return { status: 'error', message: 'La suppression a échoué. Rien n’a été supprimé.' };
+    return { status: 'error', message: t('account.eraseFailed') };
   }
 
   for (const treeId of treesToPurge) await purgeTreeNow(treeId);

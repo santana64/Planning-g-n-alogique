@@ -41,32 +41,6 @@ export interface ArchiveListing {
   readonly citedEventCount: number;
 }
 
-export const SOURCE_TYPE_LABELS: Record<string, string> = {
-  CIVIL_REGISTER: 'État civil',
-  PARISH_REGISTER: 'Registre paroissial',
-  CENSUS: 'Recensement',
-  MILITARY_RECORD: 'Registre militaire',
-  NOTARIAL_ACT: 'Acte notarié',
-  NEWSPAPER: 'Presse',
-  CEMETERY: 'Cimetière',
-  BOOK: 'Ouvrage',
-  WEBSITE: 'Site web',
-  DATABASE: 'Base de données',
-  PHOTOGRAPH: 'Photographie',
-  LETTER: 'Correspondance',
-  ORAL_HISTORY: 'Témoignage oral',
-  DNA: 'ADN',
-  OTHER: 'Autre',
-};
-
-export const RELIABILITY_LABELS: Record<string, string> = {
-  VERY_HIGH: 'Acte original',
-  HIGH: 'Copie fiable',
-  MEDIUM: 'Vraisemblable',
-  LOW: 'Incertain',
-  VERY_LOW: 'Hypothèse',
-};
-
 export const loadArchive = cache(async (treeSlug: string): Promise<ArchiveListing | null> => {
   const access = await resolveTreeAccess(treeSlug);
   if (!access) return null;

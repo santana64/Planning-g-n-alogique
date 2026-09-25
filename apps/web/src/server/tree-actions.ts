@@ -1,5 +1,6 @@
 'use server';
 
+import { getTranslations } from 'next-intl/server';
 import { createTree } from '@chronolignee/db';
 import { db } from '@/lib/db';
 import { getSession } from '@/lib/session';
@@ -17,28 +18,29 @@ export async function createTreeAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState & { slug?: string }> {
+  const t = await getTranslations('actions');
   const session = await getSession();
   if (!session) {
-    return { status: 'error', message: 'Connectez-vous pour créer un arbre.' };
+    return { status: 'error', message: t('tree.signIn') };
   }
 
   const name = String(form.get('name') ?? '').trim();
   if (!name) {
     return {
       status: 'error',
-      message: 'Donnez un nom à cet arbre.',
-      fieldErrors: { name: 'Par exemple : Famille Chassagne.' },
+      message: t('tree.nameRequired'),
+      fieldErrors: { name: t('tree.nameExample') },
     };
   }
   if (name.length > 120) {
-    return { status: 'error', message: 'Ce nom est trop long.' };
+    return { status: 'error', message: t('tree.nameTooLong') };
   }
 
   try {
     const created = await createTree(db, { name }, session.user.id);
     revalidateDashboard();
-    return { status: 'success', message: `« ${name} » a été créé.`, slug: created.slug };
+    return { status: 'success', message: t('tree.created', { name }), slug: created.slug };
   } catch {
-    return { status: 'error', message: "L'arbre n'a pas pu être créé." };
+    return { status: 'error', message: t('tree.createFailed') };
   }
 }

@@ -1,5 +1,6 @@
 'use server';
 
+import { getTranslations } from 'next-intl/server';
 import { ExtractionError } from '@chronolignee/ai';
 import { features } from '@/lib/env';
 import { logger } from '@/lib/logger';
@@ -22,50 +23,51 @@ import type { StoryChoiceState } from './story-choice-state';
 
 const PRESENTED = 4;
 
-const MESSAGES: Record<string, string> = {
-  NOT_CONFIGURED: 'Aucun fournisseur n’est configuré pour choisir les récits sur cette instance.',
-  MISCONFIGURED: 'Le fournisseur est mal configuré. Prévenez l’administrateur.',
-  EMPTY: 'Aucun récit à choisir pour l’instant.',
-  REFUSED: 'Le modèle a refusé de choisir. La sélection par règles reste affichée.',
-  RATE_LIMITED: 'Trop de demandes en ce moment. Réessayez dans une minute.',
-  TIMEOUT: 'La demande a pris trop de temps. Réessayez.',
-  UNAVAILABLE: 'Le service ne répond pas. Réessayez plus tard.',
-  REJECTED_REQUEST: 'La demande a été refusée par le service.',
-  INVALID_OUTPUT: 'La réponse du modèle était incomplète. La sélection par règles reste affichée.',
-  ABORTED: 'Demande interrompue.',
-};
+const CHOICE_CODES = new Set([
+  'NOT_CONFIGURED',
+  'MISCONFIGURED',
+  'EMPTY',
+  'REFUSED',
+  'RATE_LIMITED',
+  'TIMEOUT',
+  'UNAVAILABLE',
+  'REJECTED_REQUEST',
+  'INVALID_OUTPUT',
+  'ABORTED',
+]);
 
 export async function chooseStoriesAction(
   _previous: StoryChoiceState,
   form: FormData,
 ): Promise<StoryChoiceState> {
+  const t = await getTranslations('actions');
   const value = form.get('treeSlug');
   const treeSlug = typeof value === 'string' ? value : '';
 
   const session = await getSession();
   if (!session) {
-    return { status: 'error', message: 'Connectez-vous pour demander une sélection.' };
+    return { status: 'error', message: t('story.signIn') };
   }
   const access = await resolveTreeAccess(treeSlug);
   if (!access || !access.canEdit) {
     return {
       status: 'error',
-      message: 'Seules les personnes qui éditent cet arbre peuvent demander une sélection.',
+      message: t('story.editorsOnly'),
     };
   }
   if (!features.storyDirector) {
     return {
       status: 'error',
-      message: 'Les récits suggérés ne sont pas activés sur cette instance.',
+      message: t('story.featureOff'),
     };
   }
 
   const provider = getAIProvider();
-  if (!provider) return { status: 'error', message: MESSAGES['NOT_CONFIGURED'] as string };
+  if (!provider) return { status: 'error', message: t('story.choice.NOT_CONFIGURED') };
 
   const view = await loadStorySuggestions(treeSlug);
   if (!view || view.suggestions.length === 0) {
-    return { status: 'error', message: MESSAGES['EMPTY'] as string };
+    return { status: 'error', message: t('story.choice.EMPTY') };
   }
 
   const started = Date.now();
@@ -105,6 +107,9 @@ export async function chooseStoriesAction(
       { treeId: access.treeId, code, durationMs: Date.now() - started },
       'story selection failed',
     );
-    return { status: 'error', message: MESSAGES[code] ?? (MESSAGES['UNAVAILABLE'] as string) };
+    return {
+      status: 'error',
+      message: t(`story.choice.${CHOICE_CODES.has(code) ? code : 'UNAVAILABLE'}`),
+    };
   }
 }

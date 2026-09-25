@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import { useTranslations } from 'next-intl';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { extractFromCitationAction } from '@/server/proposal-actions';
 import type { AIStatus } from '@/server/ai';
@@ -24,6 +25,7 @@ export function ExtractButton({
   personId: string;
   ai: AIStatus;
 }) {
+  const t = useTranslations('ai');
   const [state, action, pending] = useActionState<ActionState, FormData>(
     extractFromCitationAction,
     IDLE,
@@ -41,12 +43,12 @@ export function ExtractButton({
           disabled={pending}
           className="text-accent text-xs hover:underline disabled:cursor-wait disabled:opacity-60"
         >
-          {pending ? 'Lecture en cours…' : 'Proposer des faits à partir de cette transcription'}
+          {pending ? t('reading') : t('proposeFacts')}
         </button>
         <span className="text-text-faint text-xs">
           {ai.sendsDataExternally
-            ? `Le texte sera envoyé à ${ai.label} pour lecture.`
-            : `${ai.label} — rien ne quitte ce serveur.`}
+            ? t('sentTo', { label: ai.label })
+            : t('staysHere', { label: ai.label })}
         </span>
       </div>
 

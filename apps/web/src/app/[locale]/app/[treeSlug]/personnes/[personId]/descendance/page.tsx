@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { DEFAULT_DESCENT_GENERATIONS, loadDescent } from '@/server/descent';
 import { TreeNav } from '@/components/people/tree-nav';
@@ -33,6 +33,7 @@ export default async function DescendancePage({
       ? Math.min(requested, MAX_GENERATIONS)
       : DEFAULT_DESCENT_GENERATIONS;
 
+  const t = await getTranslations('descendants');
   const descent = await loadDescent(treeSlug, personId, generations);
   if (!descent) notFound();
 
@@ -55,15 +56,14 @@ export default async function DescendancePage({
           >
             ← {descent.subjectName}
           </Link>
-          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">Descendance</h1>
-          <p className="text-text-muted text-sm">
-            Numérotation d’Aboville : le sujet porte le 1, ses enfants 1.1, 1.2, 1.3 dans l’ordre
-            des naissances, et chaque génération ajoute un segment.
-          </p>
+          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">{t('title')}</h1>
+          <p className="text-text-muted text-sm">{t('lead')}</p>
         </div>
 
-        <nav aria-label="Profondeur" className="flex items-baseline gap-3">
-          <span className="text-text-faint text-xs tracking-wide uppercase">Générations</span>
+        <nav aria-label={t('depth')} className="flex items-baseline gap-3">
+          <span className="text-text-faint text-xs tracking-wide uppercase">
+            {t('generations')}
+          </span>
           {[3, 5, 7, 10].map((count) => (
             <Link
               key={count}
@@ -83,7 +83,7 @@ export default async function DescendancePage({
         <section className="flex flex-wrap items-baseline gap-6">
           <p className="text-text-secondary text-sm">
             <span className="text-text-primary font-editorial text-xl">{descent.totalPeople}</span>{' '}
-            {descent.totalPeople === 1 ? 'personne' : 'personnes'}
+            {t('people', { count: descent.totalPeople })}
           </p>
           {descent.perGeneration.map((count, generation) => (
             <p key={generation} className="text-text-muted text-sm">
@@ -91,13 +91,11 @@ export default async function DescendancePage({
               <span className="tabular">{count}</span>
             </p>
           ))}
-          {descent.truncated ? (
-            <p className="text-text-faint text-sm">La descendance continue plus bas.</p>
-          ) : null}
+          {descent.truncated ? <p className="text-text-faint text-sm">{t('continues')}</p> : null}
         </section>
 
         <section className="flex flex-col gap-2">
-          <h2 className="text-text-faint text-xs tracking-wide uppercase">La lignée</h2>
+          <h2 className="text-text-faint text-xs tracking-wide uppercase">{t('theLine')}</h2>
           <ol className="flex flex-col">
             {descent.rows.map((row) => (
               <li
@@ -129,7 +127,7 @@ export default async function DescendancePage({
                 {/* D'Aboville numbers birth order. When the record does not
                  * give one, saying so beats asserting a position. */}
                 {row.orderInferred ? (
-                  <span className="text-warning text-xs">rang non attesté</span>
+                  <span className="text-warning text-xs">{t('orderInferred')}</span>
                 ) : null}
                 {row.repeated ? (
                   <span className="text-source text-xs">descend par deux lignes</span>

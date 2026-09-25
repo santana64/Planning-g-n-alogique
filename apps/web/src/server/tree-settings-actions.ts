@@ -1,11 +1,11 @@
 'use server';
 
+import { getTranslations } from 'next-intl/server';
 import { getLocale } from 'next-intl/server';
 import {
   TreeChangeRefused,
   markTreeDeleted,
   updateTreeSettings,
-  type TreeChangeRefusal,
   type TreeVisibility,
 } from '@chronolignee/db';
 import { redirect } from '@/i18n/navigation';
@@ -16,14 +16,6 @@ import { authoriseWrite } from './authorise';
 import { purgeTreeNow } from './purge';
 import { revalidateDashboard, revalidateTree } from './revalidate';
 
-const MESSAGES: Record<TreeChangeRefusal, string> = {
-  NOT_ALLOWED: 'Votre rôle ne permet pas ce changement.',
-  NOT_FOUND: "Cet arbre n'existe pas ou n'existe plus.",
-  INVALID_NAME: 'Donnez à l’arbre un nom de 1 à 120 caractères.',
-  CONFIRMATION_MISMATCH:
-    'Le nom tapé ne correspond pas à celui de l’arbre : rien n’a été supprimé.',
-};
-
 const VISIBILITIES: readonly TreeVisibility[] = ['PRIVATE', 'LINK', 'PUBLIC'];
 
 function text(form: FormData, key: string): string {
@@ -31,26 +23,30 @@ function text(form: FormData, key: string): string {
   return typeof value === 'string' ? value : '';
 }
 
-function failure(error: unknown): ActionState {
-  if (error instanceof TreeChangeRefused) return { status: 'error', message: MESSAGES[error.code] };
+async function failure(error: unknown): Promise<ActionState> {
+  const t = await getTranslations('actions');
+  if (error instanceof TreeChangeRefused) {
+    return { status: 'error', message: t(`tree.refusal.${error.code}`) };
+  }
   logger.error(
     { event: 'tree.change_failed', error: error instanceof Error ? error.name : typeof error },
     'tree change failed',
   );
-  return { status: 'error', message: 'Le changement n’a pas pu être enregistré.' };
+  return { status: 'error', message: t('tree.changeFailed') };
 }
 
 export async function updateTreeSettingsAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug, 'manageTree');
   if ('error' in authorised) return authorised.error;
 
   const visibility = text(form, 'visibility') as TreeVisibility;
   if (!VISIBILITIES.includes(visibility)) {
-    return { status: 'error', message: 'Choisissez qui peut lire l’arbre.' };
+    return { status: 'error', message: t('tree.chooseVisibility') };
   }
 
   try {
@@ -67,11 +63,11 @@ export async function updateTreeSettingsAction(
       { userId: authorised.userId },
     );
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
   revalidateTree(treeSlug);
   revalidateDashboard();
-  return { status: 'success', message: 'Réglages enregistrés.' };
+  return { status: 'success', message: t('tree.settingsSaved') };
 }
 
 export async function deleteTreeAction(
@@ -89,7 +85,7 @@ export async function deleteTreeAction(
       { userId: authorised.userId },
     );
   } catch (error) {
-    return failure(error);
+    return await failure(error);
   }
 
   // Out of use already; the files and rows follow now, or by the sweeper.

@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { loadAtlasSnapshot } from '@/server/atlas';
 import { AtlasView } from '@/components/map/atlas-view';
 import { TreeNav } from '@/components/people/tree-nav';
@@ -22,6 +22,7 @@ export default async function CartePage({
   const { locale, treeSlug } = await params;
   setRequestLocale(locale);
 
+  const t = await getTranslations('atlas');
   const snapshot = await loadAtlasSnapshot(treeSlug);
   if (!snapshot) notFound();
 
@@ -36,17 +37,13 @@ export default async function CartePage({
         />
 
         <div className="flex flex-col gap-1">
-          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">Carte</h1>
-          <p className="text-text-muted text-sm">
-            Où la famille a été, et quand elle a bougé. Faites glisser l’année pour voir les lieux
-            apparaître et les déplacements se faire.
-          </p>
+          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">{t('title')}</h1>
+          <p className="text-text-muted text-sm">{t('lead')}</p>
         </div>
 
         {snapshot.points.length === 0 ? (
           <p className="border-border-subtle text-text-muted rounded-[var(--radius-lg)] border border-dashed p-10">
-            Aucun lieu de cet arbre n’a de coordonnées. Les lieux naissent d’un nom saisi sur une
-            naissance, un mariage ou un événement ; leurs coordonnées restent à renseigner.
+            {t('noCoordinates')}
           </p>
         ) : (
           <AtlasView snapshot={snapshot} />

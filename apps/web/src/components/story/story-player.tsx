@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { collectNotes, sourceText, type RenderedChapter, type StorySentence } from './sentences';
 
 /**
@@ -28,6 +29,7 @@ function Sentences({
   sentences: readonly StorySentence[];
   notes: readonly string[];
 }) {
+  const t = useTranslations('story');
   return (
     <>
       {sentences.map((sentence) => (
@@ -39,7 +41,7 @@ function Sentences({
             </sup>
           ))}
           {sentence.factual && sentence.sources.length === 0 ? (
-            <span className="ml-2 text-xs text-[#a9b0c0]">(sans source)</span>
+            <span className="ml-2 text-xs text-[#a9b0c0]">{t('noSource')}</span>
           ) : null}
         </p>
       ))}
@@ -50,12 +52,14 @@ function Sentences({
 export function StoryPlayer({
   chapters,
   title,
-  label = 'Lire comme un récit',
+  label,
 }: {
   chapters: readonly RenderedChapter[];
   title: string;
+  /** Defaults to "read it as a story", in the reader's language. */
   label?: string;
 }) {
+  const t = useTranslations('story');
   const dialogRef = useRef<HTMLDialogElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const [index, setIndex] = useState(0);
@@ -149,7 +153,7 @@ export function StoryPlayer({
         disabled={chapters.length === 0}
         className="bg-accent text-accent-contrast hover:bg-accent-hover self-start rounded-[var(--radius-md)] px-4 py-2 text-sm font-medium disabled:opacity-50"
       >
-        {label}
+        {label ?? t('read')}
       </button>
 
       <dialog
@@ -168,7 +172,7 @@ export function StoryPlayer({
                 onClick={close}
                 className="rounded-[var(--radius-sm)] px-2 py-1 hover:text-white"
               >
-                Quitter <span className="text-[#7d8799]">(Échap)</span>
+                {t('leave')} <span className="text-[#7d8799]">{t('escapeKey')}</span>
               </button>
             </div>
 
@@ -223,11 +227,11 @@ export function StoryPlayer({
                 disabled={index === 0}
                 className="rounded-[var(--radius-md)] border border-white/15 px-4 py-2 text-sm disabled:opacity-40"
               >
-                ← Précédent
+                ← {t('previous')}
               </button>
               <div className="flex items-center gap-4 text-xs text-[#a9b0c0]">
                 <span className="tabular">
-                  {index + 1} / {chapters.length}
+                  {t('position', { index: index + 1, total: chapters.length })}
                 </span>
                 <button
                   type="button"
@@ -236,7 +240,7 @@ export function StoryPlayer({
                   disabled={index >= chapters.length - 1}
                   className="rounded-[var(--radius-sm)] px-2 py-1 hover:text-white disabled:opacity-40"
                 >
-                  {autoplay ? 'Pause' : 'Lecture automatique'}
+                  {autoplay ? t('pause') : t('autoplay')}
                 </button>
               </div>
               <button

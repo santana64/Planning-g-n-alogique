@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { TimelineCanvas } from './timeline-canvas';
 import { TemporalCursor } from './temporal-cursor';
 import { whoWasAlive } from './who-was-alive';
@@ -15,14 +16,9 @@ import type { TimelineSnapshot } from '@/server/timeline';
  * thing a sighted researcher might also want when copying dates out.
  */
 
-const CERTAINTY_LABELS: Record<string, string> = {
-  EXACT: 'exacte',
-  APPROXIMATE: 'approximative',
-  INFERRED: 'déduite',
-  UNKNOWN: 'inconnue',
-};
-
 export function TimelineView({ snapshot }: { snapshot: TimelineSnapshot }) {
+  const t = useTranslations('timeline');
+  const certainty = useTranslations('certainty');
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [showTable, setShowTable] = useState(false);
   const [cursorJdn, setCursorJdn] = useState<number | null>(null);
@@ -44,8 +40,10 @@ export function TimelineView({ snapshot }: { snapshot: TimelineSnapshot }) {
             {snapshot.treeName}
           </h1>
           <p className="text-text-faint text-xs">
-            {snapshot.rows.length} personnes · {snapshot.events.length} événements
-            {snapshot.eventsTruncated && ' (partiels)'}
+            {t(snapshot.eventsTruncated ? 'countsPartial' : 'counts', {
+              people: snapshot.rows.length,
+              events: snapshot.events.length,
+            })}
           </p>
         </div>
 
@@ -56,7 +54,7 @@ export function TimelineView({ snapshot }: { snapshot: TimelineSnapshot }) {
             aria-pressed={showTable}
             className="border-border-default text-text-secondary hover:border-border-strong hover:text-text-primary rounded-[var(--radius-md)] border px-3 py-1.5 text-sm transition-colors duration-[var(--duration-fast)]"
           >
-            {showTable ? 'Voir la frise' : 'Voir le tableau'}
+            {showTable ? t('showTimeline') : t('showTable')}
           </button>
         </div>
       </header>
@@ -89,16 +87,22 @@ export function TimelineView({ snapshot }: { snapshot: TimelineSnapshot }) {
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <span className="font-editorial text-text-primary">{selected.displayName}</span>
             {selected.redacted ? (
-              <span className="text-text-muted text-sm">Rien n’est publié à son sujet.</span>
+              <span className="text-text-muted text-sm">{t('nothingPublished')}</span>
             ) : (
               <>
                 <span className="text-text-muted text-sm">
-                  Naissance : {selected.birthLabel} ({CERTAINTY_LABELS[selected.startCertainty]})
+                  {t('birth', {
+                    date: selected.birthLabel,
+                    certainty: certainty(selected.startCertainty),
+                  })}
                 </span>
                 <span className="text-text-muted text-sm">
                   {selected.isLiving
-                    ? 'Vivant'
-                    : `Décès : ${selected.deathLabel} (${CERTAINTY_LABELS[selected.endCertainty]})`}
+                    ? t('living')
+                    : t('death', {
+                        date: selected.deathLabel,
+                        certainty: certainty(selected.endCertainty),
+                      })}
                 </span>
               </>
             )}
@@ -123,26 +127,27 @@ function TimelineTable({
   snapshot: TimelineSnapshot;
   onSelect: (id: string) => void;
 }) {
+  const t = useTranslations('timeline');
+  const certainty = useTranslations('certainty');
   return (
     <div className="h-full overflow-auto">
       <table className="w-full text-sm">
         <caption className="text-text-faint px-5 py-2 text-left text-xs">
-          Chronologie de {snapshot.treeName}, sous forme de tableau. Chaque ligne correspond à une
-          barre de la frise.
+          {t('tableCaption', { tree: snapshot.treeName })}
         </caption>
         <thead className="bg-surface-2 text-text-secondary sticky top-0 text-left">
           <tr>
             <th scope="col" className="px-5 py-2 font-medium">
-              Nom
+              {t('columns.name')}
             </th>
             <th scope="col" className="px-3 py-2 font-medium">
-              Naissance
+              {t('columns.birth')}
             </th>
             <th scope="col" className="px-3 py-2 font-medium">
-              Décès
+              {t('columns.death')}
             </th>
             <th scope="col" className="px-3 py-2 font-medium">
-              Certitude
+              {t('columns.certainty')}
             </th>
           </tr>
         </thead>
@@ -160,7 +165,7 @@ function TimelineTable({
               </th>
               <td className="text-text-muted px-3 py-1.5">{row.birthLabel}</td>
               <td className="text-text-muted px-3 py-1.5">
-                {row.isLiving ? 'Vivant' : row.deathLabel}
+                {row.isLiving ? t('living') : row.deathLabel}
               </td>
               <td className="text-text-faint px-3 py-1.5">
                 {/* A redacted row reveals nothing, not even how well dated it
@@ -169,7 +174,7 @@ function TimelineTable({
                     to be published. */}
                 {row.redacted
                   ? '—'
-                  : `${CERTAINTY_LABELS[row.startCertainty]} / ${CERTAINTY_LABELS[row.endCertainty]}`}
+                  : `${certainty(row.startCertainty)} / ${certainty(row.endCertainty)}`}
               </td>
             </tr>
           ))}
@@ -180,11 +185,12 @@ function TimelineTable({
 }
 
 function Legend() {
+  const t = useTranslations('timeline.legend');
   return (
     <div className="border-border-subtle text-text-faint flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t px-5 py-2 text-xs">
       <span className="inline-flex items-center gap-1.5">
         <span className="bg-certain h-0.5 w-6" />
-        Date enregistrée
+        {t('recorded')}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <span
@@ -194,7 +200,7 @@ function Legend() {
               'repeating-linear-gradient(90deg, var(--certainty-approximate) 0 6px, transparent 6px 9px)',
           }}
         />
-        Date approximative
+        {t('approximate')}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <span
@@ -203,11 +209,11 @@ function Legend() {
             backgroundImage: 'linear-gradient(90deg, var(--certainty-inferred), transparent)',
           }}
         />
-        Limite déduite, pas enregistrée
+        {t('inferred')}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <span className="bg-accent h-3 w-px" />
-        Aujourd&apos;hui
+        {t('today')}
       </span>
     </div>
   );

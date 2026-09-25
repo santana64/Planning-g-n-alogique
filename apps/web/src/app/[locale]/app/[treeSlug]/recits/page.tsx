@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { features } from '@/lib/env';
 import { getAIProvider } from '@/server/ai';
 import { loadStorySuggestions } from '@/server/story';
@@ -25,6 +25,7 @@ export default async function RecitsPage({
   setRequestLocale(locale);
   if (!features.storyDirector) notFound();
 
+  const t = await getTranslations('story');
   const view = await loadStorySuggestions(treeSlug);
   if (!view) notFound();
 
@@ -42,21 +43,17 @@ export default async function RecitsPage({
 
         <div className="flex flex-col gap-1">
           <h1 className="font-editorial text-text-primary text-3xl tracking-tight">
-            Récits suggérés
+            {t('suggestedTitle')}
           </h1>
-          <p className="text-text-muted max-w-2xl text-sm">
-            Des histoires que l’arbre contient déjà : un long déplacement, la lignée qui remonte le
-            plus loin, une vie bien documentée, quatre générations en vie en même temps. Chaque
-            récit est raconté à partir des données, sources à l’appui ; les personnes vivantes n’en
-            font jamais partie.
-          </p>
+          <p className="text-text-muted max-w-2xl text-sm">{t('suggestedLead')}</p>
+          {locale !== 'fr' ? (
+            <p className="text-text-faint max-w-2xl text-xs">{t('narrativeLanguage')}</p>
+          ) : null}
         </div>
 
         {view.suggestions.length === 0 ? (
           <p className="border-border-subtle text-text-muted rounded-[var(--radius-lg)] border border-dashed p-8">
-            Pas encore assez de données pour un récit : il faut au moins une lignée de trois
-            générations, un déplacement entre deux lieux géolocalisés ou une vie dont plusieurs
-            événements sont sourcés.
+            {t('notEnough')}
           </p>
         ) : (
           <StorySuggestions

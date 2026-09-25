@@ -1,6 +1,7 @@
 'use client';
 
 import { useId } from 'react';
+import { useFormatter, useTranslations } from 'next-intl';
 import { dateToJdn, gregorianToJdn, jdnToGregorian } from '@chronolignee/domain';
 import type { AliveSnapshot } from './who-was-alive';
 
@@ -17,24 +18,18 @@ import type { AliveSnapshot } from './who-was-alive';
  * researcher where to go next.
  */
 
-const MONTHS = [
-  'janvier',
-  'février',
-  'mars',
-  'avril',
-  'mai',
-  'juin',
-  'juillet',
-  'août',
-  'septembre',
-  'octobre',
-  'novembre',
-  'décembre',
-];
-
-function formatJdn(jdn: number): string {
+/**
+ * A Julian day number as a real Date, for Intl.
+ *
+ * Through UTC and `setUTCFullYear`, because `new Date(1789, 6, 14)` is the
+ * year 1789 only by accident of the two-digit rule, and the dates this cursor
+ * reaches are exactly the ones where that rule bites.
+ */
+function dateOf(jdn: number): Date {
   const { year, month, day } = jdnToGregorian(jdn);
-  return `${day === 1 ? '1er' : day} ${MONTHS[month - 1] ?? ''} ${year}`;
+  const date = new Date(Date.UTC(2000, month - 1, day));
+  date.setUTCFullYear(year);
+  return date;
 }
 
 function toInputValue(jdn: number): string {
@@ -60,6 +55,17 @@ export interface TemporalCursorProps {
 }
 
 export function TemporalCursor({ jdn, onChange, minJdn, maxJdn, alive }: TemporalCursorProps) {
+  const t = useTranslations('timeline.cursor');
+  const format = useFormatter();
+  // The reader's calendar for an interface date: this is a Gregorian day, not
+  // a genealogical date with its own uncertainty, so Intl is the right tool.
+  const longDate = (value: number): string =>
+    format.dateTime(dateOf(value), {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
   const sliderId = useId();
   const dateId = `${sliderId}-date`;
 
@@ -71,11 +77,9 @@ export function TemporalCursor({ jdn, onChange, minJdn, maxJdn, alive }: Tempora
           onClick={() => onChange(LANDMARKS[3]?.jdn ?? maxJdn)}
           className="border-border-default text-text-secondary hover:border-border-strong hover:text-text-primary rounded-[var(--radius-md)] border px-3 py-1.5 text-sm transition-colors duration-[var(--duration-fast)]"
         >
-          Voyager dans le temps
+          {t('travel')}
         </button>
-        <span className="text-text-faint text-xs">
-          Choisir une date et voir qui était vivant ce jour-là.
-        </span>
+        <span className="text-text-faint text-xs">{t('travelHint')}</span>
       </div>
     );
   }
@@ -85,7 +89,7 @@ export function TemporalCursor({ jdn, onChange, minJdn, maxJdn, alive }: Tempora
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         <div className="flex items-center gap-2">
           <label htmlFor={dateId} className="text-text-secondary text-sm">
-            Le
+            {t('on')}
           </label>
           {/* A real date input alongside the slider: a slider cannot reach one
               specific day across three centuries, and a researcher usually has
@@ -102,7 +106,7 @@ export function TemporalCursor({ jdn, onChange, minJdn, maxJdn, alive }: Tempora
             }}
             className="bg-surface-2 border-border-default text-text-primary rounded-[var(--radius-sm)] border px-2 py-1 text-sm"
           />
-          <span className="font-editorial text-text-primary text-sm">{formatJdn(jdn)}</span>
+          <span className="font-editorial text-text-primary text-sm">{longDate(jdn)}</span>
         </div>
 
         {alive && <AliveCounts alive={alive} />}
@@ -112,7 +116,7 @@ export function TemporalCursor({ jdn, onChange, minJdn, maxJdn, alive }: Tempora
           onClick={() => onChange(null)}
           className="text-text-muted hover:text-text-primary ml-auto text-sm underline underline-offset-2"
         >
-          Quitter le voyage temporel
+          {t('leave')}
         </button>
       </div>
 
@@ -125,8 +129,8 @@ export function TemporalCursor({ jdn, onChange, minJdn, maxJdn, alive }: Tempora
           step={1}
           value={jdn}
           onChange={(event) => onChange(Number(event.target.value))}
-          aria-label="Curseur temporel"
-          aria-valuetext={formatJdn(jdn)}
+          aria-label={t('slider')}
+          aria-valuetext={longDate(jdn)}
           className="accent-accent h-1 flex-1 cursor-pointer"
         />
         <div className="flex gap-1.5">
@@ -154,23 +158,22 @@ export function TemporalCursor({ jdn, onChange, minJdn, maxJdn, alive }: Tempora
  * make.
  */
 function AliveCounts({ alive }: { alive: AliveSnapshot }) {
+  const t = useTranslations('timeline.alive');
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm" role="status">
       <span className="text-text-primary">
         <strong className="tabular font-semibold">{alive.certain}</strong>{' '}
-        <span className="text-text-muted">avec certitude</span>
+        <span className="text-text-muted">{t('certain')}</span>
       </span>
       <span className="text-approximate">
         <strong className="tabular font-semibold">{alive.possible}</strong>{' '}
-        <span className="text-text-muted">possiblement</span>
+        <span className="text-text-muted">{t('possible')}</span>
       </span>
       <span className="text-text-faint">
-        <strong className="tabular font-semibold">{alive.undated}</strong> sans date
+        <strong className="tabular font-semibold">{alive.undated}</strong> {t('undated')}
       </span>
       {alive.hidden > 0 && (
-        <span className="text-text-faint text-xs">
-          ({alive.hidden} {alive.hidden > 1 ? 'personnes protégées' : 'personne protégée'})
-        </span>
+        <span className="text-text-faint text-xs">{t('hidden', { count: alive.hidden })}</span>
       )}
     </div>
   );

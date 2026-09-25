@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
+import { useFormatter, useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import type { ImportAnalysis, ImportProgress } from '@/server/gedcom-import';
 
@@ -26,26 +27,6 @@ const POLL_MS = 1_000;
 /** Still queued after this long: say so, rather than let the page look stuck. */
 const QUEUE_PATIENCE_MS = 15_000;
 
-const ERROR_MESSAGES: Record<string, string> = {
-  NOT_FOUND: "Cet arbre n'existe pas ou ne vous est pas accessible.",
-  FORBIDDEN: "Vous n'avez pas le droit de modifier cet arbre.",
-  TOO_LARGE: 'Fichier trop volumineux.',
-  NOT_GEDCOM: "Ce fichier ne commence pas par « 0 HEAD » : ce n'est pas un GEDCOM.",
-  UNSUPPORTED_ENCODING:
-    'Ce fichier est écrit dans un encodage DOS (IBMPC) qui ne peut pas être lu sans abîmer les accents. Réexportez-le en UTF-8 depuis votre logiciel de généalogie.',
-  EMPTY: 'Fichier vide.',
-  NO_FILE: 'Aucun fichier sélectionné.',
-  ALREADY_COMMITTED: 'Cet import a déjà été appliqué.',
-  IN_PROGRESS: 'Cet import est déjà en cours.',
-  QUEUE_UNAVAILABLE:
-    "Le service d'import ne répond pas. Rien n'a été écrit dans l'arbre : réessayez dans un instant.",
-  INTERRUPTED:
-    "L'import a été interrompu avant la fin. Rien n'a été écrit dans l'arbre : vous pouvez le relancer.",
-  WRITE_FAILED: "L'écriture a échoué. Rien n'a été écrit dans l'arbre : vous pouvez la relancer.",
-  FILE_MISSING: "Le fichier d'origine est introuvable. Recommencez l'import.",
-  UNAUTHENTICATED: 'Connectez-vous pour importer un fichier.',
-};
-
 const ENCODING_LABELS: Record<ImportAnalysis['encoding']['used'], string> = {
   'UTF-8': 'UTF-8',
   'UTF-16LE': 'UTF-16',
@@ -55,20 +36,8 @@ const ENCODING_LABELS: Record<ImportAnalysis['encoding']['used'], string> = {
   ANSEL: 'ANSEL',
 };
 
-const WARNING_LABELS: Record<string, string> = {
-  UNPARSEABLE_DATE: 'Date illisible, conservée telle quelle',
-  DANGLING_POINTER: 'Référence vers une fiche absente du fichier',
-  PERSON_WITHOUT_NAME: 'Personne sans nom',
-  FAMILY_WITHOUT_MEMBERS: 'Famille sans membre',
-  CHILD_IS_OWN_PARENT: 'Enfant déclaré comme son propre parent',
-  SELF_UNION: 'Personne déclarée unie à elle-même : union ignorée',
-  UNION_DATES_REVERSED: 'Divorce daté avant le mariage : union importée sans ses dates',
-  DUPLICATE_RELATIONSHIP: 'Relation déclarée deux fois',
-  UNHANDLED_RECORD: 'Type de fiche non traité',
-  AMBIGUOUS_NAME: 'Nom ambigu',
-};
-
 export function ImportReview({ treeSlug }: { treeSlug: string }) {
+  const t = useTranslations('import');
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [stage, setStage] = useState<Stage>('choose');
@@ -169,7 +138,7 @@ export function ImportReview({ treeSlug }: { treeSlug: string }) {
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
       <h1 className="font-editorial text-text-primary text-[length:var(--text-2xl)] tracking-tight">
-        Importer un fichier GEDCOM
+        {t('title')}
       </h1>
 
       {error && (
@@ -177,20 +146,18 @@ export function ImportReview({ treeSlug }: { treeSlug: string }) {
           role="alert"
           className="text-danger border-danger/30 bg-danger/10 mt-5 rounded-[var(--radius-md)] border px-3 py-2 text-sm"
         >
-          {ERROR_MESSAGES[error] ?? "Une erreur est survenue pendant l'import."}
+          {t.has(`errors.${error}`) ? t(`errors.${error}`) : t('somethingWrong')}
         </p>
       )}
 
       {stage === 'choose' && (
         <div className="mt-6">
-          <p className="text-text-muted text-sm">
-            Rien ne sera écrit dans votre arbre avant que vous ayez vu ce que contient le fichier.
-          </p>
+          <p className="text-text-muted text-sm">{t('nothingWritten')}</p>
           <label
             htmlFor="gedcom-file"
             className="text-text-secondary mt-4 block text-sm font-medium"
           >
-            Fichier GEDCOM
+            {t('file')}
           </label>
           <input
             ref={inputRef}
@@ -208,7 +175,7 @@ export function ImportReview({ treeSlug }: { treeSlug: string }) {
 
       {stage === 'analysing' && (
         <p className="text-text-muted mt-6 text-sm" role="status">
-          Lecture du fichier…
+          {t('reading')}
         </p>
       )}
 
@@ -225,40 +192,33 @@ export function ImportReview({ treeSlug }: { treeSlug: string }) {
           {/* The phase alone is announced; the percentage would be read out
               every second. The bar carries the number for whoever asks. */}
           <p className="text-text-muted text-sm" role="status">
-            {progress?.state === 'PROCESSING' ? 'Écriture dans l’arbre…' : 'En file d’attente…'}
+            {progress?.state === 'PROCESSING' ? t('writing') : t('queued')}
           </p>
           {writing ? (
             <div className="flex items-center gap-3">
               <progress
                 value={progress.written}
                 max={progress.total}
-                aria-label="Écriture dans l’arbre"
+                aria-label={t('writingLabel')}
                 className="[&::-webkit-progress-bar]:bg-surface-2 [&::-webkit-progress-value]:bg-accent [&::-moz-progress-bar]:bg-accent h-1.5 w-full overflow-hidden rounded-full"
               />
               <span className="text-text-secondary tabular w-12 shrink-0 text-right text-sm">
-                {percent} %
+                {t('percent', { percent })}
               </span>
             </div>
           ) : null}
-          {waitedLong ? (
-            <p className="text-text-faint text-sm">
-              Le service d&apos;import n&apos;a pas encore pris le fichier. L&apos;import partira
-              dès qu&apos;il sera disponible ; vous pouvez quitter cette page sans l&apos;annuler.
-            </p>
-          ) : null}
+          {waitedLong ? <p className="text-text-faint text-sm">{t('queueSlow')}</p> : null}
         </div>
       )}
 
       {stage === 'done' && result && (
         <div className="mt-6" role="status">
           <p className="font-editorial text-text-primary text-lg">
-            {result.people} personnes ajoutées.
+            {t('peopleAdded', { count: result.people })}
           </p>
           <p className="text-text-muted mt-1 text-sm">
-            {result.relationships} relations rétablies.
-            {result.rejected > 0
-              ? ` ${result.rejected} lien${result.rejected > 1 ? 's' : ''} écarté${result.rejected > 1 ? 's' : ''}, comme annoncé à la revue.`
-              : ''}
+            {t('relationshipsRestored', { count: result.relationships })}
+            {result.rejected > 0 ? t('rejected', { count: result.rejected }) : ''}
           </p>
           <button
             type="button"
@@ -270,7 +230,7 @@ export function ImportReview({ treeSlug }: { treeSlug: string }) {
             }
             className="bg-accent text-accent-contrast hover:bg-accent-hover mt-5 rounded-[var(--radius-md)] px-5 py-2.5 font-medium transition-colors duration-[var(--duration-fast)]"
           >
-            Explorer la chronologie
+            {t('exploreTimeline')}
           </button>
         </div>
       )}
@@ -287,62 +247,59 @@ function ReviewPanel({
   onCommit: () => void;
   onCancel: () => void;
 }) {
+  const t = useTranslations('import');
   const { counts } = analysis;
 
   return (
     <div className="mt-6">
       <p className="text-text-muted text-sm">
-        {analysis.filename} · {(analysis.byteSize / 1024).toFixed(0)} Ko
-        {analysis.detectedVersion && ` · GEDCOM ${analysis.detectedVersion}`}
-        {analysis.generator && ` · produit par ${analysis.generator}`}
-        {` · encodage ${ENCODING_LABELS[analysis.encoding.used]}`}
+        {t('fileLine', {
+          filename: analysis.filename,
+          size: (analysis.byteSize / 1024).toFixed(0),
+        })}
+        {analysis.detectedVersion ? t('version', { version: analysis.detectedVersion }) : ''}
+        {analysis.generator ? t('producedBy', { generator: analysis.generator }) : ''}
+        {t('encoding', { encoding: ENCODING_LABELS[analysis.encoding.used] })}
         {analysis.encoding.declared &&
-          analysis.encoding.declared.toUpperCase() !== analysis.encoding.used &&
-          ` (déclaré « ${analysis.encoding.declared} »)`}
+        analysis.encoding.declared.toUpperCase() !== analysis.encoding.used
+          ? t('declaredAs', { declared: analysis.encoding.declared })
+          : ''}
       </p>
 
       {analysis.encoding.guessed && (
         <p className="text-approximate mt-3 text-sm">
-          Le fichier ne dit pas correctement dans quel encodage il est écrit : il a été lu en{' '}
-          {ENCODING_LABELS[analysis.encoding.used]}, le cas le plus courant. Vérifiez les accents
-          dans les noms ci-dessous avant d&apos;importer.
+          {t('encodingGuessed', { encoding: ENCODING_LABELS[analysis.encoding.used] })}
         </p>
       )}
 
       {analysis.sampleNames.length > 0 && (
         <p className="text-text-secondary mt-3 text-sm">
-          <span className="text-text-faint">Aperçu des noms : </span>
+          <span className="text-text-faint">{t('sampleNames')}</span>
           {analysis.sampleNames.join(' · ')}
         </p>
       )}
 
       <dl className="border-border-subtle bg-border-subtle mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-lg)] border sm:grid-cols-4">
-        <Count label="personnes" value={counts.people} />
-        <Count label="familles" value={counts.families} />
-        <Count label="événements" value={counts.events} />
-        <Count label="relations" value={counts.relationships} />
-        <Count label="lieux" value={counts.places} />
-        <Count label="sources" value={counts.sources} />
-        <Count label="médias" value={counts.media} />
-        <Count label="dates illisibles" value={counts.unparseableDates} muted />
+        <Count label={t('counts.people')} value={counts.people} />
+        <Count label={t('counts.families')} value={counts.families} />
+        <Count label={t('counts.events')} value={counts.events} />
+        <Count label={t('counts.relationships')} value={counts.relationships} />
+        <Count label={t('counts.places')} value={counts.places} />
+        <Count label={t('counts.sources')} value={counts.sources} />
+        <Count label={t('counts.media')} value={counts.media} />
+        <Count label={t('counts.unparseableDates')} value={counts.unparseableDates} muted />
       </dl>
 
       {counts.unparseableDates > 0 && (
-        <p className="text-text-muted mt-3 text-sm">
-          Les dates illisibles sont conservées telles qu&apos;écrites dans le fichier. Elles
-          n&apos;auront pas de position sur la chronologie tant que personne ne les aura
-          interprétées — plutôt qu&apos;une position inventée.
-        </p>
+        <p className="text-text-muted mt-3 text-sm">{t('unparseableDatesNote')}</p>
       )}
 
       {analysis.unknownTags.length > 0 && (
         <section className="mt-6">
           <h2 className="text-text-secondary text-sm font-medium">
-            Balises non interprétées ({analysis.unknownTags.length})
+            {t('unknownTags', { count: analysis.unknownTags.length })}
           </h2>
-          <p className="text-text-faint mt-1 text-xs">
-            Conservées dans le fichier d&apos;origine, qui reste téléchargeable.
-          </p>
+          <p className="text-text-faint mt-1 text-xs">{t('unknownTagsNote')}</p>
           <p className="text-text-muted mt-2 font-mono text-xs">
             {analysis.unknownTags.join(' · ')}
           </p>
@@ -352,11 +309,9 @@ function ReviewPanel({
       {analysis.warnings.length > 0 && (
         <section className="mt-6">
           <h2 className="text-text-secondary text-sm font-medium">
-            Avertissements ({analysis.warnings.length})
+            {t('warnings', { count: analysis.warnings.length })}
           </h2>
-          <p className="text-text-faint mt-1 text-xs">
-            Aucun ne bloque l&apos;import. Ce sont des points à vérifier ensuite.
-          </p>
+          <p className="text-text-faint mt-1 text-xs">{t('warningsNote')}</p>
           <ul className="border-border-subtle mt-2 max-h-64 divide-y divide-[var(--border-subtle)] overflow-auto rounded-[var(--radius-md)] border">
             {analysis.warnings.map((warning, index) => (
               <li key={`${warning.code}-${index}`} className="flex gap-3 px-3 py-1.5 text-sm">
@@ -364,7 +319,9 @@ function ReviewPanel({
                   {warning.lineNumber > 0 ? `l.${warning.lineNumber}` : '—'}
                 </span>
                 <span className="text-text-secondary">
-                  {WARNING_LABELS[warning.code] ?? warning.code}
+                  {t.has(`warningLabels.${warning.code}`)
+                    ? t(`warningLabels.${warning.code}`)
+                    : warning.code}
                 </span>
                 <span className="text-text-faint truncate text-xs">{warning.detail}</span>
               </li>
@@ -376,12 +333,9 @@ function ReviewPanel({
       {analysis.fileIssues.length > 0 && (
         <section className="mt-6">
           <h2 className="text-text-secondary text-sm font-medium">
-            Lignes mal formées ({analysis.fileIssues.length})
+            {t('malformedLines', { count: analysis.fileIssues.length })}
           </h2>
-          <p className="text-text-faint mt-1 text-xs">
-            Le fichier a été lu malgré elles. Les numéros de ligne renvoient au fichier
-            d&apos;origine.
-          </p>
+          <p className="text-text-faint mt-1 text-xs">{t('malformedNote')}</p>
         </section>
       )}
 
@@ -391,14 +345,14 @@ function ReviewPanel({
           onClick={onCommit}
           className="bg-accent text-accent-contrast hover:bg-accent-hover rounded-[var(--radius-md)] px-5 py-2.5 font-medium transition-colors duration-[var(--duration-fast)]"
         >
-          Importer {counts.people} personnes
+          {t('import', { count: counts.people })}
         </button>
         <button
           type="button"
           onClick={onCancel}
           className="text-text-muted hover:text-text-primary text-sm underline underline-offset-2"
         >
-          Choisir un autre fichier
+          {t('chooseAnother')}
         </button>
       </div>
     </div>
@@ -406,12 +360,13 @@ function ReviewPanel({
 }
 
 function Count({ label, value, muted }: { label: string; value: number; muted?: boolean }) {
+  const format = useFormatter();
   return (
     <div className="bg-surface-1 px-4 py-3">
       <dd
         className={`tabular font-editorial text-xl ${muted && value > 0 ? 'text-approximate' : 'text-text-primary'}`}
       >
-        {value.toLocaleString('fr-FR')}
+        {format.number(value)}
       </dd>
       <dt className="text-text-faint mt-0.5 text-xs">{label}</dt>
     </div>

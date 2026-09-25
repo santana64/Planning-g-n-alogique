@@ -144,16 +144,21 @@ Les charges utiles sont validées par Zod à l'entrée de la file et à la sorti
 ## Internationalisation
 
 next-intl : français par défaut, **sans préfixe** d'URL ; anglais sous `/en`.
-Les catalogues (`apps/web/messages/`) comptent 476 clés dans les deux langues,
-vérifiées clé pour clé et placeholder pour placeholder par un test unitaire.
+Les catalogues (`apps/web/messages/`) comptent 1 095 clés dans les deux
+langues, vérifiées clé pour clé et placeholder pour placeholder par un test
+unitaire.
 
-Ce qui est traduit : l'accueil, l'authentification, la coquille d'un arbre, la
-liste des personnes, la fiche et ses éditeurs (noms, événements, liens),
-l'écran des doublons, l'historique et les constats d'audit. Ce qui ne l'est pas
-encore : la frise, la carte, les archives, la constellation, les récits, la
-revue d'import, les réglages, le partage et les messages renvoyés par les
-actions serveur — **écrits en français dans les composants**
-([ROADMAP](ROADMAP.md)).
+Tous les écrans sont traduits, ainsi que les messages que renvoient les actions
+serveur (lus dans la langue de la requête). Trois choses ne le sont pas, et
+l'interface le dit plutôt que de le cacher :
+
+- **le récit généré** (`components/story/sentences.ts`) est une prose française
+  construite à partir des fiches, avec ses accords ; sous `/en`, l'écran
+  prévient que le récit lui-même est en français ;
+- **les courriels** (`packages/mail`) partent en français, quelle que soit la
+  langue de l'expéditeur ;
+- **les termes de parenté** (`lib/kinship-messages.ts`) suivent l'usage
+  français (« cousin issu de germain ») et n'ont pas encore d'écran.
 
 Deux règles tenues partout : une phrase est **choisie** dans le code et
 **écrite** dans le catalogue — le code ne concatène pas des fragments, parce

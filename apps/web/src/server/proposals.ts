@@ -11,35 +11,17 @@ import { resolveTreeAccess, type TreeAccess } from './access';
  * they were part of its record.
  */
 
-export const PREDICATE_LABELS: Record<string, string> = {
-  NAME: 'Nom',
-  RECORDED_SEX: 'Sexe inscrit',
-  BIRTH_DATE: 'Date de naissance',
-  BIRTH_PLACE: 'Lieu de naissance',
-  BAPTISM_DATE: 'Date de baptême',
-  DEATH_DATE: 'Date de décès',
-  DEATH_PLACE: 'Lieu de décès',
-  BURIAL_DATE: 'Date d’inhumation',
-  MARRIAGE_DATE: 'Date de mariage',
-  MARRIAGE_PLACE: 'Lieu de mariage',
-  OCCUPATION: 'Profession',
-  RESIDENCE: 'Résidence',
-  PARENT: 'Parent',
-  SPOUSE: 'Conjoint',
-  CHILD: 'Enfant',
-};
-
 export interface ProposalRow {
   readonly proposalId: string;
   readonly predicate: string;
-  readonly predicateLabel: string;
   readonly valueText: string;
   /** Who the record names, spelled as the record spells them. */
   readonly subjectName: string;
   readonly evidence: string;
   /** The provider's own confidence. Displayed, never used to decide. */
   readonly modelConfidence: number | null;
-  readonly readBy: string;
+  /** The provider, as it calls itself; null for the rules reader. */
+  readonly readBy: string | null;
   readonly personId: string | null;
   readonly personName: string | null;
   readonly sourceTitle: string | null;
@@ -71,13 +53,13 @@ async function loadRows(where: { treeId: string; personId?: string }): Promise<P
     return {
       proposalId: row.id,
       predicate: row.predicate,
-      predicateLabel: PREDICATE_LABELS[row.predicate] ?? row.predicate,
       valueText: row.valueText,
       subjectName: value.subjectName ?? '',
       evidence: row.evidenceSnippet ?? '',
       modelConfidence: row.modelConfidence,
-      readBy:
-        row.provider === 'fake' ? 'Lecture par règles (sans IA)' : `${row.provider} · ${row.model}`,
+      // The rules reader has a name of its own, in the reader's language;
+      // a real provider is named as it calls itself.
+      readBy: row.provider === 'fake' ? null : `${row.provider} · ${row.model}`,
       personId: row.personId,
       personName: row.person?.displayName ?? null,
       sourceTitle: row.citation?.source.title ?? null,

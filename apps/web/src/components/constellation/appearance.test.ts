@@ -1,8 +1,12 @@
+import { createTranslator } from 'next-intl';
+import en from '../../../messages/en.json';
+import fr from '../../../messages/fr.json';
 import { describe, expect, it } from 'vitest';
 import {
   DEPTH_UNITS_PER_YEAR,
   centuryGuides,
   coverageSentence,
+  hopSentence,
   labelPriority,
   starBrightness,
   starDepth,
@@ -94,11 +98,31 @@ describe('labels', () => {
 });
 
 describe('coverage in words', () => {
-  it('says how much is sourced, in French, with agreement', () => {
-    expect(coverageSentence({ events: 0, cited: 0 })).toBe('aucun événement enregistré');
-    expect(coverageSentence({ events: 1, cited: 0 })).toBe('1 événement, non sourcé');
-    expect(coverageSentence({ events: 3, cited: 0 })).toBe('3 événements, aucun sourcé');
-    expect(coverageSentence({ events: 4, cited: 1 })).toBe('1 événement sourcé sur 4');
-    expect(coverageSentence({ events: 4, cited: 3 })).toBe('3 événements sourcés sur 4');
+  /** The real catalogue, so a missing key fails here. */
+  const say = (locale: 'fr' | 'en') =>
+    createTranslator({
+      locale,
+      messages: locale === 'fr' ? fr : en,
+      namespace: 'constellation',
+      onError: (error) => {
+        throw error;
+      },
+    }) as unknown as (key: string, values?: Record<string, string | number>) => string;
+
+  it('says how much is sourced, with agreement', () => {
+    const t = say('fr');
+    expect(coverageSentence(t, { events: 0, cited: 0 })).toBe('aucun événement enregistré');
+    expect(coverageSentence(t, { events: 1, cited: 0 })).toBe('1 événement, non sourcé');
+    expect(coverageSentence(t, { events: 3, cited: 0 })).toBe('3 événements, aucun sourcé');
+    expect(coverageSentence(t, { events: 4, cited: 1 })).toBe('1 événement sourcé sur 4');
+    expect(coverageSentence(t, { events: 4, cited: 3 })).toBe('3 événements sourcés sur 4');
+  });
+
+  it('says the same in English', () => {
+    const t = say('en');
+    expect(coverageSentence(t, { events: 0, cited: 0 })).toBe('no event recorded');
+    expect(coverageSentence(t, { events: 4, cited: 3 })).toBe('3 sourced events out of 4');
+    expect(hopSentence(t, 0)).toBe('person at the centre');
+    expect(hopSentence(t, 2)).toBe('2 links away');
   });
 });

@@ -1,10 +1,10 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { TreeRole } from '@chronolignee/domain';
 import { inviteMemberAction } from '@/server/sharing-actions';
 import { IDLE_INVITE, type InviteState } from '@/server/sharing-state';
-import { ROLE_DESCRIPTIONS, ROLE_NAMES } from './role-labels';
 
 /**
  * Inviting someone.
@@ -21,6 +21,9 @@ export function InviteForm({ treeSlug, roles }: { treeSlug: string; roles: reado
   const [role, setRole] = useState<TreeRole>(
     roles.includes('VIEWER') ? 'VIEWER' : (roles[0] ?? 'VIEWER'),
   );
+  const t = useTranslations('sharing');
+  const roleNames = useTranslations('tree.roles');
+  const roleDescriptions = useTranslations('tree.roleDescriptions');
   const [copied, setCopied] = useState(false);
 
   return (
@@ -29,7 +32,7 @@ export function InviteForm({ treeSlug, roles }: { treeSlug: string; roles: reado
         <input type="hidden" name="treeSlug" value={treeSlug} />
         <div className="flex flex-col gap-1.5">
           <label htmlFor="invite-email" className="text-text-secondary text-sm font-medium">
-            Adresse e-mail
+            {t('email')}
           </label>
           <input
             id="invite-email"
@@ -42,7 +45,7 @@ export function InviteForm({ treeSlug, roles }: { treeSlug: string; roles: reado
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="invite-role" className="text-text-secondary text-sm font-medium">
-            Rôle
+            {t('role')}
           </label>
           <select
             id="invite-role"
@@ -54,7 +57,7 @@ export function InviteForm({ treeSlug, roles }: { treeSlug: string; roles: reado
           >
             {roles.map((value) => (
               <option key={value} value={value}>
-                {ROLE_NAMES[value]}
+                {roleNames(value)}
               </option>
             ))}
           </select>
@@ -64,11 +67,10 @@ export function InviteForm({ treeSlug, roles }: { treeSlug: string; roles: reado
           disabled={pending}
           className="bg-accent text-accent-contrast hover:bg-accent-hover self-end rounded-[var(--radius-md)] px-4 py-2 text-sm font-medium disabled:opacity-60"
         >
-          Créer le lien
+          {t('createLink')}
         </button>
         <p id="invite-role-hint" className="text-text-faint text-xs sm:col-span-3">
-          {ROLE_DESCRIPTIONS[role]} Le lien vaut pour cette adresse seulement, une fois, pendant
-          sept jours.
+          {t('inviteHint', { description: roleDescriptions(role) })}
         </p>
       </form>
 
@@ -85,7 +87,7 @@ export function InviteForm({ treeSlug, roles }: { treeSlug: string; roles: reado
           {state.link ? (
             <div className="flex flex-wrap items-center gap-2">
               <label htmlFor="invite-link" className="sr-only">
-                Lien d’invitation
+                {t('invitationLink')}
               </label>
               <input
                 id="invite-link"
@@ -101,7 +103,7 @@ export function InviteForm({ treeSlug, roles }: { treeSlug: string; roles: reado
                 }}
                 className="text-accent text-sm hover:underline"
               >
-                {copied ? 'Copié' : 'Copier'}
+                {copied ? t('copied') : t('copy')}
               </button>
             </div>
           ) : null}

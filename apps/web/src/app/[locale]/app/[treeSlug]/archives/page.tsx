@@ -1,11 +1,6 @@
 import { notFound } from 'next/navigation';
-import { setRequestLocale } from 'next-intl/server';
-import {
-  RELIABILITY_LABELS,
-  SOURCE_TYPE_LABELS,
-  loadArchive,
-  loadDocuments,
-} from '@/server/archive';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { loadArchive, loadDocuments } from '@/server/archive';
 import { DocumentUpload } from '@/components/archive/document-upload';
 import { SourceForm } from '@/components/archive/source-form';
 import { TreeNav } from '@/components/people/tree-nav';
@@ -20,10 +15,13 @@ import { TreeNav } from '@/components/people/tree-nav';
  */
 export const dynamic = 'force-dynamic';
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} o`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} ko`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+type Sized = (key: string, values: { size: string | number }) => string;
+
+/** The unit belongs to the language; the arithmetic does not. */
+function formatBytes(t: Sized, bytes: number): string {
+  if (bytes < 1024) return t('bytes', { size: bytes });
+  if (bytes < 1024 * 1024) return t('kilobytes', { size: Math.round(bytes / 1024) });
+  return t('megabytes', { size: (bytes / (1024 * 1024)).toFixed(1) });
 }
 
 export default async function ArchivesPage({
@@ -34,6 +32,7 @@ export default async function ArchivesPage({
   const { locale, treeSlug } = await params;
   setRequestLocale(locale);
 
+  const t = await getTranslations('archive');
   const [archive, documents] = await Promise.all([loadArchive(treeSlug), loadDocuments(treeSlug)]);
   if (!archive || !documents) notFound();
 
@@ -53,11 +52,8 @@ export default async function ArchivesPage({
         />
 
         <div className="flex flex-col gap-1">
-          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">Archives</h1>
-          <p className="text-text-muted text-sm">
-            Ce sur quoi l’arbre repose. Une source est la chose qui existe dans le monde ; une
-            citation dit où, dedans, l’information se trouve.
-          </p>
+          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">{t('title')}</h1>
+          <p className="text-text-muted text-sm">{t('lead')}</p>
         </div>
 
         {/* The number that says what this tree is worth. A genealogy where
@@ -67,26 +63,26 @@ export default async function ArchivesPage({
         <section className="border-border-subtle flex flex-wrap items-baseline gap-8 rounded-[var(--radius-lg)] border px-5 py-4">
           <p className="flex flex-col">
             <span className="font-editorial text-text-primary text-2xl">{citedShare} %</span>
-            <span className="text-text-faint text-xs">des événements sont sourcés</span>
+            <span className="text-text-faint text-xs">{t('citedShare')}</span>
           </p>
           <p className="flex flex-col">
             <span className="font-editorial text-text-primary text-2xl">
               {archive.citedEventCount}
             </span>
-            <span className="text-text-faint text-xs">événements avec citation</span>
+            <span className="text-text-faint text-xs">{t('citedEvents')}</span>
           </p>
           <p className="flex flex-col">
             <span className="font-editorial text-warning text-2xl">
               {archive.uncitedEventCount}
             </span>
-            <span className="text-text-faint text-xs">sans aucune citation</span>
+            <span className="text-text-faint text-xs">{t('uncitedEvents')}</span>
           </p>
           <p className="flex flex-col">
             <span className="font-editorial text-text-primary text-2xl">
               {archive.sources.length}
             </span>
             <span className="text-text-faint text-xs">
-              {archive.sources.length === 1 ? 'source' : 'sources'}
+              {t('sourceCount', { count: archive.sources.length })}
             </span>
           </p>
           <p className="flex flex-col">
@@ -94,18 +90,15 @@ export default async function ArchivesPage({
               {archive.documentCount}
             </span>
             <span className="text-text-faint text-xs">
-              {archive.documentCount === 1 ? 'document' : 'documents'}
+              {t('documentCount', { count: archive.documentCount })}
             </span>
           </p>
         </section>
 
         <section className="flex flex-col gap-3">
-          <h2 className="text-text-faint text-xs tracking-wide uppercase">Sources</h2>
+          <h2 className="text-text-faint text-xs tracking-wide uppercase">{t('sources')}</h2>
           {archive.sources.length === 0 ? (
-            <p className="text-text-muted text-sm">
-              Aucune source enregistrée. Tant qu’il n’y en a pas, rien dans cet arbre n’est
-              vérifiable par quelqu’un d’autre.
-            </p>
+            <p className="text-text-muted text-sm">{t('noSources')}</p>
           ) : (
             <ul className="flex flex-col">
               {archive.sources.map((source) => (
@@ -118,16 +111,18 @@ export default async function ArchivesPage({
                       {source.title}
                     </span>
                     <span className="text-text-faint flex flex-wrap gap-3 text-xs">
-                      <span>{SOURCE_TYPE_LABELS[source.type] ?? source.type}</span>
+                      <span>{t(`sourceTypes.${source.type}`)}</span>
                       {source.callNumber ? (
-                        <span className="text-source">Cote {source.callNumber}</span>
+                        <span className="text-source">
+                          {t('callNumberOf', { callNumber: source.callNumber })}
+                        </span>
                       ) : null}
                       {source.repository ? <span>{source.repository}</span> : null}
-                      <span>{RELIABILITY_LABELS[source.reliability] ?? source.reliability}</span>
+                      <span>{t(`reliabilityShort.${source.reliability}`)}</span>
                     </span>
                   </span>
                   <span className="text-text-muted tabular text-sm">
-                    {source.citationCount} {source.citationCount === 1 ? 'citation' : 'citations'}
+                    {t('citationsCount', { count: source.citationCount })}
                   </span>
                 </li>
               ))}
@@ -138,9 +133,9 @@ export default async function ArchivesPage({
         {access.canEdit ? <SourceForm treeSlug={treeSlug} /> : null}
 
         <section className="flex flex-col gap-3">
-          <h2 className="text-text-faint text-xs tracking-wide uppercase">Documents</h2>
+          <h2 className="text-text-faint text-xs tracking-wide uppercase">{t('documents')}</h2>
           {documents.documents.length === 0 ? (
-            <p className="text-text-muted text-sm">Aucun document versé.</p>
+            <p className="text-text-muted text-sm">{t('noDocuments')}</p>
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {documents.documents.map((document) => (
@@ -157,18 +152,17 @@ export default async function ArchivesPage({
                     {document.title}
                   </a>
                   <span className="text-text-faint flex flex-wrap gap-2 text-xs">
-                    <span>{formatBytes(document.byteSize)}</span>
+                    <span>{formatBytes(t, document.byteSize)}</span>
                     <span>{document.mimeType}</span>
                     {document.sourceTitle ? <span>{document.sourceTitle}</span> : null}
                   </span>
                   {document.citationCount === 0 ? (
                     // A document nobody cites supports nothing. Not an error,
                     // but the researcher should be able to see it at a glance.
-                    <span className="text-text-faint text-xs italic">cité nulle part</span>
+                    <span className="text-text-faint text-xs italic">{t('citedNowhere')}</span>
                   ) : (
                     <span className="text-text-muted text-xs">
-                      {document.citationCount}{' '}
-                      {document.citationCount === 1 ? 'citation' : 'citations'}
+                      {t('citationsCount', { count: document.citationCount })}
                     </span>
                   )}
                 </li>

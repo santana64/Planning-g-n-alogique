@@ -1,12 +1,13 @@
 'use server';
 
+import { getTranslations } from 'next-intl/server';
 import { ExtractionError } from '@chronolignee/ai';
 import { acceptProposal, recordProposals, rejectProposal } from '@chronolignee/db';
 import { db } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import type { ActionState } from './action-state';
 import {
-  NOT_FOUND,
+  notFound,
   authoriseWrite,
   peopleOfCitation,
   peopleOfProposal,
@@ -29,31 +30,33 @@ function text(form: FormData, key: string): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-const EXTRACTION_MESSAGES: Record<string, string> = {
-  NOT_CONFIGURED: 'La lecture automatique n’est pas disponible sur cette instance.',
-  MISCONFIGURED: 'La lecture automatique est mal configurée. Prévenez l’administrateur.',
-  EMPTY: 'Cette citation n’a pas de transcription à lire.',
-  TOO_LONG: 'Transcription trop longue pour une seule lecture : découpez-la par acte.',
-  REFUSED: 'Le modèle a refusé de lire ce texte. Rien n’a été enregistré.',
-  RATE_LIMITED: 'Trop de lectures en ce moment. Réessayez dans une minute.',
-  TIMEOUT: 'La lecture a pris trop de temps. Réessayez.',
-  UNAVAILABLE: 'Le service de lecture ne répond pas. Réessayez plus tard.',
-  REJECTED_REQUEST: 'La demande a été refusée par le service de lecture.',
-  INVALID_OUTPUT: 'La réponse du modèle était incomplète. Rien n’a été enregistré.',
-  ABORTED: 'Lecture interrompue.',
-};
+/** The codes the extractor can raise; anything else reads as unavailable. */
+const EXTRACTION_CODES = new Set([
+  'NOT_CONFIGURED',
+  'MISCONFIGURED',
+  'EMPTY',
+  'TOO_LONG',
+  'REFUSED',
+  'RATE_LIMITED',
+  'TIMEOUT',
+  'UNAVAILABLE',
+  'REJECTED_REQUEST',
+  'INVALID_OUTPUT',
+  'ABORTED',
+]);
 
 export async function extractFromCitationAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
   const { access, context } = authorised;
 
   const provider = getAIProvider();
-  if (!provider) return { status: 'error', message: EXTRACTION_MESSAGES['NOT_CONFIGURED'] };
+  if (!provider) return { status: 'error', message: t('ai.extraction.NOT_CONFIGURED') };
 
   // A transcription about someone this author may not see is not sent
   // anywhere, and neither is the name used as a hint.
@@ -61,16 +64,15 @@ export async function extractFromCitationAction(
   const personId = text(form, 'personId');
   const concerned = await peopleOfCitation(access.treeId, citationId);
   if (!concerned || !(await peopleWritable(access, [...concerned, personId]))) {
-    return { status: 'error', message: 'Citation introuvable dans cet arbre.' };
+    return { status: 'error', message: t('ai.citationNotFound') };
   }
 
   const citation = await db.citation.findFirst({
     where: { id: citationId, treeId: context.treeId },
     select: { id: true, quotation: true },
   });
-  if (!citation) return { status: 'error', message: 'Citation introuvable dans cet arbre.' };
-  if (!citation.quotation?.trim())
-    return { status: 'error', message: EXTRACTION_MESSAGES['EMPTY'] };
+  if (!citation) return { status: 'error', message: t('ai.citationNotFound') };
+  if (!citation.quotation?.trim()) return { status: 'error', message: t('ai.extraction.EMPTY') };
 
   const subject = personId
     ? await db.person.findFirst({
@@ -113,19 +115,13 @@ export async function extractFromCitationAction(
 
     const parts = [
       proposalIds.length === 0
-        ? 'Aucune proposition.'
-        : proposalIds.length === 1
-          ? '1 proposition à examiner.'
-          : `${proposalIds.length} propositions à examiner.`,
+        ? t('ai.noProposal')
+        : t('ai.proposals', { count: proposalIds.length }),
     ];
     // Said out loud: a reading that silently shed statements would be a
     // reading presented as more complete than it was.
     if (result.discarded > 0) {
-      parts.push(
-        result.discarded === 1
-          ? '1 énoncé écarté : sa citation ne figure pas dans la transcription.'
-          : `${result.discarded} énoncés écartés : leur citation ne figure pas dans la transcription.`,
-      );
+      parts.push(t('ai.discarded', { count: result.discarded }));
     }
     return {
       status: 'success',
@@ -147,7 +143,7 @@ export async function extractFromCitationAction(
     );
     return {
       status: 'error',
-      message: EXTRACTION_MESSAGES[code] ?? EXTRACTION_MESSAGES['UNAVAILABLE'],
+      message: t(`ai.extraction.${EXTRACTION_CODES.has(code) ? code : 'UNAVAILABLE'}`),
     };
   }
 }
@@ -156,6 +152,7 @@ export async function acceptProposalAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
@@ -163,7 +160,7 @@ export async function acceptProposalAction(
   const proposalId = text(form, 'proposalId');
   const people = await peopleOfProposal(authorised.access.treeId, proposalId);
   if (!people || !(await peopleWritable(authorised.access, [...people, text(form, 'personId')]))) {
-    return NOT_FOUND;
+    return await notFound();
   }
 
   try {
@@ -177,7 +174,7 @@ export async function acceptProposalAction(
       authorised.context,
     );
     revalidateTree(treeSlug);
-    return { status: 'success', message: 'Accepté. Le fait est enregistré avec sa source.' };
+    return { status: 'success', message: t('ai.accepted') };
   } catch (error) {
     // The service's own messages are written for the user and carry no data
     // beyond what they already see; anything else is reduced to a sentence.
@@ -193,13 +190,14 @@ export async function rejectProposalAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug);
   if ('error' in authorised) return authorised.error;
 
   const proposalId = text(form, 'proposalId');
   const people = await peopleOfProposal(authorised.access.treeId, proposalId);
-  if (!people || !(await peopleWritable(authorised.access, people))) return NOT_FOUND;
+  if (!people || !(await peopleWritable(authorised.access, people))) return await notFound();
 
   try {
     await rejectProposal(
@@ -208,7 +206,7 @@ export async function rejectProposalAction(
       authorised.context,
     );
     revalidateTree(treeSlug);
-    return { status: 'success', message: 'Rejeté. La proposition reste consultable.' };
+    return { status: 'success', message: t('ai.rejected') };
   } catch (error) {
     const message =
       error instanceof Error && /Proposition|examinée/.test(error.message)

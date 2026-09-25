@@ -1,5 +1,6 @@
 'use server';
 
+import { getTranslations } from 'next-intl/server';
 import { DUPLICATE_SCORER_VERSION } from '@chronolignee/genealogy';
 import { MergeRefused, dismissDuplicate, mergePeople } from '@chronolignee/db';
 import { db } from '@/lib/db';
@@ -41,6 +42,7 @@ export async function scanDuplicatesAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug, 'contribute');
   if ('error' in authorised) return authorised.error;
@@ -53,9 +55,7 @@ export async function scanDuplicatesAction(
     revalidateTree(treeSlug);
     return {
       status: 'success',
-      message: queued
-        ? 'Recherche lancée. Les rapprochements trouvés apparaîtront ici.'
-        : 'Une recherche est déjà en cours.',
+      message: t(queued ? 'duplicates.scanQueued' : 'duplicates.scanRunning'),
     };
   } catch (error) {
     // The reader is told the queue is not answering; the log says what
@@ -71,8 +71,7 @@ export async function scanDuplicatesAction(
     );
     return {
       status: 'error',
-      message:
-        "Le service de traitement ne répond pas. Rien n'a changé : réessayez dans un instant.",
+      message: t('duplicates.queueUnavailable'),
     };
   }
 }
@@ -81,13 +80,13 @@ export async function dismissDuplicateAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug, 'contribute');
   if ('error' in authorised) return authorised.error;
 
   const candidateId = text(form, 'candidateId');
-  if (!isUuid(candidateId))
-    return { status: 'error', message: 'Ce rapprochement est introuvable.' };
+  if (!isUuid(candidateId)) return { status: 'error', message: t('duplicates.pairNotFound') };
 
   await dismissDuplicate(db, { treeId: authorised.access.treeId, candidateId });
   revalidateTree(treeSlug);
@@ -95,7 +94,7 @@ export async function dismissDuplicateAction(
   // been submitted from now describes a pair that no longer exists.
   redirect({ href: `/app/${treeSlug}/doublons`, locale: await getLocale() });
   // Not reached: redirect throws. Typed as returning, so said explicitly.
-  return { status: 'success', message: 'Rapprochement écarté : il ne sera plus proposé.' };
+  return { status: 'success', message: t('duplicates.dismissed') };
 }
 
 /**
@@ -109,6 +108,7 @@ export async function mergeDuplicateAction(
   _previous: ActionState,
   form: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations('actions');
   const treeSlug = text(form, 'treeSlug');
   const authorised = await authoriseWrite(treeSlug, 'delete');
   if ('error' in authorised) return authorised.error;
@@ -118,7 +118,7 @@ export async function mergeDuplicateAction(
   // The same guard as every other write naming a person: a record this
   // author may not see must refuse exactly as one that does not exist.
   if (!(await peopleWritable(authorised.access, [keepId, mergeId]))) {
-    return { status: 'error', message: 'Ces fiches sont introuvables dans cet arbre.' };
+    return { status: 'error', message: t('duplicates.recordsNotFound') };
   }
 
   try {
@@ -140,10 +140,10 @@ export async function mergeDuplicateAction(
     );
     revalidateTree(treeSlug);
     redirect({ href: `/app/${treeSlug}/personnes/${result.keptId}`, locale: await getLocale() });
-    return { status: 'success', message: 'Fiches fusionnées.' };
+    return { status: 'success', message: t('duplicates.merged') };
   } catch (error) {
     if (error instanceof MergeRefused) {
-      return { status: 'error', message: 'Ces fiches ne peuvent pas être fusionnées.' };
+      return { status: 'error', message: t('duplicates.mergeRefused') };
     }
     throw error;
   }

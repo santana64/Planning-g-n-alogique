@@ -5,9 +5,9 @@ la dernière exécution complète (voir [PROJECT_STATUS.md](PROJECT_STATUS.md)).
 
 | Niveau       | Quoi                                                       | Où                                                             | Combien                |
 | ------------ | ---------------------------------------------------------- | -------------------------------------------------------------- | ---------------------- |
-| Unitaire     | Pur, sans I/O : dates, règles, mises en page, formulations | `packages/*/src/**/*.test.ts`, `apps/*/src/`                   | **702** en 44 fichiers |
+| Unitaire     | Pur, sans I/O : dates, règles, mises en page, formulations | `packages/*/src/**/*.test.ts`, `apps/*/src/`                   | **703** en 44 fichiers |
 | Intégration  | Contre la vraie base, le vrai stockage, le vrai SMTP       | `packages/*/tests/*.integration.test.ts`, `apps/worker/tests/` | **214** en 19 fichiers |
-| Bout en bout | Un navigateur, l'application construite, le worker         | `apps/web/e2e/*.spec.ts`                                       | **76** en 11 fichiers  |
+| Bout en bout | Un navigateur, l'application construite, le worker         | `apps/web/e2e/*.spec.ts`                                       | **77** en 11 fichiers  |
 
 ```bash
 pnpm test:unit          # < 5 s, à chaque sauvegarde

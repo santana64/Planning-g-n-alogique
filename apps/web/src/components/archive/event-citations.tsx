@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { IDLE, type ActionState } from '@/server/action-state';
 import {
@@ -27,13 +28,7 @@ import { Field, Select, SubmitButton, TextArea, TextInput } from '@/components/p
  * start unsourced — but the gap should be visible without hunting for it.
  */
 
-const CONFIDENCE_OPTIONS = [
-  ['VERY_HIGH', 'Acte original consulté'],
-  ['HIGH', 'Source fiable'],
-  ['MEDIUM', 'Vraisemblable'],
-  ['LOW', 'Incertain'],
-  ['VERY_LOW', 'Hypothèse'],
-] as const;
+const CONFIDENCE_OPTIONS = ['VERY_HIGH', 'HIGH', 'MEDIUM', 'LOW', 'VERY_LOW'] as const;
 
 export function EventCitations({
   treeSlug,
@@ -63,6 +58,8 @@ export function EventCitations({
     deleteCitationAction,
     IDLE,
   );
+  const t = useTranslations('archive.citations');
+  const confidences = useTranslations('archive.citationConfidence');
   const [adding, setAdding] = useState(false);
   const [sources, setSources] = useState<readonly SourceChoice[]>([]);
 
@@ -74,7 +71,7 @@ export function EventCitations({
   return (
     <div className="flex flex-col gap-1.5 pl-4">
       {citations.length === 0 ? (
-        <p className="text-text-faint text-xs">Aucune source pour cet événement.</p>
+        <p className="text-text-faint text-xs">{t('none')}</p>
       ) : (
         <ul className="flex flex-col gap-1">
           {citations.map((citation) => (
@@ -87,10 +84,14 @@ export function EventCitations({
                   <span className="text-source text-xs">{citation.locator}</span>
                 ) : null}
                 {citation.page ? (
-                  <span className="text-text-faint text-xs">p. {citation.page}</span>
+                  <span className="text-text-faint text-xs">
+                    {t('page', { page: citation.page })}
+                  </span>
                 ) : null}
                 {citation.callNumber ? (
-                  <span className="text-text-faint text-xs">Cote {citation.callNumber}</span>
+                  <span className="text-text-faint text-xs">
+                    {t('callNumber', { callNumber: citation.callNumber })}
+                  </span>
                 ) : null}
                 {citation.documentId ? (
                   <a
@@ -99,7 +100,7 @@ export function EventCitations({
                     rel="noreferrer"
                     className="text-accent text-xs hover:underline"
                   >
-                    document
+                    {t('document')}
                   </a>
                 ) : null}
                 {canDelete ? (
@@ -107,7 +108,7 @@ export function EventCitations({
                     <input type="hidden" name="treeSlug" value={treeSlug} />
                     <input type="hidden" name="citationId" value={citation.citationId} />
                     <button type="submit" className="text-text-faint hover:text-danger text-xs">
-                      retirer
+                      {t('remove')}
                     </button>
                   </form>
                 ) : null}
@@ -144,7 +145,7 @@ export function EventCitations({
           onClick={() => setAdding(true)}
           className="text-accent self-start text-xs hover:underline"
         >
-          Citer une source
+          {t('cite')}
         </button>
       ) : null}
 
@@ -155,19 +156,19 @@ export function EventCitations({
         >
           <input type="hidden" name="treeSlug" value={treeSlug} />
           <input type="hidden" name="eventId" value={eventId} />
-          <p className="text-text-faint text-xs">Source de : {eventLabel}</p>
+          <p className="text-text-faint text-xs">{t('sourceOf', { event: eventLabel })}</p>
 
           {sources.length === 0 ? (
             <p className="text-text-muted text-xs">
-              Aucune source enregistrée.{' '}
+              {t('noSource')}{' '}
               <Link href={`/app/${treeSlug}/archives`} className="text-accent hover:underline">
-                En ajouter une
+                {t('addOne')}
               </Link>{' '}
-              d’abord.
+              {t('first')}
             </p>
           ) : (
             <>
-              <Field id={`cit-source-${eventId}`} label="Source">
+              <Field id={`cit-source-${eventId}`} label={t('source')}>
                 <Select
                   id={`cit-source-${eventId}`}
                   name="sourceId"
@@ -182,39 +183,37 @@ export function EventCitations({
               </Field>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field
-                  id={`cit-locator-${eventId}`}
-                  label="Où exactement"
-                  hint="Vue 118, acte 7, folio 24 — ce qui permet de retrouver le passage."
-                >
+                <Field id={`cit-locator-${eventId}`} label={t('where')} hint={t('whereHint')}>
                   <TextInput
                     id={`cit-locator-${eventId}`}
                     name="locator"
-                    placeholder="vue 118, acte 7"
+                    placeholder={t('wherePlaceholder')}
                     hasHint
                   />
                 </Field>
 
-                <Field id={`cit-confidence-${eventId}`} label="Certitude">
+                <Field id={`cit-confidence-${eventId}`} label={t('confidence')}>
                   <Select
                     id={`cit-confidence-${eventId}`}
                     name="confidence"
                     defaultValue="HIGH"
-                    options={CONFIDENCE_OPTIONS}
+                    options={CONFIDENCE_OPTIONS.map(
+                      (value) => [value, confidences(value)] as const,
+                    )}
                   />
                 </Field>
               </div>
 
               <Field
                 id={`cit-quote-${eventId}`}
-                label="Transcription"
-                hint="Les mots du registre, tels quels. Pas votre lecture de ce qu’ils veulent dire."
+                label={t('transcription')}
+                hint={t('transcriptionHint')}
               >
                 <TextArea
                   id={`cit-quote-${eventId}`}
                   name="quotation"
                   rows={2}
-                  placeholder="« … est né le douzième jour de juin mil huit cent vingt-deux … »"
+                  placeholder={t('transcriptionPlaceholder')}
                 />
               </Field>
             </>
@@ -237,14 +236,14 @@ export function EventCitations({
 
           <div className="flex items-center gap-3">
             {sources.length > 0 ? (
-              <SubmitButton pending={creating}>Enregistrer la citation</SubmitButton>
+              <SubmitButton pending={creating}>{t('save')}</SubmitButton>
             ) : null}
             <button
               type="button"
               onClick={() => setAdding(false)}
               className="text-text-muted hover:text-text-primary text-xs"
             >
-              {createState.status === 'success' ? 'Fermer' : 'Annuler'}
+              {createState.status === 'success' ? t('close') : t('cancel')}
             </button>
           </div>
         </form>

@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { DEFAULT_GENERATIONS, loadPedigree } from '@/server/ancestry';
 import { TreeNav } from '@/components/people/tree-nav';
@@ -33,6 +33,7 @@ export default async function AscendancePage({
       ? Math.min(requested, MAX_GENERATIONS)
       : DEFAULT_GENERATIONS;
 
+  const t = await getTranslations('ancestry');
   const pedigree = await loadPedigree(treeSlug, personId, generations);
   if (!pedigree) notFound();
 
@@ -55,15 +56,14 @@ export default async function AscendancePage({
           >
             ← {pedigree.subjectName}
           </Link>
-          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">Ascendance</h1>
-          <p className="text-text-muted text-sm">
-            Numérotation Sosa-Stradonitz : le sujet porte le 1, son père le 2, sa mère le 3, et
-            chaque génération double.
-          </p>
+          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">{t('title')}</h1>
+          <p className="text-text-muted text-sm">{t('lead')}</p>
         </div>
 
-        <nav aria-label="Profondeur" className="flex items-baseline gap-3">
-          <span className="text-text-faint text-xs tracking-wide uppercase">Générations</span>
+        <nav aria-label={t('depth')} className="flex items-baseline gap-3">
+          <span className="text-text-faint text-xs tracking-wide uppercase">
+            {t('generations')}
+          </span>
           {[4, 6, 8, 10].map((count) => (
             <Link
               key={count}
@@ -81,25 +81,23 @@ export default async function AscendancePage({
         </nav>
 
         <section className="flex flex-col gap-3">
-          <h2 className="text-text-faint text-xs tracking-wide uppercase">Ce qui est trouvé</h2>
+          <h2 className="text-text-faint text-xs tracking-wide uppercase">{t('found')}</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <caption className="sr-only">
-                Complétude de l’ascendance, génération par génération
-              </caption>
+              <caption className="sr-only">{t('tableCaption')}</caption>
               <thead>
                 <tr className="text-text-faint border-border-subtle border-b text-left">
                   <th scope="col" className="py-2 pr-4 font-normal">
-                    Génération
+                    {t('columns.generation')}
                   </th>
                   <th scope="col" className="py-2 pr-4 font-normal">
-                    Positions
+                    {t('columns.positions')}
                   </th>
                   <th scope="col" className="py-2 pr-4 font-normal">
-                    Personnes trouvées
+                    {t('columns.peopleFound')}
                   </th>
                   <th scope="col" className="py-2 font-normal">
-                    Complétude
+                    {t('columns.completeness')}
                   </th>
                 </tr>
               </thead>
@@ -123,26 +121,26 @@ export default async function AscendancePage({
 
           {pedigree.collapsedCount > 0 ? (
             <p className="text-source text-sm">
-              {pedigree.collapsedCount === 1
-                ? 'Une personne occupe plusieurs positions : les lignées se rejoignent.'
-                : `${pedigree.collapsedCount} personnes occupent plusieurs positions : les lignées se rejoignent.`}
+              {t('collapsed', { count: pedigree.collapsedCount })}
             </p>
           ) : null}
 
-          {pedigree.truncated ? (
-            <p className="text-text-faint text-sm">L’arbre continue au-delà de cette profondeur.</p>
-          ) : null}
+          {pedigree.truncated ? <p className="text-text-faint text-sm">{t('deeper')}</p> : null}
         </section>
 
         <section className="flex flex-col gap-6">
-          <h2 className="text-text-faint text-xs tracking-wide uppercase">Les positions</h2>
+          <h2 className="text-text-faint text-xs tracking-wide uppercase">{t('positions')}</h2>
           {pedigree.generations.map((slots, generation) => (
             <div key={generation} className="flex flex-col gap-2">
               <h3 className="text-text-secondary text-sm">
-                Génération {generation}
+                {t('generationNumber', { number: generation })}
                 <span className="text-text-faint ml-2 text-xs">
-                  Sosa {2 ** generation}
-                  {generation > 0 ? ` – ${2 ** (generation + 1) - 1}` : ''}
+                  {generation > 0
+                    ? t('sosaRange', {
+                        from: 2 ** generation,
+                        to: 2 ** (generation + 1) - 1,
+                      })
+                    : t('sosaOne', { from: 2 ** generation })}
                 </span>
               </h3>
               <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -156,7 +154,9 @@ export default async function AscendancePage({
                     <span className="text-text-faint tabular text-xs">
                       {slot.sosa}
                       {slot.repeated ? (
-                        <span className="text-source ml-2">aussi {slot.alsoAt.join(', ')}</span>
+                        <span className="text-source ml-2">
+                          {t('alsoAt', { positions: slot.alsoAt.join(', ') })}
+                        </span>
                       ) : null}
                     </span>
                     {slot.personId ? (
@@ -173,7 +173,7 @@ export default async function AscendancePage({
                     ) : (
                       // The empty slots are the point of this screen: they say
                       // where the winter's work should go.
-                      <span className="text-text-faint text-sm">Inconnu</span>
+                      <span className="text-text-faint text-sm">{t('unknown')}</span>
                     )}
                     {slot.lifespanLabel ? (
                       <span className="text-text-muted tabular text-xs">{slot.lifespanLabel}</span>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { searchTreeAction, type SearchResultItem } from '@/server/search-actions';
 
@@ -42,6 +43,7 @@ export function CommandPalette({
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const requestRef = useRef(0);
 
+  const t = useTranslations('palette');
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<readonly SearchResultItem[]>([]);
@@ -51,36 +53,36 @@ export function CommandPalette({
   const commands: Command[] = [
     {
       id: 'people',
-      label: 'Toutes les personnes',
-      hint: 'liste',
+      label: t('commands.people'),
+      hint: t('hints.list'),
       href: `/app/${treeSlug}/personnes`,
       requiresEdit: false,
     },
     {
       id: 'timeline',
-      label: 'Chronologie',
-      hint: 'vue',
+      label: t('commands.timeline'),
+      hint: t('hints.view'),
       href: `/app/${treeSlug}/chronologie`,
       requiresEdit: false,
     },
     {
       id: 'archive',
-      label: 'Archives',
-      hint: 'vue',
+      label: t('commands.archive'),
+      hint: t('hints.view'),
       href: `/app/${treeSlug}/archives`,
       requiresEdit: false,
     },
     {
       id: 'new',
-      label: 'Ajouter une personne',
-      hint: 'action',
+      label: t('commands.new'),
+      hint: t('hints.action'),
       href: `/app/${treeSlug}/personnes/nouvelle`,
       requiresEdit: true,
     },
     {
       id: 'import',
-      label: 'Importer un GEDCOM',
-      hint: 'action',
+      label: t('commands.import'),
+      hint: t('hints.action'),
       href: `/app/${treeSlug}/import`,
       requiresEdit: true,
       requiresImport: true,
@@ -176,7 +178,7 @@ export function CommandPalette({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Recherche"
+        aria-label={t('label')}
         className="border-border-default bg-surface-floating w-full max-w-xl overflow-hidden rounded-[var(--radius-lg)] border shadow-[var(--shadow-high)]"
       >
         <input
@@ -186,7 +188,7 @@ export function CommandPalette({
           aria-expanded
           aria-controls="palette-results"
           aria-activedescendant={rowCount > 0 ? `palette-row-${active}` : undefined}
-          aria-label="Chercher une personne ou un lieu"
+          aria-label={t('inputLabel')}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
@@ -204,14 +206,14 @@ export function CommandPalette({
               go(active);
             }
           }}
-          placeholder="Un nom, un lieu, une année…"
+          placeholder={t('placeholder')}
           className="text-text-primary placeholder:text-text-faint border-border-subtle w-full border-b bg-transparent px-4 py-3.5 text-base focus:outline-none"
         />
 
         <ul
           id="palette-results"
           role="listbox"
-          aria-label="Résultats"
+          aria-label={t('results')}
           className="max-h-80 overflow-y-auto"
         >
           {showCommands
@@ -265,10 +267,10 @@ export function CommandPalette({
                       {/* Said, not hidden: a near-miss presented as a match is
                        * a small lie about what the archive contains. */}
                       {item.approximate ? (
-                        <span className="text-source text-xs">orthographe proche</span>
+                        <span className="text-source text-xs">{t('approximate')}</span>
                       ) : null}
                       {item.kind === 'PLACE' ? (
-                        <span className="text-text-faint text-xs">lieu</span>
+                        <span className="text-text-faint text-xs">{t('place')}</span>
                       ) : null}
                     </span>
                     <span className="text-text-muted tabular text-xs">{item.detail}</span>
@@ -278,15 +280,15 @@ export function CommandPalette({
 
           {!showCommands && results.length === 0 ? (
             <li className="text-text-faint px-4 py-6 text-sm">
-              {searching ? 'Recherche…' : 'Rien de proche dans cet arbre.'}
+              {searching ? t('searching') : t('nothing')}
             </li>
           ) : null}
         </ul>
 
         <p className="border-border-subtle text-text-faint flex gap-4 border-t px-4 py-2 text-xs">
-          <span>↑↓ parcourir</span>
-          <span>↵ ouvrir</span>
-          <span>échap fermer</span>
+          <span>{t('browse')}</span>
+          <span>{t('open')}</span>
+          <span>{t('close')}</span>
         </p>
       </div>
     </div>

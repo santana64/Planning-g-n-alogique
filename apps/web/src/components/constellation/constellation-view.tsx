@@ -12,6 +12,7 @@ import {
   type QualityPreset,
   type QualitySetting,
 } from '@chronolignee/engine';
+import { useTranslations } from 'next-intl';
 import { Link, useRouter } from '@/i18n/navigation';
 import type { ConstellationLink, ConstellationStar } from '@/server/constellation';
 import {
@@ -40,14 +41,6 @@ import type { ConstellationScene, ProjectedPoint } from './scene';
 const QUALITY_KEY = 'chronolignee.constellation.quality';
 const PICK_RADIUS_PX = 14;
 const CLICK_TOLERANCE_PX = 5;
-
-const QUALITY_LABELS: Record<QualitySetting, string> = {
-  AUTO: 'Automatique',
-  LOW: 'Basse',
-  MEDIUM: 'Moyenne',
-  HIGH: 'Haute',
-  ULTRA: 'Maximale',
-};
 
 type Status = 'probing' | 'ready' | 'unsupported' | 'failed';
 
@@ -137,6 +130,7 @@ export function ConstellationView({
   const pointerDownRef = useRef<{ x: number; y: number } | null>(null);
   const probeRef = useRef<Probe | null>(null);
 
+  const t = useTranslations('constellation');
   const [status, setStatus] = useState<Status>('probing');
   const [backend, setBackend] = useState<'webgpu' | 'webgl2' | null>(null);
   const [mode, setMode] = useState<ConstellationMode>('plan');
@@ -399,7 +393,7 @@ export function ConstellationView({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         {depthAvailable ? (
-          <div role="group" aria-label="Disposition" className="flex">
+          <div role="group" aria-label={t('layout')} className="flex">
             {(['plan', 'depth'] as const).map((option) => (
               <button
                 key={option}
@@ -413,7 +407,7 @@ export function ConstellationView({
                     : 'text-text-secondary hover:text-text-primary'
                 } disabled:opacity-50`}
               >
-                {option === 'plan' ? 'Plan' : 'Profondeur'}
+                {option === 'plan' ? t('plan') : t('depth')}
               </button>
             ))}
           </div>
@@ -423,7 +417,7 @@ export function ConstellationView({
             type="button"
             onClick={() => sceneRef.current?.zoom(0.8)}
             disabled={status !== 'ready'}
-            aria-label="Rapprocher"
+            aria-label={t('closer')}
             className="border-border-default text-text-secondary hover:text-text-primary rounded-[var(--radius-md)] border px-2.5 py-1 text-sm disabled:opacity-50"
           >
             +
@@ -432,7 +426,7 @@ export function ConstellationView({
             type="button"
             onClick={() => sceneRef.current?.zoom(1.25)}
             disabled={status !== 'ready'}
-            aria-label="Éloigner"
+            aria-label={t('further')}
             className="border-border-default text-text-secondary hover:text-text-primary rounded-[var(--radius-md)] border px-2.5 py-1 text-sm disabled:opacity-50"
           >
             −
@@ -443,11 +437,11 @@ export function ConstellationView({
             disabled={status !== 'ready'}
             className="border-border-default text-text-secondary hover:text-text-primary rounded-[var(--radius-md)] border px-3 py-1 text-sm disabled:opacity-50"
           >
-            Vue d’ensemble
+            {t('overview')}
           </button>
         </div>
         <label className="text-text-muted ml-auto flex items-center gap-2 text-xs">
-          Qualité
+          {t('quality')}
           <select
             value={setting}
             onChange={(event) => chooseQuality(event.target.value as QualitySetting)}
@@ -456,8 +450,11 @@ export function ConstellationView({
             {(['AUTO', ...QUALITY_PRESETS] as const).map((option) => (
               <option key={option} value={option}>
                 {option === 'AUTO' && status === 'ready'
-                  ? `${QUALITY_LABELS.AUTO} (${QUALITY_LABELS[preset].toLowerCase()})`
-                  : QUALITY_LABELS[option]}
+                  ? t('autoWith', {
+                      auto: t('qualities.AUTO'),
+                      chosen: t(`qualities.${preset}`).toLowerCase(),
+                    })
+                  : t(`qualities.${option}`)}
               </option>
             ))}
           </select>
@@ -493,16 +490,13 @@ export function ConstellationView({
 
         {status === 'probing' ? (
           <p className="absolute inset-0 flex items-center justify-center text-sm text-[#a9b0c0]">
-            Préparation de la constellation…
+            {t('preparing')}
           </p>
         ) : null}
         {status === 'unsupported' || status === 'failed' ? (
           <div className="absolute inset-0 flex items-center justify-center p-8">
             <p className="max-w-md text-center text-sm text-[#e9e4d8]">
-              {status === 'unsupported'
-                ? 'Ce navigateur ne dispose ni de WebGPU ni de WebGL 2 : la constellation ne peut pas être dessinée ici.'
-                : 'La constellation n’a pas pu être dessinée sur cet appareil.'}{' '}
-              La liste ci-dessous contient les mêmes personnes et les mêmes liens.
+              {status === 'unsupported' ? t('unsupported') : t('failed')} {t('sameBelow')}
             </p>
           </div>
         ) : null}
@@ -515,12 +509,12 @@ export function ConstellationView({
           >
             <p className="font-medium">{hoveredStar.name}</p>
             {hoveredStar.hidden ? (
-              <p className="text-[#a9b0c0]">Rien n’est publié à son sujet.</p>
+              <p className="text-[#a9b0c0]">{t('nothingPublished')}</p>
             ) : (
               <>
                 <p className="text-[#a9b0c0]">{hoveredStar.lifeLabel}</p>
                 <p className="text-[#a9b0c0]">
-                  {hopSentence(hoveredStar.hop)} · {coverageSentence(hoveredStar)}
+                  {hopSentence(t, hoveredStar.hop)} · {coverageSentence(t, hoveredStar)}
                 </p>
               </>
             )}
@@ -534,26 +528,26 @@ export function ConstellationView({
               <button
                 type="button"
                 onClick={() => setSelectedId(null)}
-                aria-label="Fermer"
+                aria-label={t('close')}
                 className="text-[#a9b0c0] hover:text-white"
               >
                 ×
               </button>
             </div>
             {selectedStar.hidden ? (
-              <p className="text-xs text-[#a9b0c0]">Rien n’est publié à son sujet.</p>
+              <p className="text-xs text-[#a9b0c0]">{t('nothingPublished')}</p>
             ) : (
               <>
                 <p className="text-xs text-[#a9b0c0]">
-                  {selectedStar.lifeLabel} · {hopSentence(selectedStar.hop)} ·{' '}
-                  {coverageSentence(selectedStar)}
+                  {selectedStar.lifeLabel} · {hopSentence(t, selectedStar.hop)} ·{' '}
+                  {coverageSentence(t, selectedStar)}
                 </p>
                 <div className="flex gap-3 text-xs">
                   <Link
                     href={`/app/${treeSlug}/personnes/${selectedStar.id}`}
                     className="text-[#f0b35a] hover:underline"
                   >
-                    Voir la fiche
+                    {t('seeRecord')}
                   </Link>
                   {selectedStar.id !== focusId ? (
                     <button
@@ -561,7 +555,7 @@ export function ConstellationView({
                       onClick={() => recentre(selectedStar.id)}
                       className="text-[#f0b35a] hover:underline"
                     >
-                      Centrer ici
+                      {t('centreHere')}
                     </button>
                   ) : null}
                 </div>
@@ -573,7 +567,7 @@ export function ConstellationView({
 
       <p className="text-text-faint text-xs">
         {status === 'ready'
-          ? `Rendu ${backend === 'webgpu' ? 'WebGPU' : 'WebGL 2 (repli)'} · glisser pour tourner, molette pour s’approcher, clic sur une étoile pour la sélectionner.`
+          ? t('renderedWith', { backend: t(backend === 'webgpu' ? 'webgpu' : 'webgl') })
           : ' '}
       </p>
     </div>

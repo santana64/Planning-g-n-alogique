@@ -18,8 +18,8 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Prochaine action        | [§ Prochaine action](#prochaine-action)                                                   |
 
 **Dernière exécution complète** (2026-09-21, poste de développement) :
-format, lint, types **verts** ; **702** tests unitaires, **214** d'intégration,
-**76** de bout en bout, tous verts ; `pnpm build` vert ; images Docker web et
+format, lint, types **verts** ; **703** tests unitaires, **214** d'intégration,
+**77** de bout en bout, tous verts ; `pnpm build` vert ; images Docker web et
 worker construites ; la CI rejouée localement dans un clone vierge passe toutes
 ses étapes, et le parcours d'installation du README rejoué à la lettre (base et
 seau neufs) donne les 40 personnes de la démonstration.
@@ -890,11 +890,10 @@ moteur de recherche externe (PostgreSQL suffit largement).
   extérieure depuis ce dépôt : il y faut des identifiants SMTP, un domaine et
   SPF/DKIM/DMARC. Avec `MAIL_TRANSPORT=none`, les adresses ne sont pas
   vérifiées et une invitation repose sur son lien seul.
-- **La traduction des écrans est à mi-chemin** : la coquille d'un arbre, la
-  liste, la fiche et ses éditeurs, les doublons et l'historique répondent en
-  anglais sous `/en` ; la frise, la carte, les archives, la constellation, les
-  récits, la revue d'import, les réglages et les messages des actions serveur
-  sont encore écrits en français dans les composants.
+- **Le récit généré et les courriels restent en français** sous `/en` : tous
+  les écrans et les messages des actions sont traduits, mais le récit est une
+  prose construite (l'écran le signale en anglais) et les courriels partent en
+  français.
 - **Tables prêtes sans écran** : tâches de recherche, pages de documents,
   médias et identification sur photographie.
 

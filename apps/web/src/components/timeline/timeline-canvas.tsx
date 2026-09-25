@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { TemporalCamera, type CameraState, type DetailLevel } from '@chronolignee/engine';
 import { AXIS_HEIGHT, renderTimeline, type TimelineTheme } from './render-timeline';
 import type { TimelineSnapshot } from '@/server/timeline';
@@ -22,16 +23,6 @@ import type { TimelineSnapshot } from '@/server/timeline';
 const ROW_HEIGHT = 22;
 const WHEEL_ZOOM_INTENSITY = 0.0016;
 const KEYBOARD_PAN_PX = 80;
-
-/** What the drawing shows at the current zoom, in the reader's words. */
-const DETAIL_LABELS: Record<DetailLevel, string> = {
-  CENTURY: 'vue par siècles',
-  BRANCH: 'vue par branches',
-  GENERATION: 'vue par générations',
-  PERSON: 'une barre par vie',
-  EVENT: 'noms et événements',
-  DETAIL: 'tout le détail',
-};
 
 export interface TimelineCanvasProps {
   readonly snapshot: TimelineSnapshot;
@@ -77,6 +68,8 @@ export function TimelineCanvas({
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [scrollTop, setScrollTop] = useState(0);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
+  const t = useTranslations('timeline');
+  const certainty = useTranslations('certainty');
   const [detailLevel, setDetailLevel] = useState<DetailLevel>('PERSON');
 
   const contentHeight = snapshot.rows.length * ROW_HEIGHT + AXIS_HEIGHT;
@@ -336,7 +329,7 @@ export function TimelineCanvas({
       <div
         ref={containerRef}
         role="application"
-        aria-label={`Chronologie de ${snapshot.treeName}. Flèches pour se déplacer, plus et moins pour zoomer, Origine pour tout afficher.`}
+        aria-label={t('canvasLabel', { tree: snapshot.treeName })}
         tabIndex={0}
         className="bg-surface-sunken h-full w-full cursor-grab touch-none overflow-hidden focus-visible:-outline-offset-2 active:cursor-grabbing"
         onPointerDown={handlePointerDown}
@@ -360,21 +353,25 @@ export function TimelineCanvas({
           <p className="font-editorial text-text-primary text-sm">{hovered.displayName}</p>
           <p className="text-text-muted mt-0.5 text-xs">
             {hovered.redacted
-              ? 'Rien n’est publié à son sujet.'
-              : `${hovered.birthLabel} — ${hovered.isLiving ? 'vivant' : hovered.deathLabel}`}
+              ? t('nothingPublished')
+              : t('lifespan', {
+                  birth: hovered.birthLabel,
+                  death: hovered.isLiving ? t('livingShort') : hovered.deathLabel,
+                })}
           </p>
           {!hovered.redacted && hovered.endCertainty === 'INFERRED' && (
             <p className="text-text-faint mt-1 max-w-56 text-xs">
-              Aucun décès enregistré : cette limite vient de la durée de vie maximale, pas
-              d&apos;une source.
+              {certainty('inferredExplanation')}
             </p>
           )}
         </div>
       )}
 
       <p className="text-text-faint pointer-events-none absolute right-2 bottom-2 text-xs">
-        {snapshot.rows.length} personnes · molette : défiler · maj+molette : zoomer ·{' '}
-        {DETAIL_LABELS[detailLevel]}
+        {t('hint', {
+          people: snapshot.rows.length,
+          detail: t(`detail.${detailLevel}`),
+        })}
       </p>
     </div>
   );

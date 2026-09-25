@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { jdnToGregorian } from '@chronolignee/domain';
 import type { AtlasSnapshot } from '@/server/atlas';
 
@@ -28,6 +29,7 @@ function yearOf(jdn: number): number {
 }
 
 export function AtlasView({ snapshot }: { snapshot: AtlasSnapshot }) {
+  const t = useTranslations('atlas');
   const [cursorJdn, setCursorJdn] = useState<number | null>(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [showTable, setShowTable] = useState(false);
@@ -65,8 +67,10 @@ export function AtlasView({ snapshot }: { snapshot: AtlasSnapshot }) {
           <aside className="border-border-default bg-surface-floating absolute top-4 left-4 max-w-xs rounded-[var(--radius-md)] border px-4 py-3 shadow-[var(--shadow-mid)]">
             <p className="font-editorial text-text-primary text-base">{selected.name}</p>
             <p className="text-text-muted mt-1 text-sm">
-              {selected.eventCount} {selected.eventCount === 1 ? 'événement' : 'événements'},{' '}
-              {selected.personCount} {selected.personCount === 1 ? 'personne' : 'personnes'}
+              {t('placeCounts', {
+                events: selected.eventCount,
+                people: selected.personCount,
+              })}
             </p>
             {selected.earliestJdn !== null && selected.latestJdn !== null ? (
               <p className="text-text-faint tabular mt-1 text-xs">
@@ -78,7 +82,7 @@ export function AtlasView({ snapshot }: { snapshot: AtlasSnapshot }) {
               onClick={() => setSelectedPlaceId(null)}
               className="text-text-faint hover:text-accent mt-2 text-xs"
             >
-              Fermer
+              {t('close')}
             </button>
           </aside>
         ) : null}
@@ -87,7 +91,7 @@ export function AtlasView({ snapshot }: { snapshot: AtlasSnapshot }) {
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-4">
           <label htmlFor="atlas-cursor" className="text-text-secondary text-sm">
-            Année
+            {t('year')}
           </label>
           <input
             id="atlas-cursor"
@@ -104,7 +108,7 @@ export function AtlasView({ snapshot }: { snapshot: AtlasSnapshot }) {
             className="tabular text-text-primary w-16 text-sm"
             aria-live="polite"
           >
-            {cursorJdn === null ? 'tout' : yearOf(cursorJdn)}
+            {cursorJdn === null ? t('all') : yearOf(cursorJdn)}
           </output>
           {cursorJdn !== null ? (
             <button
@@ -112,36 +116,30 @@ export function AtlasView({ snapshot }: { snapshot: AtlasSnapshot }) {
               onClick={() => setCursorJdn(null)}
               className="text-text-faint hover:text-accent text-xs"
             >
-              Tout afficher
+              {t('showAll')}
             </button>
           ) : null}
         </div>
 
         <p className="text-text-muted text-sm">
-          {visiblePlaces.length} {visiblePlaces.length === 1 ? 'lieu' : 'lieux'} ·{' '}
-          {visibleArcs.length} {visibleArcs.length === 1 ? 'déplacement' : 'déplacements'} · période
-          couverte {firstYear} – {lastYear}
+          {t('summary', {
+            places: visiblePlaces.length,
+            moves: visibleArcs.length,
+            from: firstYear,
+            to: lastYear,
+          })}
         </p>
 
         {/* Said, not hidden. A map that quietly omits a third of the archive
          * is a map that lies about where the family was. */}
         {snapshot.unplacedCount > 0 ? (
           <p className="text-text-faint text-sm">
-            {snapshot.unplacedCount}{' '}
-            {snapshot.unplacedCount === 1 ? 'lieu n’a pas' : 'lieux n’ont pas'} de coordonnées et ne{' '}
-            {snapshot.unplacedCount === 1 ? 'peut' : 'peuvent'} pas être placé
-            {snapshot.unplacedCount === 1 ? '' : 's'}.
+            {t('unplaced', { count: snapshot.unplacedCount })}
           </p>
         ) : null}
 
         {snapshot.withheldPeople > 0 ? (
-          <p className="text-source text-sm">
-            {snapshot.withheldPeople}{' '}
-            {snapshot.withheldPeople === 1
-              ? 'personne protégée ne figure'
-              : 'personnes protégées ne figurent'}{' '}
-            pas sur la carte : ni leurs déplacements, ni leur présence dans les lieux.
-          </p>
+          <p className="text-source text-sm">{t('withheld', { count: snapshot.withheldPeople })}</p>
         ) : null}
 
         <button
@@ -149,26 +147,26 @@ export function AtlasView({ snapshot }: { snapshot: AtlasSnapshot }) {
           onClick={() => setShowTable((current) => !current)}
           className="text-accent self-start text-sm hover:underline"
         >
-          {showTable ? 'Masquer le tableau' : 'Voir le tableau'}
+          {showTable ? t('hideTable') : t('showTable')}
         </button>
 
         {showTable ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <caption className="sr-only">Lieux de cet arbre et ce qui y est enregistré</caption>
+              <caption className="sr-only">{t('tableCaption')}</caption>
               <thead>
                 <tr className="text-text-faint border-border-subtle border-b text-left">
                   <th scope="col" className="py-2 pr-4 font-normal">
-                    Lieu
+                    {t('columns.place')}
                   </th>
                   <th scope="col" className="py-2 pr-4 font-normal">
-                    Événements
+                    {t('columns.events')}
                   </th>
                   <th scope="col" className="py-2 pr-4 font-normal">
-                    Personnes
+                    {t('columns.people')}
                   </th>
                   <th scope="col" className="py-2 font-normal">
-                    Période
+                    {t('columns.period')}
                   </th>
                 </tr>
               </thead>

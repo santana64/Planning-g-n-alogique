@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { DeleteTree } from '@/components/settings/delete-tree';
 import { TreeSettingsForm } from '@/components/settings/tree-settings-form';
 import { TreeNav } from '@/components/people/tree-nav';
@@ -16,6 +16,7 @@ export default async function TreeSettingsPage({
   const { locale, treeSlug } = await params;
   setRequestLocale(locale);
 
+  const t = await getTranslations('settings');
   const view = await loadTreeSettings(treeSlug);
   if (!view) notFound();
   const { access } = view;
@@ -30,12 +31,12 @@ export default async function TreeSettingsPage({
           current="settings"
         />
 
-        <h1 className="font-editorial text-text-primary text-3xl tracking-tight">Réglages</h1>
+        <h1 className="font-editorial text-text-primary text-3xl tracking-tight">{t('title')}</h1>
 
         {view.canManage ? (
           <section aria-labelledby="settings-heading" className="flex max-w-2xl flex-col gap-4">
             <h2 id="settings-heading" className="text-text-faint text-xs tracking-wide uppercase">
-              L’arbre et ses visiteurs
+              {t('treeAndVisitors')}
             </h2>
             <TreeSettingsForm treeSlug={treeSlug} settings={view.settings} />
           </section>
@@ -44,21 +45,16 @@ export default async function TreeSettingsPage({
         {view.canExport ? (
           <section aria-labelledby="export-heading" className="flex max-w-2xl flex-col gap-3">
             <h2 id="export-heading" className="text-text-faint text-xs tracking-wide uppercase">
-              Emporter l’arbre
+              {t('takeAway')}
             </h2>
-            <p className="text-text-secondary text-sm">
-              Un fichier GEDCOM 7 que tout logiciel de généalogie sait lire : personnes, noms,
-              événements avec leurs dates telles qu’enregistrées, liens et sources. Il contient
-              aussi les personnes vivantes, sans masque : gardez-le comme vous garderiez l’arbre.
-              Chaque export est inscrit à l’historique.
-            </p>
+            <p className="text-text-secondary text-sm">{t('exportLead')}</p>
             {/* A plain anchor: a prefetching link would record exports nobody asked for. */}
             <a
               href={`/api/trees/${treeSlug}/export`}
               download
               className="text-accent self-start text-sm underline underline-offset-2"
             >
-              Télécharger le fichier GEDCOM
+              {t('download')}
             </a>
           </section>
         ) : null}
@@ -69,7 +65,7 @@ export default async function TreeSettingsPage({
             className="border-danger/30 flex max-w-2xl flex-col gap-3 rounded-[var(--radius-lg)] border p-5"
           >
             <h2 id="delete-heading" className="text-danger text-xs tracking-wide uppercase">
-              Supprimer l’arbre
+              {t('deleteTree')}
             </h2>
             <DeleteTree treeSlug={treeSlug} treeName={view.settings.name} counts={view.counts} />
           </section>

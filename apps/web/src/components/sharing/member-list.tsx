@@ -1,11 +1,11 @@
 'use client';
 
 import { useActionState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { TreeRole } from '@chronolignee/domain';
 import { IDLE, type ActionState } from '@/server/action-state';
 import type { MemberView } from '@/server/sharing';
 import { changeRoleAction, removeMemberAction } from '@/server/sharing-actions';
-import { ROLE_NAMES } from './role-labels';
 
 /**
  * The members, and what this viewer may change about each.
@@ -29,11 +29,13 @@ export function MemberList({
     removeMemberAction,
     IDLE,
   );
+  const t = useTranslations('sharing');
+  const roles = useTranslations('tree.roles');
   const state = removeState.status !== 'idle' ? removeState : roleState;
 
   return (
     <div className="flex flex-col gap-3">
-      <ul aria-label="Membres" className="flex flex-col">
+      <ul aria-label={t('members')} className="flex flex-col">
         {members.map((member) => (
           <li
             key={member.memberId}
@@ -42,7 +44,7 @@ export function MemberList({
             <span className="flex flex-col">
               <span className="text-text-primary">
                 {member.name}
-                {member.isMe ? <span className="text-text-faint text-sm"> (vous)</span> : null}
+                {member.isMe ? <span className="text-text-faint text-sm">{t('you')}</span> : null}
               </span>
               {member.email ? (
                 <span className="text-text-faint text-xs">{member.email}</span>
@@ -55,7 +57,7 @@ export function MemberList({
                   <input type="hidden" name="treeSlug" value={treeSlug} />
                   <input type="hidden" name="memberId" value={member.memberId} />
                   <label className="sr-only" htmlFor={`role-${member.memberId}`}>
-                    Rôle de {member.name}
+                    {t('roleOf', { name: member.name })}
                   </label>
                   <select
                     id={`role-${member.memberId}`}
@@ -65,7 +67,7 @@ export function MemberList({
                   >
                     {member.assignableRoles.map((role: TreeRole) => (
                       <option key={role} value={role}>
-                        {ROLE_NAMES[role]}
+                        {roles(role)}
                       </option>
                     ))}
                   </select>
@@ -74,11 +76,11 @@ export function MemberList({
                     disabled={changing}
                     className="text-accent text-sm hover:underline disabled:opacity-60"
                   >
-                    Changer
+                    {t('change')}
                   </button>
                 </form>
               ) : (
-                <span className="text-text-muted text-sm">{ROLE_NAMES[member.role]}</span>
+                <span className="text-text-muted text-sm">{roles(member.role)}</span>
               )}
 
               {member.removable ? (
@@ -88,10 +90,10 @@ export function MemberList({
                   <button
                     type="submit"
                     disabled={removing}
-                    aria-label={`Retirer ${member.name} de l’arbre`}
+                    aria-label={t('removeMember', { name: member.name })}
                     className="text-text-faint hover:text-danger text-sm disabled:opacity-60"
                   >
-                    Retirer
+                    {t('remove')}
                   </button>
                 </form>
               ) : null}

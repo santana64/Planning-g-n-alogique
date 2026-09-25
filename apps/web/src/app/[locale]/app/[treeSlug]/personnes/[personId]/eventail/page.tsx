@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { features } from '@/lib/env';
 import { loadTemporalFan } from '@/server/temporal-fan';
@@ -33,6 +33,7 @@ export default async function EventailPage({
   const requested = Number.parseInt(g ?? '', 10);
   const generations = DEPTHS.includes(requested as (typeof DEPTHS)[number]) ? requested : 6;
 
+  const t = await getTranslations('fan');
   const view = await loadTemporalFan(treeSlug, personId, generations);
   if (!view) notFound();
 
@@ -53,18 +54,14 @@ export default async function EventailPage({
           >
             ← {view.subjectName}
           </Link>
-          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">
-            Éventail temporel
-          </h1>
-          <p className="text-text-muted max-w-2xl text-sm">
-            L’ascendance en éventail, où chaque anneau est une année et non une génération. Une
-            branche qui s’étend plus loin à chaque pas est une branche de générations plus longues ;
-            deux ancêtres au même rayon sont nés les mêmes années.
-          </p>
+          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">{t('title')}</h1>
+          <p className="text-text-muted max-w-2xl text-sm">{t('lead')}</p>
         </div>
 
-        <nav aria-label="Profondeur" className="flex items-baseline gap-3">
-          <span className="text-text-faint text-xs tracking-wide uppercase">Générations</span>
+        <nav aria-label={t('depth')} className="flex items-baseline gap-3">
+          <span className="text-text-faint text-xs tracking-wide uppercase">
+            {t('generations')}
+          </span>
           {DEPTHS.map((count) => (
             <Link
               key={count}
@@ -83,14 +80,11 @@ export default async function EventailPage({
 
         {view.subjectHidden ? (
           <p className="border-source/30 bg-source/10 text-source rounded-[var(--radius-md)] border px-4 py-3">
-            Cette personne est protégée. Son éventail n’est pas affiché : son centre porterait son
-            année de naissance.
+            {t('subjectHidden')}
           </p>
         ) : view.referenceYear === null ? (
           <p className="border-border-subtle text-text-muted rounded-[var(--radius-lg)] border border-dashed p-8">
-            La date de naissance de {view.subjectName} n’est pas connue. L’éventail mesure tout à
-            partir d’elle : sans ce point de départ, il ne serait qu’un éventail de générations
-            déguisé.
+            {t('noBirth', { name: view.subjectName })}
           </p>
         ) : (
           <>
@@ -100,20 +94,17 @@ export default async function EventailPage({
                   aria-hidden="true"
                   className="inline-block h-3 w-3 rounded-sm bg-[var(--accent-history)]"
                 />
-                côté paternel
+                {t('paternal')}
               </li>
               <li className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
                   className="inline-block h-3 w-3 rounded-sm bg-[var(--accent-primary)]"
                 />
-                côté maternel
+                {t('maternal')}
               </li>
-              <li>
-                Épaisseur : l’incertitude sur la naissance. Un trait fin est une date ; une bande
-                large, « vers » ou « entre ».
-              </li>
-              <li>Pâle : date approchée ou ouverte. Rouge : né·e après la personne centrale.</li>
+              <li>{t('thickness')}</li>
+              <li>{t('pale')}</li>
             </ul>
 
             <TemporalFanChart view={view} treeSlug={treeSlug} locale={locale} />
@@ -123,12 +114,9 @@ export default async function EventailPage({
         {view.unplaced.length > 0 ? (
           <section aria-labelledby="fan-unplaced" className="flex flex-col gap-2">
             <h2 id="fan-unplaced" className="text-text-faint text-xs tracking-wide uppercase">
-              Non placés
+              {t('unplacedTitle')}
             </h2>
-            <p className="text-text-muted text-sm">
-              Dans l’ascendance, mais sans position dans le temps. Les placer quelque part
-              inventerait précisément ce que l’éventail montre.
-            </p>
+            <p className="text-text-muted text-sm">{t('unplacedLead')}</p>
             <ul className="flex flex-col">
               {view.unplaced.map((entry) => (
                 <li
@@ -144,9 +132,7 @@ export default async function EventailPage({
                     {entry.name}
                   </span>
                   <span className="text-text-faint text-xs">
-                    {entry.reason === 'PROTECTED'
-                      ? 'personne protégée, non publiée'
-                      : 'naissance non datée'}
+                    {entry.reason === 'PROTECTED' ? t('protected') : t('undatedBirth')}
                   </span>
                 </li>
               ))}

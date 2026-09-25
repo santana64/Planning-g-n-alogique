@@ -14,14 +14,15 @@ passe oublié, l'invitation envoyée, et Mailpit en développement comme en CI
 des identifiants SMTP réels, un domaine d'envoi, SPF/DKIM/DMARC, et la preuve
 qu'un message arrive vraiment dans une boîte extérieure.
 
-### Traduction des écrans de l'application
+### Traduction : ce qui reste
 
-Fait : la coquille d'un arbre, la liste des personnes, la fiche et ses
-éditeurs, les doublons, l'historique et les constats d'audit — 476 clés dans
-les deux langues, et un test bout en bout qui vérifie que `/en` répond bien en
-anglais. Reste : la frise, la carte, les archives, la constellation, les
-récits, la revue d'import, les réglages, le partage, le compte, et les
-messages renvoyés par les actions serveur. Même méthode, écran par écran.
+Tous les écrans et tous les messages des actions serveur sont traduits
+(1 095 clés). Restent trois textes qui ne sont pas des libellés mais de la
+langue construite : le **récit généré**, qui demande une grammaire anglaise à
+part entière et non une traduction phrase à phrase ; les **courriels**, qui
+devraient partir dans la langue du destinataire (qu'on ne connaît pas encore au
+moment d'une invitation) ; et les **termes de parenté**, dont l'anglais compte
+autrement (« second cousin once removed »).
 
 ### Faire tourner la CI pour de vrai
 

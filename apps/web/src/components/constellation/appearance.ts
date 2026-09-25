@@ -114,17 +114,18 @@ export function labelPriority(
   return 1_000 - star.hop * 100 + Math.round((star.coverage ?? 0) * 50);
 }
 
-export function coverageSentence(star: Pick<ConstellationStar, 'events' | 'cited'>): string {
-  if (star.events === 0) return 'aucun événement enregistré';
-  if (star.cited === 0) {
-    return star.events === 1
-      ? '1 événement, non sourcé'
-      : `${star.events} événements, aucun sourcé`;
-  }
-  return `${star.cited} événement${star.cited > 1 ? 's' : ''} sourcé${star.cited > 1 ? 's' : ''} sur ${star.events}`;
+type Sentence = (key: string, values?: Record<string, string | number>) => string;
+
+/** Which sentence describes this star's evidence, and with which numbers. */
+export function coverageSentence(
+  t: Sentence,
+  star: Pick<ConstellationStar, 'events' | 'cited'>,
+): string {
+  if (star.events === 0) return t('noEvent');
+  if (star.cited === 0) return t('noneCited', { count: star.events });
+  return t('cited', { cited: star.cited, events: star.events });
 }
 
-export function hopSentence(hop: number): string {
-  if (hop === 0) return 'personne centrale';
-  return hop === 1 ? 'à 1 lien' : `à ${hop} liens`;
+export function hopSentence(t: Sentence, hop: number): string {
+  return hop === 0 ? t('centre') : t('hops', { count: hop });
 }

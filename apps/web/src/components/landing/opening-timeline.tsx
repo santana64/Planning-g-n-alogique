@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import { branchColorForKey } from '@chronolignee/ui';
 
 /**
@@ -111,6 +112,7 @@ const y = (index: number): number => TOP + index * ROW_HEIGHT;
 const DECADE_MARKS = [1800, 1850, 1900, 1950, 2000];
 
 export function OpeningTimeline() {
+  const t = useTranslations('landing');
   const indexById = new Map(LIVES.map((life, i) => [life.id, i]));
 
   return (
@@ -127,18 +129,11 @@ export function OpeningTimeline() {
           role="img"
           aria-labelledby="opening-title opening-desc"
         >
-          <title id="opening-title">
-            Treize vies d&apos;une famille fictive, de 1779 à aujourd&apos;hui
-          </title>
+          <title id="opening-title">{t('figureTitle')}</title>
           {/* The canvas has a parallel description, because a visualisation that
             only exists as pixels is unavailable to a screen reader. The real
             application goes further and offers a navigable HTML tree. */}
-          <desc id="opening-desc">
-            Chaque trait horizontal représente une vie, positionnée sur un axe temporel allant de
-            1770 à aujourd&apos;hui. Les traits verticaux relient un parent à son enfant à
-            l&apos;année de naissance de celui-ci. Les extrémités nettes correspondent à des dates
-            enregistrées, les extrémités estompées à des dates approximatives ou inconnues.
-          </desc>
+          <desc id="opening-desc">{t('figureDescription')}</desc>
 
           <defs>
             {/* Reveal clips. Each line is uncovered left to right by scaling a
@@ -306,7 +301,7 @@ export function OpeningTimeline() {
       <figcaption className="border-border-subtle text-text-faint flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t px-4 py-2.5 text-xs">
         <span className="inline-flex items-center gap-1.5">
           <span className="bg-certain h-0.5 w-5" />
-          Date enregistrée
+          {t('recordedDate')}
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span
@@ -316,7 +311,7 @@ export function OpeningTimeline() {
                 'repeating-linear-gradient(90deg, var(--certainty-approximate) 0 6px, transparent 6px 9px)',
             }}
           />
-          Date approximative
+          {t('approximateDate')}
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span
@@ -325,7 +320,7 @@ export function OpeningTimeline() {
               backgroundImage: 'linear-gradient(90deg, var(--certainty-inferred), transparent)',
             }}
           />
-          Fin inconnue
+          {t('unknownEnd')}
         </span>
       </figcaption>
     </figure>

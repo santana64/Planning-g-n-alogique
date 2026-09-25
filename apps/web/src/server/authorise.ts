@@ -1,4 +1,5 @@
 import 'server-only';
+import { getTranslations } from 'next-intl/server';
 import { can, type TreeCapability, type TreeRole } from '@chronolignee/domain';
 import type { PersonWriteContext } from '@chronolignee/db';
 import { db } from '@/lib/db';
@@ -37,37 +38,28 @@ export type WriteAuthorisation = WriteGrant | { readonly error: ActionState };
  * What a member is told when their role does not allow the write.
  *
  * Said plainly: they know the tree exists and what their role is, and "an
- * error occurred" would send them looking for a bug.
+ * error occurred" would send them looking for a bug. One sentence per
+ * capability, in `actions.refused`.
  */
-const REFUSED: Record<TreeCapability, string> = {
-  contribute: 'Vous consultez cet arbre en lecture seule.',
-  delete: 'Votre rôle dans cet arbre permet d’ajouter et de corriger, pas de supprimer.',
-  import: 'Votre rôle dans cet arbre ne permet pas d’importer un fichier.',
-  export: 'Seuls le propriétaire et les administrateurs peuvent exporter l’arbre.',
-  setPersonPrivacy:
-    'Seuls le propriétaire et les administrateurs peuvent publier ou restreindre une personne.',
-  manageMembers: 'Seuls le propriétaire et les administrateurs gèrent les membres.',
-  manageTree: 'Seuls le propriétaire et les administrateurs modifient les réglages de l’arbre.',
-  deleteTree: 'Seul le propriétaire peut supprimer l’arbre.',
-};
-
-export function refusal(capability: TreeCapability): ActionState {
-  return { status: 'error', message: REFUSED[capability] };
+export async function refusal(capability: TreeCapability): Promise<ActionState> {
+  const t = await getTranslations('actions');
+  return { status: 'error', message: t(`refused.${capability}`) };
 }
 
 /** Said for a record that does not exist and for one this author may not see alike. */
-export const NOT_FOUND: ActionState = {
-  status: 'error',
-  message: 'Cette fiche est introuvable dans cet arbre.',
-};
+export async function notFound(): Promise<ActionState> {
+  const t = await getTranslations('actions');
+  return { status: 'error', message: t('personNotFound') };
+}
 
 export async function authoriseWrite(
   treeSlug: string,
   capability: TreeCapability = 'contribute',
 ): Promise<WriteAuthorisation> {
+  const t = await getTranslations('actions');
   const session = await getSession();
   if (!session) {
-    return { error: { status: 'error', message: 'Connectez-vous pour modifier cet arbre.' } };
+    return { error: { status: 'error', message: t('signInToEdit') } };
   }
 
   const access = await resolveTreeAccess(treeSlug);
@@ -75,14 +67,9 @@ export async function authoriseWrite(
   // and a tree that does not exist give the same answer: the existence of a
   // private family archive is not leaked by the difference between messages.
   if (!access || access.role === null) {
-    return {
-      error: {
-        status: 'error',
-        message: "Cet arbre n'existe pas ou ne vous est pas ouvert en écriture.",
-      },
-    };
+    return { error: { status: 'error', message: t('treeNotWritable') } };
   }
-  if (!can(access.role, capability)) return { error: refusal(capability) };
+  if (!can(access.role, capability)) return { error: await refusal(capability) };
 
   return {
     access: { ...access, role: access.role },
