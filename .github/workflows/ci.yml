@@ -126,11 +126,13 @@ jobs:
             -e MINIO_ROOT_USER=chronolignee -e MINIO_ROOT_PASSWORD=chronolignee_ci \
             quay.io/minio/minio:latest server /data
           timeout 60 bash -c 'until curl -sf http://localhost:9000/minio/health/live; do sleep 1; done'
-          curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o "$RUNNER_TEMP/mc"
-          chmod +x "$RUNNER_TEMP/mc"
-          "$RUNNER_TEMP/mc" alias set ci http://localhost:9000 chronolignee chronolignee_ci
-          "$RUNNER_TEMP/mc" mb --ignore-existing ci/chronolignee-archives
-          "$RUNNER_TEMP/mc" anonymous set none ci/chronolignee-archives
+          # The client from its image, as docker-compose runs it locally: the
+          # binary download from dl.min.io is no longer served to the
+          # community edition, and that is what failed the first run.
+          docker run --rm --network host --entrypoint /bin/sh quay.io/minio/mc:latest -c "
+            mc alias set ci http://localhost:9000 chronolignee chronolignee_ci &&
+            mc mb --ignore-existing ci/chronolignee-archives &&
+            mc anonymous set none ci/chronolignee-archives"
 
       - name: Apply migrations
         # `migrate deploy`, never `db push`. The migrations are the schema, and
@@ -235,11 +237,13 @@ jobs:
             -e MINIO_ROOT_USER=chronolignee -e MINIO_ROOT_PASSWORD=chronolignee_ci \
             quay.io/minio/minio:latest server /data
           timeout 60 bash -c 'until curl -sf http://localhost:9000/minio/health/live; do sleep 1; done'
-          curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o "$RUNNER_TEMP/mc"
-          chmod +x "$RUNNER_TEMP/mc"
-          "$RUNNER_TEMP/mc" alias set ci http://localhost:9000 chronolignee chronolignee_ci
-          "$RUNNER_TEMP/mc" mb --ignore-existing ci/chronolignee-archives
-          "$RUNNER_TEMP/mc" anonymous set none ci/chronolignee-archives
+          # The client from its image, as docker-compose runs it locally: the
+          # binary download from dl.min.io is no longer served to the
+          # community edition, and that is what failed the first run.
+          docker run --rm --network host --entrypoint /bin/sh quay.io/minio/mc:latest -c "
+            mc alias set ci http://localhost:9000 chronolignee chronolignee_ci &&
+            mc mb --ignore-existing ci/chronolignee-archives &&
+            mc anonymous set none ci/chronolignee-archives"
 
       - run: pnpm db:migrate:deploy
       - run: pnpm db:seed
