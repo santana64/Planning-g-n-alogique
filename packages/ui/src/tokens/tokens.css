@@ -92,6 +92,21 @@
   --sex-other: oklch(0.72 0.11 300);
   --sex-unknown: oklch(0.62 0.015 258);
 
+  /* --- History, by category ------------------------------------------------
+   * Low chroma on purpose: history is the context of a family, never its
+   * subject, and must not compete with the lives drawn over it. Hues kept
+   * away from the brass of the accent and the red of danger.
+   */
+  --hist-war: oklch(0.6 0.085 15);
+  --hist-political: oklch(0.62 0.08 285);
+  --hist-epidemic: oklch(0.64 0.08 145);
+  --hist-disaster: oklch(0.63 0.075 215);
+  --hist-migration: oklch(0.66 0.08 175);
+  --hist-economic: oklch(0.64 0.07 105);
+  --hist-cultural: oklch(0.64 0.08 325);
+  --hist-religious: oklch(0.6 0.06 250);
+  --hist-legal: oklch(0.6 0.04 240);
+
   /* --- Elevation ---------------------------------------------------------
    * Shadows on near-black do almost nothing, so elevation is carried by a
    * light top edge plus a deep ambient shadow — the way a lit object reads.
@@ -197,6 +212,16 @@
   --sex-other: oklch(0.55 0.13 300);
   --sex-unknown: oklch(0.62 0.012 258);
 
+  --hist-war: oklch(0.52 0.1 15);
+  --hist-political: oklch(0.5 0.1 285);
+  --hist-epidemic: oklch(0.52 0.09 145);
+  --hist-disaster: oklch(0.52 0.09 215);
+  --hist-migration: oklch(0.52 0.09 175);
+  --hist-economic: oklch(0.52 0.08 105);
+  --hist-cultural: oklch(0.52 0.1 325);
+  --hist-religious: oklch(0.5 0.07 250);
+  --hist-legal: oklch(0.5 0.05 240);
+
   --shadow-low: 0 1px 2px oklch(0.2 0.02 258 / 0.08);
   --shadow-mid: 0 4px 16px oklch(0.2 0.02 258 / 0.1);
   --shadow-high: 0 16px 48px oklch(0.2 0.02 258 / 0.14);
@@ -249,6 +274,16 @@
     --sex-male: oklch(0.55 0.13 240);
     --sex-other: oklch(0.55 0.13 300);
     --sex-unknown: oklch(0.62 0.012 258);
+
+    --hist-war: oklch(0.52 0.1 15);
+    --hist-political: oklch(0.5 0.1 285);
+    --hist-epidemic: oklch(0.52 0.09 145);
+    --hist-disaster: oklch(0.52 0.09 215);
+    --hist-migration: oklch(0.52 0.09 175);
+    --hist-economic: oklch(0.52 0.08 105);
+    --hist-cultural: oklch(0.52 0.1 325);
+    --hist-religious: oklch(0.5 0.07 250);
+    --hist-legal: oklch(0.5 0.05 240);
 
     --shadow-low: 0 1px 2px oklch(0.2 0.02 258 / 0.08);
     --shadow-mid: 0 4px 16px oklch(0.2 0.02 258 / 0.1);

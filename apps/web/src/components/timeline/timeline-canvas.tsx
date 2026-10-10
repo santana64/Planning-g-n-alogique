@@ -6,11 +6,14 @@ import { ofNameIn } from '@/lib/french';
 import { TemporalCamera, type CameraState, type DetailLevel } from '@chronolignee/engine';
 import {
   AXIS_HEIGHT,
+  HEADER_HEIGHT,
   renderTimeline,
   type TimelineColorMode,
   type TimelineTheme,
 } from './render-timeline';
 import { familyOf } from './family';
+import { laneMarks, laneTracks, markAt } from './history-lane';
+import { periodLabel } from './period';
 import { swatchFor, usePrefersReducedMotion } from './preferences';
 import type { TimelineSnapshot } from '@/server/timeline';
 
@@ -40,6 +43,9 @@ export interface TimelineCanvasProps {
   /** The temporal cursor, owned by the view so the counts and the drawing agree. */
   readonly cursor: { readonly jdn: number; readonly states: Uint8Array } | null;
   readonly colorMode: TimelineColorMode;
+  /** The historical event chosen in the lane, owned by the view for its panel. */
+  readonly selectedBandId: string | null;
+  readonly onSelectBand: (bandId: string | null) => void;
 }
 
 /** Durations, in milliseconds. Short enough never to make anyone wait. */
@@ -69,6 +75,23 @@ function readTheme(element: HTMLElement): TimelineTheme {
     sexMale: token('--sex-male', 'oklch(0.65 0.13 240)'),
     sexOther: token('--sex-other', 'oklch(0.72 0.11 300)'),
     sexUnknown: token('--sex-unknown', 'oklch(0.62 0.015 258)'),
+    history: Object.fromEntries(
+      [
+        'WAR',
+        'POLITICAL',
+        'EPIDEMIC',
+        'DISASTER',
+        'MIGRATION',
+        'ECONOMIC',
+        'CULTURAL',
+        'RELIGIOUS',
+        'LEGAL',
+        'OTHER',
+      ].map((category) => [
+        category,
+        token(`--hist-${category.toLowerCase()}`, token('--accent-history', '#6d8bd0')),
+      ]),
+    ),
   };
 }
 
@@ -79,6 +102,8 @@ export function TimelineCanvas({
   onViewportChange,
   cursor,
   colorMode,
+  selectedBandId,
+  onSelectBand,
 }: TimelineCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -90,6 +115,8 @@ export function TimelineCanvas({
   const [scrollTop, setScrollTop] = useState(0);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
+  const [hoveredBandId, setHoveredBandId] = useState<string | null>(null);
+  const tracks = useMemo(() => laneTracks(snapshot.bands), [snapshot.bands]);
   const animationRef = useRef({ entrance: 0, focus: 1, pulse: 0, pulseElapsed: 0 });
   const reducedMotion = usePrefersReducedMotion();
   const format = useFormatter();
@@ -98,7 +125,7 @@ export function TimelineCanvas({
   const certainty = useTranslations('certainty');
   const [detailLevel, setDetailLevel] = useState<DetailLevel>('PERSON');
 
-  const contentHeight = snapshot.rows.length * ROW_HEIGHT + AXIS_HEIGHT;
+  const contentHeight = snapshot.rows.length * ROW_HEIGHT + HEADER_HEIGHT;
 
   /**
    * Rows connected to the selection.
@@ -174,13 +201,46 @@ export function TimelineCanvas({
       scrollTopPx: scrollTop,
       rowHeightPx: ROW_HEIGHT,
       theme: themeRef.current,
-      interaction: { hoveredRow, selectedPersonId, relatedRows, cursor },
+      interaction: {
+        hoveredRow,
+        selectedPersonId,
+        relatedRows,
+        cursor,
+        hoveredBandId,
+        selectedBandId,
+      },
       colorMode,
       animation: animationRef.current,
     });
 
     setDetailLevel(result.detailLevel);
-  }, [snapshot, size, scrollTop, hoveredRow, selectedPersonId, relatedRows, cursor, colorMode]);
+  }, [
+    snapshot,
+    size,
+    scrollTop,
+    hoveredRow,
+    selectedPersonId,
+    relatedRows,
+    cursor,
+    colorMode,
+    hoveredBandId,
+    selectedBandId,
+  ]);
+
+  /** The historical event under a point, when the point is in the lane. */
+  const bandAtPoint = useCallback(
+    (clientX: number, clientY: number): string | null => {
+      const container = containerRef.current;
+      const camera = cameraRef.current;
+      if (!container || !camera) return null;
+      const bounds = container.getBoundingClientRect();
+      const y = clientY - bounds.top;
+      if (y < AXIS_HEIGHT || y > HEADER_HEIGHT) return null;
+      const marks = laneMarks(snapshot.bands, tracks, camera.viewport(), AXIS_HEIGHT);
+      return markAt(marks, clientX - bounds.left, y)?.band.id ?? null;
+    },
+    [snapshot.bands, tracks],
+  );
 
   const requestDraw = useCallback(() => {
     cancelAnimationFrame(frameRef.current);
@@ -274,7 +334,7 @@ export function TimelineCanvas({
       const container = containerRef.current;
       if (!container) return null;
       const bounds = container.getBoundingClientRect();
-      const y = clientY - bounds.top - AXIS_HEIGHT + scrollTop;
+      const y = clientY - bounds.top - HEADER_HEIGHT + scrollTop;
       if (y < 0) return null;
       const row = Math.floor(y / ROW_HEIGHT);
       return row >= 0 && row < snapshot.rows.length ? row : null;
@@ -309,7 +369,9 @@ export function TimelineCanvas({
       return;
     }
 
-    const row = rowAt(event.clientY);
+    const band = bandAtPoint(event.clientX, event.clientY);
+    if (band !== hoveredBandId) setHoveredBandId(band);
+    const row = band ? null : rowAt(event.clientY);
     if (row !== hoveredRow) setHoveredRow(row);
     const bounds = containerRef.current?.getBoundingClientRect();
     if (bounds) setPointer({ x: event.clientX - bounds.left, y: event.clientY - bounds.top });
@@ -321,6 +383,12 @@ export function TimelineCanvas({
     event.currentTarget.releasePointerCapture(event.pointerId);
 
     if (drag && !drag.moved) {
+      // A click in the history lane chooses an event, never a person.
+      const band = bandAtPoint(event.clientX, event.clientY);
+      if (band) {
+        onSelectBand(band === selectedBandId ? null : band);
+        return;
+      }
       const row = rowAt(event.clientY);
       const person = row !== null ? snapshot.rows[row] : undefined;
       onSelect(person && person.personId !== selectedPersonId ? person.personId : null);
@@ -407,6 +475,10 @@ export function TimelineCanvas({
   };
 
   const hovered = hoveredRow !== null ? snapshot.rows[hoveredRow] : undefined;
+  const hoveredBand = hoveredBandId
+    ? snapshot.bands.find((band) => band.id === hoveredBandId)
+    : undefined;
+  const history = useTranslations('timeline.history');
 
   return (
     <div className="relative h-full w-full">
@@ -421,6 +493,7 @@ export function TimelineCanvas({
         onPointerUp={handlePointerUp}
         onPointerLeave={() => {
           setHoveredRow(null);
+          setHoveredBandId(null);
           setPointer(null);
         }}
         onKeyDown={handleKeyDown}
@@ -431,6 +504,32 @@ export function TimelineCanvas({
           style={{ width: size.width, height: size.height, display: 'block' }}
         />
       </div>
+
+      {hoveredBand ? (
+        <div
+          key={hoveredBand.id}
+          className="timeline-tooltip border-border-default bg-surface-floating pointer-events-none absolute z-10 max-w-80 rounded-[var(--radius-md)] border px-3 py-2 shadow-[var(--shadow-mid)]"
+          style={tooltipPosition(pointer, size)}
+          role="status"
+        >
+          <p className="text-text-faint flex items-center gap-2 text-[11px] tracking-wide uppercase">
+            <span
+              aria-hidden="true"
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ background: `var(--hist-${hoveredBand.category.toLowerCase()})` }}
+            />
+            {history(`categories.${hoveredBand.category}`)}
+          </p>
+          <p className="font-editorial text-text-primary mt-0.5 text-sm">{hoveredBand.title}</p>
+          <p className="text-text-muted text-xs tabular-nums">
+            {periodLabel(hoveredBand.startJdn, hoveredBand.endJdn, format)}
+          </p>
+          {hoveredBand.summary ? (
+            <p className="text-text-secondary mt-1 text-xs">{hoveredBand.summary}</p>
+          ) : null}
+          <p className="text-text-faint mt-1 text-[11px]">{history('clickHint')}</p>
+        </div>
+      ) : null}
 
       {hovered && (
         <div

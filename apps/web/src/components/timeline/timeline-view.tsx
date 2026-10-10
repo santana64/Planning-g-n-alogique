@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { familyOf } from './family';
+import { HistoryPanel } from './history-panel';
 import { swatchFor, useColorMode } from './preferences';
 import type { TimelineColorMode } from './render-timeline';
 import { TimelineCanvas } from './timeline-canvas';
@@ -18,6 +19,8 @@ export function TimelineView({ snapshot }: { snapshot: TimelineSnapshot }) {
   const [showTable, setShowTable] = useState(false);
   const [cursorJdn, setCursorJdn] = useState<number | null>(null);
   const [colorMode, setColorMode] = useColorMode();
+  const [selectedBandId, setSelectedBandId] = useState<string | null>(null);
+  const selectedBand = snapshot.bands.find((band) => band.id === selectedBandId) ?? null;
 
   const selected = snapshot.rows.find((row) => row.personId === selectedPersonId);
   const family = useMemo(() => familyOf(snapshot), [snapshot]);
@@ -94,6 +97,8 @@ export function TimelineView({ snapshot }: { snapshot: TimelineSnapshot }) {
             onSelect={setSelectedPersonId}
             cursor={cursorJdn !== null && alive ? { jdn: cursorJdn, states: alive.states } : null}
             colorMode={colorMode}
+            selectedBandId={selectedBandId}
+            onSelectBand={setSelectedBandId}
           />
         )}
       </div>
@@ -107,6 +112,19 @@ export function TimelineView({ snapshot }: { snapshot: TimelineSnapshot }) {
       />
 
       <Legend colorMode={colorMode} />
+
+      {selectedBand ? (
+        <HistoryPanel
+          band={selectedBand}
+          snapshot={snapshot}
+          colorMode={colorMode}
+          onSelectPerson={(personId) => {
+            setSelectedBandId(null);
+            setSelectedPersonId(personId);
+          }}
+          onClose={() => setSelectedBandId(null)}
+        />
+      ) : null}
 
       {selected && (
         <aside
@@ -377,6 +395,17 @@ function Legend({ colorMode }: { colorMode: TimelineColorMode }) {
       <span className="inline-flex items-center gap-1.5">
         <span className="bg-accent h-3 w-px" />
         {t('today')}
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span aria-hidden="true" className="inline-flex gap-0.5">
+          <span className="h-1.5 w-3 rounded-full" style={{ background: 'var(--hist-war)' }} />
+          <span
+            className="h-1.5 w-3 rounded-full"
+            style={{ background: 'var(--hist-political)' }}
+          />
+          <span className="h-1.5 w-3 rounded-full" style={{ background: 'var(--hist-epidemic)' }} />
+        </span>
+        {t('history')}
       </span>
     </div>
   );

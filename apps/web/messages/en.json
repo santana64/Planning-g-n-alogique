@@ -213,7 +213,15 @@
     "notes": "Notes",
     "photos": "{count, plural, one {1 photograph} other {# photographs}}",
     "ageAtDeath": "aged {age}",
-    "portrait": "Portrait of {name}"
+    "portrait": "Portrait of {name}",
+    "epoch": {
+      "title": "Their times",
+      "lead": "{count, plural, one {One event} other {# events}} of history during the life of {name}.",
+      "atAge": "aged {age}",
+      "beforeBirth": "already under way at their birth",
+      "more": "{count, plural, one {1 more event} other {# more events}}",
+      "caveat": "General history, matched by the dates and countries of the tree: nothing here says this person took part in it."
+    }
   },
   "events": {
     "BIRTH": "Birth",
@@ -625,7 +633,8 @@
       "male": "Man",
       "sexUnknown": "Sex not recorded",
       "birthLink": "Birth: from parent to child",
-      "union": "Union"
+      "union": "Union",
+      "history": "History, under the axis: click a mark"
     },
     "cursor": {
       "travel": "Travel in time",
@@ -665,7 +674,27 @@
       "openRecord": "Open the record"
     },
     "childOf": "{sex, select, FEMALE {Daughter} MALE {Son} other {Child}} of {parents}",
-    "childrenCount": "{count, plural, one {1 child} other {# children}}"
+    "childrenCount": "{count, plural, one {1 child} other {# children}}",
+    "history": {
+      "categories": {
+        "WAR": "War",
+        "POLITICAL": "Politics",
+        "EPIDEMIC": "Epidemic",
+        "DISASTER": "Disaster",
+        "MIGRATION": "Migration",
+        "ECONOMIC": "Economy",
+        "CULTURAL": "Culture and school",
+        "RELIGIOUS": "Religion",
+        "LEGAL": "Law and civil records",
+        "OTHER": "Other"
+      },
+      "clickHint": "Click to see who in the family lived through it.",
+      "close": "Close",
+      "witnesses": "{count, plural, =0 {No one in the tree was alive.} one {1 person in the tree lived through it:} other {# people in the tree lived through it:}}",
+      "age": "aged {age}",
+      "bornDuring": "born during it",
+      "more": "and {count} more"
+    }
   },
   "atlas": {
     "placeCounts": "{events, plural, one {1 event} other {# events}}, {people, plural, one {1 person} other {# people}}",

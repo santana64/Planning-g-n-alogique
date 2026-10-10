@@ -6,7 +6,7 @@ import {
   isPresumedLiving,
   type GenealogicalDate,
 } from '@chronolignee/domain';
-import { decodeDate, loadEvidenceCoverage } from '@chronolignee/db';
+import { decodeDate, loadEvidenceCoverage, loadHistoricalContext } from '@chronolignee/db';
 import {
   chooseStoriesByRules,
   findStoryCandidates,
@@ -139,22 +139,9 @@ async function readStoryRecord(
         },
       },
     }),
-    db.treeHistoricalEvent.findMany({
-      where: { treeId },
-      select: {
-        historicalEvent: {
-          select: {
-            id: true,
-            title: true,
-            startJdn: true,
-            endJdn: true,
-            significance: true,
-            category: true,
-            countryCodes: true,
-          },
-        },
-      },
-    }),
+    // Every life of the story is inside the tree's span, so the tree's
+    // historical context is the story's.
+    loadHistoricalContext(db, treeId, { fromJdn: 0, toJdn: 99_999_999 }),
   ]);
 
   type EventRow = (typeof events)[number];
@@ -246,7 +233,13 @@ async function readStoryRecord(
     });
   }
 
-  return { people, historical: historicalRows.map((row) => row.historicalEvent) };
+  return {
+    people,
+    historical: historicalRows.map((event) => ({
+      ...event,
+      countryCodes: [...event.countryCodes],
+    })),
+  };
 }
 
 /** Only what a plan refers to leaves the server, without links to anyone else. */

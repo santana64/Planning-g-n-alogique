@@ -9,6 +9,7 @@ import {
 } from '@chronolignee/engine';
 import { branchColorForKey, EDGE_STYLES, type EdgeCertainty } from '@chronolignee/ui';
 import type { TimelineSnapshot } from '@/server/timeline';
+import { LANE_HEIGHT, TRACK_HEIGHT, laneMarks, laneTracks } from './history-lane';
 
 /**
  * The timeline renderer.
@@ -39,6 +40,8 @@ export interface TimelineTheme {
   readonly sexMale: string;
   readonly sexOther: string;
   readonly sexUnknown: string;
+  /** History, by category: WAR, POLITICAL, EPIDEMIC… */
+  readonly history: Readonly<Record<string, string>>;
 }
 
 /**
@@ -81,6 +84,10 @@ export interface TimelineInteraction {
    * loop free of genealogical reasoning.
    */
   readonly cursor: { readonly jdn: number; readonly states: Uint8Array } | null;
+  /** The historical event under the pointer in the history lane. */
+  readonly hoveredBandId?: string | null;
+  /** The historical event the reader chose: its period lights up over the lives. */
+  readonly selectedBandId?: string | null;
 }
 
 export interface RenderOptions {
@@ -157,6 +164,8 @@ function cursorAlphaFor(interaction: TimelineInteraction, row: number): number {
 }
 
 const AXIS_HEIGHT = 26;
+/** The axis and the history lane under it; the rows start below both. */
+const HEADER_HEIGHT = AXIS_HEIGHT + LANE_HEIGHT;
 const BAR_INSET = 4;
 const LABEL_GUTTER = 10;
 
@@ -193,7 +202,7 @@ export function renderTimeline(
   });
 
   const rowY = (row: number): number =>
-    AXIS_HEIGHT + row * rowHeightPx - scrollTopPx + rowHeightPx / 2;
+    HEADER_HEIGHT + row * rowHeightPx - scrollTopPx + rowHeightPx / 2;
 
   drawBands(ctx, options, lod.showHistoricalBands);
   drawGrid(ctx, options);
@@ -207,6 +216,7 @@ export function renderTimeline(
   drawTodayLine(ctx, options);
   drawTemporalCursor(ctx, options);
   drawAxis(ctx, options);
+  drawHistoryLane(ctx, options);
 
   return { visibleRows: Math.max(lastRow - firstRow + 1, 0), detailLevel: lod.level };
 }
@@ -219,19 +229,124 @@ export function renderTimeline(
  * being context and becomes noise.
  */
 function drawBands(ctx: CanvasRenderingContext2D, options: RenderOptions, enabled: boolean): void {
-  if (!enabled) return;
-  const { snapshot, viewport, heightPx, theme } = options;
+  const { snapshot, viewport, heightPx, theme, interaction } = options;
+  const selected = interaction.selectedBandId ?? null;
 
   for (const band of snapshot.bands) {
+    const isSelected = band.id === selected;
+    // Behind the lives, only the events that shaped every family — and the
+    // one the reader chose. Sixty faint bands at once would be a fog.
+    if (!isSelected && (!enabled || band.significance < 4 || selected !== null)) continue;
     const x1 = jdnToX(viewport, band.startJdn);
-    const x2 = jdnToX(viewport, band.endJdn);
+    const x2 = jdnToX(viewport, band.endJdn + 1);
     if (x2 < 0 || x1 > viewport.widthPx) continue;
+    const colour = theme.history[band.category] ?? theme.bandColor;
+    const width = Math.max(x2 - x1, 2);
 
-    ctx.fillStyle = theme.bandColor;
-    ctx.globalAlpha = 0.05 + band.significance * 0.012;
-    ctx.fillRect(x1, AXIS_HEIGHT, Math.max(x2 - x1, 1), heightPx - AXIS_HEIGHT);
+    ctx.fillStyle = colour;
+    ctx.globalAlpha = isSelected ? 0.16 : 0.035 + (band.significance - 3) * 0.012;
+    ctx.fillRect(x1, HEADER_HEIGHT, width, heightPx - HEADER_HEIGHT);
+
+    if (isSelected) {
+      // Its edges, so the period reads exactly, and its name over the lives.
+      ctx.globalAlpha = 0.85;
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      for (const x of [x1, x1 + width]) {
+        ctx.beginPath();
+        ctx.moveTo(Math.round(x) + 0.5, HEADER_HEIGHT);
+        ctx.lineTo(Math.round(x) + 0.5, heightPx);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      ctx.font = `600 12px ${theme.fontSans}`;
+      ctx.textBaseline = 'top';
+      const label = band.title;
+      const textX = Math.min(
+        Math.max(x1 + 6, 6),
+        viewport.widthPx - ctx.measureText(label).width - 6,
+      );
+      ctx.strokeStyle = theme.surface;
+      ctx.lineWidth = 4;
+      ctx.lineJoin = 'round';
+      ctx.strokeText(label, textX, HEADER_HEIGHT + 6);
+      ctx.fillStyle = colour;
+      ctx.fillText(label, textX, HEADER_HEIGHT + 6);
+    }
     ctx.globalAlpha = 1;
   }
+}
+
+/**
+ * The history lane, under the axis: every event of the tree's context as a
+ * coloured mark on its track — a bar for a period, a diamond for a day. The
+ * one under the pointer brightens; the one chosen is outlined.
+ */
+function drawHistoryLane(ctx: CanvasRenderingContext2D, options: RenderOptions): void {
+  const { snapshot, viewport, theme, interaction } = options;
+  ctx.save();
+  ctx.fillStyle = theme.surface;
+  ctx.fillRect(0, AXIS_HEIGHT, viewport.widthPx, LANE_HEIGHT);
+  ctx.strokeStyle = theme.gridLine;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, HEADER_HEIGHT - 0.5);
+  ctx.lineTo(viewport.widthPx, HEADER_HEIGHT - 0.5);
+  ctx.stroke();
+
+  const marks = laneMarks(snapshot.bands, laneTracks(snapshot.bands), viewport, AXIS_HEIGHT);
+  const appear = (options.animation ?? STILL).entrance;
+  for (const [index, mark] of marks.entries()) {
+    const { band } = mark;
+    const colour = theme.history[band.category] ?? theme.bandColor;
+    const hovered = interaction.hoveredBandId === band.id;
+    const selected = interaction.selectedBandId === band.id;
+    // The lane fills from left to right with the lives' entrance.
+    const shown = Math.min(
+      Math.max(appear * 1.6 - (index / Math.max(marks.length, 1)) * 0.6, 0),
+      1,
+    );
+    if (shown <= 0) continue;
+    const dimmed = interaction.selectedBandId && !selected;
+    ctx.globalAlpha =
+      (dimmed ? 0.35 : hovered || selected ? 1 : 0.55 + band.significance * 0.08) * shown;
+    ctx.fillStyle = colour;
+    if (mark.point) {
+      const cx = (mark.x1 + mark.x2) / 2;
+      const cy = mark.y + TRACK_HEIGHT / 2;
+      const r = hovered || selected ? 5 : 3.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r);
+      ctx.lineTo(cx + r, cy);
+      ctx.lineTo(cx, cy + r);
+      ctx.lineTo(cx - r, cy);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      const width = Math.max(mark.x2 - mark.x1, 2);
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(mark.x1, mark.y, width, TRACK_HEIGHT, TRACK_HEIGHT / 2);
+      } else {
+        ctx.rect(mark.x1, mark.y, width, TRACK_HEIGHT);
+      }
+      ctx.fill();
+    }
+    if (selected || hovered) {
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = theme.textPrimary;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(
+        Math.min(mark.x1, mark.x2 - 4) - 1.5,
+        mark.y - 1.5,
+        Math.max(mark.x2 - mark.x1, 4) + 3,
+        TRACK_HEIGHT + 3,
+      );
+    }
+  }
+  ctx.restore();
 }
 
 function drawGrid(ctx: CanvasRenderingContext2D, options: RenderOptions): void {
@@ -759,4 +874,4 @@ function labelFor(tick: { unit: string; year: number; month: number; day: number
   return String(tick.year);
 }
 
-export { AXIS_HEIGHT };
+export { AXIS_HEIGHT, HEADER_HEIGHT };

@@ -6,6 +6,7 @@ import {
   formatYearOnly,
   intervalWidthDays,
 } from '@chronolignee/domain';
+import { loadHistoricalContext } from '@chronolignee/db';
 import { ganttLinks, layoutGantt, type GanttLink } from '@chronolignee/engine';
 import { lifespanEdges, type EdgeCertainty } from '@chronolignee/ui';
 import { db } from '@/lib/db';
@@ -78,6 +79,7 @@ export interface TimelineEvent {
 export interface TimelineBand {
   readonly id: string;
   readonly title: string;
+  readonly summary: string | null;
   readonly startJdn: number;
   readonly endJdn: number;
   readonly category: string;
@@ -221,31 +223,6 @@ export const loadTimeline = cache(async (treeSlug: string): Promise<TimelineSnap
     });
   }
 
-  const bandRows = await db.treeHistoricalEvent.findMany({
-    where: { treeId: tree.id },
-    select: {
-      historicalEvent: {
-        select: {
-          id: true,
-          title: true,
-          startJdn: true,
-          endJdn: true,
-          category: true,
-          significance: true,
-        },
-      },
-    },
-  });
-
-  const bands: TimelineBand[] = bandRows.map((entry) => ({
-    id: entry.historicalEvent.id,
-    title: entry.historicalEvent.title,
-    startJdn: entry.historicalEvent.startJdn,
-    endJdn: entry.historicalEvent.endJdn,
-    category: entry.historicalEvent.category,
-    significance: entry.historicalEvent.significance,
-  }));
-
   // The window is drawn around what may be shown: a protected person born
   // before everyone else would otherwise set the year the axis starts at.
   // Fall back to a sane window when nobody visible is dated, rather than
@@ -268,6 +245,22 @@ export const loadTimeline = cache(async (treeSlug: string): Promise<TimelineSnap
   const links = allLinks.filter(
     (link) => !redactedRows.has(link.toRow) && !redactedRows.has(link.fromRow),
   );
+
+  // The history behind the family: every catalogue event over the tree's span
+  // in its countries, with world events and anything a member pinned.
+  const context = await loadHistoricalContext(db, tree.id, {
+    fromJdn: earliestJdn ?? todayJdn - 36_525,
+    toJdn: latestJdn ?? todayJdn,
+  });
+  const bands: TimelineBand[] = context.map((event) => ({
+    id: event.id,
+    title: event.title,
+    summary: event.summary,
+    startJdn: event.startJdn,
+    endJdn: event.endJdn,
+    category: event.category,
+    significance: event.significance,
+  }));
 
   return {
     treeId: tree.id,

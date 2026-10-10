@@ -14,7 +14,6 @@ import { scanDuplicates } from '../services/duplicates';
 import {
   CONFLICTING_CLAIMS,
   EXTRA_PARENT_LINKS,
-  HISTORICAL_EVENTS,
   LIFE_EVENTS,
   PEOPLE,
   PLACES,
@@ -22,6 +21,7 @@ import {
   UNIONS,
   type SeedPerson,
 } from './demo-family';
+import { HISTORICAL_CATALOGUE } from '../history/catalogue';
 
 /**
  * Seeds the demonstration genealogy.
@@ -638,39 +638,64 @@ async function seedResearchTasks(db: Database, treeId: string, personIds: Ids): 
   log(`${tasks.length} pistes de recherche`);
 }
 
+/**
+ * The demonstration's historical context.
+ *
+ * The catalogue itself is installed by a migration and reaches every tree by
+ * period and country (repositories/historical-context.ts). What the seed adds
+ * is what a researcher would: a few events pinned because this family lived
+ * them — the emigration to Argentina and the floods of the Loire at Tours.
+ */
+const DEMO_PINNED = [
+  'Grande vague d’immigration européenne en Argentine',
+  'Crue de la Loire de 1856',
+  'Création de l’état civil',
+] as const;
+
 async function seedHistoricalEvents(db: Database, treeId: string): Promise<void> {
-  for (const entry of HISTORICAL_EVENTS) {
-    const start = parseGenealogicalDate(entry.start);
-    const end = parseGenealogicalDate(entry.end);
-    if (start.interval.earliest === null || end.interval.latest === null) continue;
-
-    // Historical events are shared across trees rather than copied into each:
-    // the Second World War is not a property of anyone's family.
-    const existing = await db.historicalEvent.findFirst({ where: { title: entry.title } });
-    const historical =
-      existing ??
-      (await db.historicalEvent.create({
-        data: {
-          title: entry.title,
-          summary: entry.summary,
-          category: entry.category,
-          significance: entry.significance,
-          startJdn: start.interval.earliest,
-          endJdn: end.interval.latest,
-          countryCodes: [...entry.countryCodes],
-          locale: 'fr',
-        },
-      }));
-
+  // Installed by the migration in every real environment; installed here too
+  // so a seed against a database migrated before the catalogue still has it.
+  await ensureHistoricalCatalogue(db);
+  const pinned = await db.historicalEvent.findMany({
+    where: { title: { in: [...DEMO_PINNED] } },
+    select: { id: true },
+  });
+  for (const event of pinned) {
     await db.treeHistoricalEvent.upsert({
-      where: {
-        treeId_historicalEventId: { treeId, historicalEventId: historical.id },
-      },
-      update: {},
-      create: { treeId, historicalEventId: historical.id, pinned: entry.significance >= 5 },
+      where: { treeId_historicalEventId: { treeId, historicalEventId: event.id } },
+      update: { pinned: true },
+      create: { treeId, historicalEventId: event.id, pinned: true },
     });
   }
-  log(`${HISTORICAL_EVENTS.length} repères historiques`);
+  const total = await db.historicalEvent.count();
+  log(`${total} repères historiques au catalogue, ${pinned.length} épinglés pour la famille`);
+}
+
+/** The catalogue, by title, inserted where missing — what the migration does. */
+async function ensureHistoricalCatalogue(db: Database): Promise<void> {
+  for (const entry of HISTORICAL_CATALOGUE) {
+    const start = parseGenealogicalDate(entry.start).interval.earliest;
+    const end = parseGenealogicalDate(entry.end).interval.latest;
+    if (start === null || end === null) continue;
+    const existing = await db.historicalEvent.findFirst({
+      where: { title: entry.title },
+      select: { id: true },
+    });
+    if (existing) continue;
+    await db.historicalEvent.create({
+      data: {
+        title: entry.title,
+        summary: entry.summary,
+        category: entry.category,
+        significance: entry.significance,
+        startJdn: start,
+        endJdn: end,
+        countryCodes: [...entry.countryCodes],
+        regionLabels: [...(entry.regionLabels ?? [])],
+        locale: 'fr',
+      },
+    });
+  }
 }
 
 /**

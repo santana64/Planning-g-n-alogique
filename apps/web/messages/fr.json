@@ -213,7 +213,15 @@
     "notes": "Notes",
     "photos": "{count, plural, one {1 photographie} other {# photographies}}",
     "ageAtDeath": "à {age} ans",
-    "portrait": "Portrait de {name}"
+    "portrait": "Portrait de {name}",
+    "epoch": {
+      "title": "Son époque",
+      "lead": "{count, plural, one {Un événement} other {# événements}} de l’histoire pendant la vie de {name}.",
+      "atAge": "à {age} ans",
+      "beforeBirth": "déjà en cours à sa naissance",
+      "more": "{count, plural, one {1 autre événement} other {# autres événements}}",
+      "caveat": "Histoire générale, rapprochée par les dates et les pays de l’arbre : rien ici ne dit que cette personne y a pris part."
+    }
   },
   "events": {
     "BIRTH": "Naissance",
@@ -625,7 +633,8 @@
       "male": "Homme",
       "sexUnknown": "Sexe non renseigné",
       "birthLink": "Naissance : du parent à l’enfant",
-      "union": "Union"
+      "union": "Union",
+      "history": "Histoire, sous l’axe : cliquer un repère"
     },
     "cursor": {
       "travel": "Voyager dans le temps",
@@ -665,7 +674,27 @@
       "openRecord": "Ouvrir la fiche"
     },
     "childOf": "{sex, select, FEMALE {Fille} MALE {Fils} other {Enfant}} {parents}",
-    "childrenCount": "{count, plural, one {1 enfant} other {# enfants}}"
+    "childrenCount": "{count, plural, one {1 enfant} other {# enfants}}",
+    "history": {
+      "categories": {
+        "WAR": "Guerre",
+        "POLITICAL": "Politique",
+        "EPIDEMIC": "Épidémie",
+        "DISASTER": "Catastrophe",
+        "MIGRATION": "Migration",
+        "ECONOMIC": "Économie",
+        "CULTURAL": "Culture et école",
+        "RELIGIOUS": "Religion",
+        "LEGAL": "Loi et état civil",
+        "OTHER": "Autre"
+      },
+      "clickHint": "Cliquer pour voir qui, dans la famille, l’a vécu.",
+      "close": "Fermer",
+      "witnesses": "{count, plural, =0 {Personne de l’arbre n’était en vie.} one {1 personne de l’arbre l’a vécu :} other {# personnes de l’arbre l’ont vécu :}}",
+      "age": "{age} ans",
+      "bornDuring": "née pendant",
+      "more": "et {count} autres"
+    }
   },
   "atlas": {
     "placeCounts": "{events, plural, one {1 événement} other {# événements}}, {people, plural, one {1 personne} other {# personnes}}",

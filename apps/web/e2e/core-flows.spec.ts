@@ -142,6 +142,27 @@ test.describe('the demonstration timeline', () => {
     ).toEqual([]);
   });
 
+  test('tells each life the history it ran through, with the age at each event', async ({
+    page,
+  }) => {
+    await page.goto('/app/famille-chassagne-demo/personnes');
+    await page
+      .getByRole('link', { name: /Gustave CHASSAGNE/ })
+      .first()
+      .click();
+    const epoch = page.getByRole('region', { name: 'Son époque' });
+    await expect(epoch).toContainText('Guerre franco-prussienne');
+    await expect(epoch).toContainText('à 19 ans');
+    // Emigrated to Buenos Aires: Argentina's history is his too.
+    await expect(epoch).toContainText('Fièvre jaune à Buenos Aires');
+    await expect(epoch).toContainText('rien ici ne dit que cette personne y a pris part');
+
+    // A protected person's record shows no epoch: it would date their life.
+    await page.goto('/app/famille-chassagne-demo/personnes');
+    await page.getByText('Personne protégée').first().click();
+    await expect(page.getByRole('region', { name: 'Son époque' })).toHaveCount(0);
+  });
+
   test('publishes the same data as a real table', async ({ page }) => {
     await page.goto('/demo');
     await page.getByRole('button', { name: 'Voir le tableau' }).click();
