@@ -92,9 +92,9 @@ chiffres.
 - ~~Mode Rivière~~ : **fait** (`FEATURE_RIVER`, activé par défaut).
 - **WebXR**, **reconstitutions** : drapeaux déclarés (`FEATURE_WEBXR`,
   `FEATURE_RECONSTRUCTION`), aucune surface.
-- **Scènes de récit** : le plan sait parler de personnes, de lieux et de
-  contexte ; il manque les scènes « migration sur la carte », « document
-  dévoilé », « photographie ».
+- **Scènes de récit** : photographie (avec lent travelling) et trajet d'un
+  déplacement **faits** ; reste la scène « document dévoilé » (l'acte cité qui
+  s'avance, page à l'écran).
 - **Inspecteur de développement** : **fait pour la frise** (images, temps de
   dessin, niveau de détail, caméra, curseur ; touche `` ` ``, hors production).
   Reste : la constellation (entités, appels de dessin, backend WebGL/WebGPU).
