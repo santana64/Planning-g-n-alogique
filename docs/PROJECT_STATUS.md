@@ -1,9 +1,11 @@
 # État du projet
 
-**Dernière mise à jour** : 2026-09-21
+**Dernière mise à jour** : 2026-10-10
 **Phase courante** : après la phase 11 — chantiers de la
-[ROADMAP](ROADMAP.md). Dernier livré : la détection de doublons, l'écran de
-comparaison et la fusion.
+[ROADMAP](ROADMAP.md). Derniers livrés : le contexte historique, les photos
+d'événements, le récit, la parenté et les courriels en anglais, l'export en
+flux, la carte réparée, la Rivière, la vue par générations, la caméra
+cinématique, le son.
 
 Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 
@@ -18,8 +20,11 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Prochaine action        | [§ Prochaine action](#prochaine-action)                                                   |
 
 **Dernière exécution** (2026-10-10, poste de développement) : format, lint,
-types **verts** ; **711** tests unitaires, **214** d'intégration, **78** de
-bout en bout, tous verts ; `pnpm build` vert. Exécution complète précédente
+types **verts** ; **809** tests unitaires, **236** d'intégration, **89** de
+bout en bout, tous verts ; `pnpm build` vert. **CI GitHub**
+([santana64/Planning-g-n-alogique](https://github.com/santana64/Planning-g-n-alogique/actions))
+verte pour la première fois sur le commit `e3bf456` : format, lint, types,
+unitaires, intégration, E2E et images Docker. Exécution complète précédente
 (2026-09-21) : images Docker web et
 worker construites ; la CI rejouée localement dans un clone vierge passe toutes
 ses étapes, et le parcours d'installation du README rejoué à la lettre (base et
@@ -802,6 +807,27 @@ l'attendait depuis la phase 1.
 
 ---
 
+71. **La carte n'a jamais dessiné ses couches GeoJSON.** Le validateur de
+    style de MapLibre refuse `oklch()` et abandonne la couche entière : fond,
+    frontières et trajets n'étaient pas dessinés, sans erreur visible pour le
+    lecteur. Couleurs passées en sRGB, test de régression sur le style.
+
+72. **Le worker de MapLibre était demandé à la page.** Une fois empaqueté, son
+    URL pointait sur la page elle-même ; le serveur répondait en HTML et
+    aucune source GeoJSON n'était traitée. Le worker est copié du paquet vers
+    `public/maplibre/` à la construction (dev, build, image Docker) et déclaré
+    par `setWorkerUrl`. Trouvé en regardant la carte, pas par un test : les E2E
+    lisaient le tableau, jamais le canevas.
+
+73. **La guerre de 14 dans la vie d'un Argentin.** Le catalogue la déclarait
+    mondiale ; un récit de Buenos Aires la citait. Restreinte aux belligérants
+    par une migration ; le test d'intégration qui attendait l'inverse vérifie
+    maintenant la règle.
+
+74. **Images MinIO introuvables.** La CI échouait au démarrage du stockage
+    (code 125) : MinIO ne publie plus ses images communautaires. Remplacé par
+    RustFS.
+
 ## Frise : femmes et hommes, naissances reliées (2026-10-10)
 
 - **Couleur des vies** : rose pour les femmes, bleu pour les hommes, violet
@@ -831,6 +857,50 @@ choix retenu après rechargement).
 
 ---
 
+## Histoire, photos, anglais, mouvement (2026-10-10)
+
+- **Contexte historique** : un catalogue de 68 événements datés (Ancien
+  Régime → aujourd'hui, France et Val de Loire, Argentine, monde), installé
+  par migration, pour **tous** les arbres — choisi par la période et les pays
+  des lieux de l'arbre (France par défaut). La guerre de 14 est le contexte de
+  ses belligérants, pas d'une vie argentine. Une **voie historique** sous l'axe
+  de la frise (barre pour une période, losange pour un jour) ; un clic éclaire
+  la période et ouvre la liste des membres de la famille qui l'ont vécue, avec
+  leur âge. Sur chaque fiche, **« Son époque »** : « à 19 ans : Guerre
+  franco-prussienne », jamais pour une personne protégée.
+- **Doublons** : recherche lancée automatiquement après un import, **fusion
+  annulable** depuis l'historique grâce à un journal exact de la fusion.
+- **Photos d'événements** : une photographie se lie à un événement des
+  personnes identifiées dessus, et apparaît à côté de cet événement sur leurs
+  fiches. La démonstration a **cinq illustrations** (noce de 1877, rue de la
+  Scellerie, départ du Havre, portrait de noce 1910, Verdun) dessinées et
+  présentées comme des illustrations, passées par le vrai pipeline d'envoi, qui
+  n'identifient que des personnes décédées.
+- **Anglais** : récit de lignée et récits suggérés, parenté (« second cousin
+  once removed »), courriels de réinitialisation et de confirmation dans la
+  langue de la page d'origine, invitation dans celle de l'invitant. Le
+  catalogue historique reste en français.
+- **« Quel lien ? »** sur chaque fiche : la parenté que le graphe calculait
+  déjà sans l'afficher, en refusant toute personne invisible au lecteur.
+- **Export GEDCOM en flux**, enregistrement par enregistrement.
+- **Carte** : elle ne dessinait ni terres, ni frontières, ni trajets (voir les
+  bugs 71 et 72). Désormais : trajets animés dans le sens du voyage, halo,
+  vol de caméra vers le lieu choisi.
+- **Frise** : vols de caméra vers une vie ou une période hors champ
+  (interruptibles, instantanés sous « réduire les animations ») ; **vue par
+  générations** automatique au zoom lointain et sur bouton ; **inspecteur de
+  développement** (touche `` ` ``, absent en production).
+- **Rivière** : chaque branche est un courant aussi large que ses membres en
+  vie ; les branches filles s'ouvrent sur les deux rives ; le courant dérive,
+  la rivière se déverse à l'ouverture. Lecture exploratoire, liens vers les
+  fiches des fondateurs, personnes protégées jamais nommées.
+- **Son** : optionnel, coupé par défaut, synthétisé (aucun fichier) ; un seul
+  bouton l'active et le coupe.
+- **Stockage objet** : MinIO n'est plus publié (quay.io 401, Docker Hub 404) ;
+  RustFS 1.0.1 le remplace en local et en CI.
+
+---
+
 ## En cours
 
 Règles d'anomalie supplémentaires (`packages/genealogy`, non committées) :
@@ -843,18 +913,18 @@ avant la naissance ».
 
 ## Reste à faire
 
-| Phase | Contenu                                                       | État                                        |
-| ----- | ------------------------------------------------------------- | ------------------------------------------- |
-| 2     | CRUD personne / relation / événement, formulaires             | **fait**                                    |
-| 3     | Import GEDCOM 7 + écran de revue                              | **fait** — écrit par le worker              |
-| 4     | Graphe, ascendance, descendance, recherche                    | **fait**                                    |
-| 5     | Moteur temporel, Gantt, voyage temporel, « qui était vivant » | **fait** — sans agrégation au zoom lointain |
-| 6     | Carte MapLibre, migrations                                    | **fait** — arcs au curseur                  |
-| 7     | Archives S3, documents, citations                             | **fait** — sans visionneuse                 |
-| 8     | Pipeline IA, propositions, assistant                          | **fait** — texte seul, sans assistant       |
-| 9     | Constellation, profondeur temporelle, Récit, Directeur        | **fait** — sans WebXR ni rivière            |
-| 10    | Collaboration, confidentialité des vivants, RGPD              | **fait**                                    |
-| 11    | Durcissement production                                       | **fait**                                    |
+| Phase | Contenu                                                       | État                                    |
+| ----- | ------------------------------------------------------------- | --------------------------------------- |
+| 2     | CRUD personne / relation / événement, formulaires             | **fait**                                |
+| 3     | Import GEDCOM 7 + écran de revue                              | **fait** — écrit par le worker          |
+| 4     | Graphe, ascendance, descendance, recherche                    | **fait**                                |
+| 5     | Moteur temporel, Gantt, voyage temporel, « qui était vivant » | **fait** — vue par générations          |
+| 6     | Carte MapLibre, migrations                                    | **fait** — trajets animés               |
+| 7     | Archives S3, documents, citations                             | **fait** — sans visionneuse             |
+| 8     | Pipeline IA, propositions, assistant                          | **fait** — texte seul, sans assistant   |
+| 9     | Constellation, profondeur temporelle, Récit, Directeur        | **fait** — Rivière comprise, sans WebXR |
+| 10    | Collaboration, confidentialité des vivants, RGPD              | **fait**                                |
+| 11    | Durcissement production                                       | **fait**                                |
 
 Ce qui manque, par ordre d'importance, avec le travail que cela demande :
 [ROADMAP.md](ROADMAP.md). En tête : un fournisseur de courriel réel, la

@@ -87,20 +87,18 @@ chiffres.
 
 ## 4. Rendu et vues
 
-- **Agrégation au zoom lointain** : les niveaux `CENTURY`, `BRANCH` et
-  `GENERATION` décident déjà des libellés, des liens et des bandes, mais le
-  dessin reste « une barre par personne » — il manque les masses de branches et
-  les bandes de générations ([ENGINE.md](ENGINE.md)).
-- **Mode Rivière**, **WebXR**, **reconstitutions** : drapeaux déclarés
-  (`FEATURE_RIVER`, `FEATURE_WEBXR`, `FEATURE_RECONSTRUCTION`), aucune surface.
+- ~~Agrégation au zoom lointain~~ : **faite** — vue par générations (au zoom
+  lointain et sur bouton) ; les masses de branches sont la Rivière.
+- ~~Mode Rivière~~ : **fait** (`FEATURE_RIVER`, activé par défaut).
+- **WebXR**, **reconstitutions** : drapeaux déclarés (`FEATURE_WEBXR`,
+  `FEATURE_RECONSTRUCTION`), aucune surface.
 - **Scènes de récit** : le plan sait parler de personnes, de lieux et de
   contexte ; il manque les scènes « migration sur la carte », « document
   dévoilé », « photographie ».
-- **Inspecteur de développement** : images par seconde, temps d'image,
-  entités, appels de dessin, backend, préréglage — rien n'est affiché
-  aujourd'hui, et c'est ce qui manque pour régler un rendu sans mesurer à la
-  main.
-- **Couche sonore** optionnelle : non commencée.
+- **Inspecteur de développement** : **fait pour la frise** (images, temps de
+  dessin, niveau de détail, caméra, curseur ; touche `` ` ``, hors production).
+  Reste : la constellation (entités, appels de dessin, backend WebGL/WebGPU).
+- ~~Couche sonore~~ : **faite**, optionnelle et coupée par défaut.
 - **Chemin WebGPU vu à l'écran** : détecté et dessiné, jamais relu au pixel
   (les E2E passent par WebGL 2).
 
