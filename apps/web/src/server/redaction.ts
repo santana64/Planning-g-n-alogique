@@ -36,6 +36,8 @@ export interface RedactablePerson {
   readonly startCertainty: EdgeCertainty;
   readonly endCertainty: EdgeCertainty;
   readonly redacted: boolean;
+  /** Present on timeline rows; blanked like every other identifying field. */
+  readonly sex?: 'FEMALE' | 'MALE' | 'OTHER' | 'UNKNOWN';
 }
 
 export function redactPerson<T extends RedactablePerson>(person: T, hidden: boolean): T {
@@ -62,6 +64,8 @@ export function redactPerson<T extends RedactablePerson>(person: T, hidden: bool
     // "Exact" says the birth was recorded to the day.
     startCertainty: 'UNKNOWN',
     endCertainty: 'UNKNOWN',
+    // "Daughter of" narrows a hidden relative down to half the candidates.
+    ...(person.sex === undefined ? {} : { sex: 'UNKNOWN' as const }),
     redacted: true,
   };
 }

@@ -47,6 +47,11 @@ describe('redactPerson', () => {
     });
   });
 
+  it('hides the recorded sex of a hidden person, and adds none to a record without one', () => {
+    expect(redactPerson({ ...CLAIRE, sex: 'FEMALE' as const }, true).sex).toBe('UNKNOWN');
+    expect('sex' in redactPerson(CLAIRE, true)).toBe(false);
+  });
+
   it('leaves no trace of the birth year anywhere in the serialised record', () => {
     const serialised = JSON.stringify(redactPerson(CLAIRE, true));
     expect(serialised).not.toContain('1962');

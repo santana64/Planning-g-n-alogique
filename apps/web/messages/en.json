@@ -597,7 +597,12 @@
       "recorded": "Recorded date",
       "approximate": "Approximate date",
       "inferred": "Inferred bound, not recorded",
-      "today": "Today"
+      "today": "Today",
+      "female": "Woman",
+      "male": "Man",
+      "sexUnknown": "Sex not recorded",
+      "birthLink": "Birth: from parent to child",
+      "union": "Union"
     },
     "cursor": {
       "travel": "Travel in time",
@@ -623,7 +628,21 @@
       "PERSON": "one bar per life",
       "EVENT": "names and events",
       "DETAIL": "every detail"
-    }
+    },
+    "colorMode": {
+      "label": "Colour of lives",
+      "SEX": "Women / men",
+      "BRANCH": "Branches"
+    },
+    "family": {
+      "parents": "Parents",
+      "partners": "Unions",
+      "children": "Children",
+      "none": "No link recorded",
+      "openRecord": "Open the record"
+    },
+    "childOf": "{sex, select, FEMALE {Daughter} MALE {Son} other {Child}} of {parents}",
+    "childrenCount": "{count, plural, one {1 child} other {# children}}"
   },
   "atlas": {
     "placeCounts": "{events, plural, one {1 event} other {# events}}, {people, plural, one {1 person} other {# people}}",

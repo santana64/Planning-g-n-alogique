@@ -67,6 +67,42 @@ test.describe('the demonstration timeline', () => {
     await expect(page.getByRole('application', { name: /chronologie/i })).toBeVisible();
   });
 
+  test('shows who a person was born of, and walks up to a parent', async ({ page }) => {
+    await page.goto('/demo');
+
+    // Pink and blue is the default reading; the choice is a real radio group.
+    const sexReading = page.getByRole('radio', { name: /Femmes \/ hommes/ });
+    await expect(sexReading).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByText('Femme', { exact: true })).toBeVisible();
+
+    // Select from the table, the path a keyboard or screen-reader user takes.
+    await page.getByRole('button', { name: 'Voir le tableau' }).click();
+    await page.getByRole('button', { name: 'Gustave CHASSAGNE' }).first().click();
+    await page.getByRole('button', { name: 'Voir la frise' }).click();
+
+    const panel = page.getByRole('complementary');
+    await expect(panel).toContainText('Gustave CHASSAGNE');
+    await expect(panel).toContainText('Parents');
+    const mother = panel.getByRole('button', { name: /Rosalie CHASSAGNE/ });
+    await expect(mother).toBeVisible();
+
+    // A parent is one click away, and becomes the person shown.
+    await mother.click();
+    await expect(page.getByRole('complementary')).toContainText('Rosalie CHASSAGNE');
+    await expect(
+      page.getByRole('complementary').getByRole('link', { name: 'Ouvrir la fiche' }),
+    ).toBeVisible();
+
+    // The other reading is remembered across a reload.
+    await page.getByRole('radio', { name: 'Branches' }).click();
+    await page.reload();
+    await expect(page.getByRole('radio', { name: 'Branches' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await expect(page.getByText('Femme', { exact: true })).toHaveCount(0);
+  });
+
   test('publishes the same data as a real table', async ({ page }) => {
     await page.goto('/demo');
     await page.getByRole('button', { name: 'Voir le tableau' }).click();

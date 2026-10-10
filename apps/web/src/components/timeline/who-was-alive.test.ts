@@ -27,6 +27,7 @@ function row(overrides: Partial<TimelineRow>): TimelineRow {
     deathLabel: '—',
     lifespanLabel: '',
     redacted: false,
+    sex: 'UNKNOWN',
     ...overrides,
   };
 }

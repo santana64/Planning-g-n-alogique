@@ -597,7 +597,12 @@
       "recorded": "Date enregistrée",
       "approximate": "Date approximative",
       "inferred": "Limite déduite, pas enregistrée",
-      "today": "Aujourd’hui"
+      "today": "Aujourd’hui",
+      "female": "Femme",
+      "male": "Homme",
+      "sexUnknown": "Sexe non renseigné",
+      "birthLink": "Naissance : du parent à l’enfant",
+      "union": "Union"
     },
     "cursor": {
       "travel": "Voyager dans le temps",
@@ -623,7 +628,21 @@
       "PERSON": "une barre par vie",
       "EVENT": "noms et événements",
       "DETAIL": "tout le détail"
-    }
+    },
+    "colorMode": {
+      "label": "Couleur des vies",
+      "SEX": "Femmes / hommes",
+      "BRANCH": "Branches"
+    },
+    "family": {
+      "parents": "Parents",
+      "partners": "Unions",
+      "children": "Enfants",
+      "none": "Aucun lien enregistré",
+      "openRecord": "Ouvrir la fiche"
+    },
+    "childOf": "{sex, select, FEMALE {Fille} MALE {Fils} other {Enfant}} {parents}",
+    "childrenCount": "{count, plural, one {1 enfant} other {# enfants}}"
   },
   "atlas": {
     "placeCounts": "{events, plural, one {1 événement} other {# événements}}, {people, plural, one {1 personne} other {# personnes}}",

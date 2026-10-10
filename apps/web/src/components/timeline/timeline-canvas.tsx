@@ -1,9 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useFormatter, useLocale, useTranslations } from 'next-intl';
+import { ofNameIn } from '@/lib/french';
 import { TemporalCamera, type CameraState, type DetailLevel } from '@chronolignee/engine';
-import { AXIS_HEIGHT, renderTimeline, type TimelineTheme } from './render-timeline';
+import {
+  AXIS_HEIGHT,
+  renderTimeline,
+  type TimelineColorMode,
+  type TimelineTheme,
+} from './render-timeline';
+import { familyOf } from './family';
+import { swatchFor, usePrefersReducedMotion } from './preferences';
 import type { TimelineSnapshot } from '@/server/timeline';
 
 /**
@@ -31,7 +39,15 @@ export interface TimelineCanvasProps {
   readonly onViewportChange?: (state: CameraState) => void;
   /** The temporal cursor, owned by the view so the counts and the drawing agree. */
   readonly cursor: { readonly jdn: number; readonly states: Uint8Array } | null;
+  readonly colorMode: TimelineColorMode;
 }
+
+/** Durations, in milliseconds. Short enough never to make anyone wait. */
+const ENTRANCE_MS = 1100;
+const FOCUS_MS = 650;
+const PULSE_MS = 1600;
+/** The birth ring pulses twice and stops: a pointer, not a screensaver. */
+const PULSE_CYCLES = 2;
 
 function readTheme(element: HTMLElement): TimelineTheme {
   const styles = getComputedStyle(element);
@@ -49,6 +65,10 @@ function readTheme(element: HTMLElement): TimelineTheme {
     bandColor: token('--accent-history', '#6d8bd0'),
     fontSans: token('--font-sans', 'system-ui, sans-serif'),
     fontSerif: token('--font-serif', 'Georgia, serif'),
+    sexFemale: token('--sex-female', 'oklch(0.74 0.13 350)'),
+    sexMale: token('--sex-male', 'oklch(0.72 0.12 240)'),
+    sexOther: token('--sex-other', 'oklch(0.72 0.11 300)'),
+    sexUnknown: token('--sex-unknown', 'oklch(0.62 0.015 258)'),
   };
 }
 
@@ -58,6 +78,7 @@ export function TimelineCanvas({
   onSelect,
   onViewportChange,
   cursor,
+  colorMode,
 }: TimelineCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -68,6 +89,11 @@ export function TimelineCanvas({
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [scrollTop, setScrollTop] = useState(0);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
+  const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
+  const animationRef = useRef({ entrance: 0, focus: 1, pulse: 0, pulseElapsed: 0 });
+  const reducedMotion = usePrefersReducedMotion();
+  const format = useFormatter();
+  const locale = useLocale();
   const t = useTranslations('timeline');
   const certainty = useTranslations('certainty');
   const [detailLevel, setDetailLevel] = useState<DetailLevel>('PERSON');
@@ -149,10 +175,12 @@ export function TimelineCanvas({
       rowHeightPx: ROW_HEIGHT,
       theme: themeRef.current,
       interaction: { hoveredRow, selectedPersonId, relatedRows, cursor },
+      colorMode,
+      animation: animationRef.current,
     });
 
     setDetailLevel(result.detailLevel);
-  }, [snapshot, size, scrollTop, hoveredRow, selectedPersonId, relatedRows, cursor]);
+  }, [snapshot, size, scrollTop, hoveredRow, selectedPersonId, relatedRows, cursor, colorMode]);
 
   const requestDraw = useCallback(() => {
     cancelAnimationFrame(frameRef.current);
@@ -163,6 +191,60 @@ export function TimelineCanvas({
     requestDraw();
     return () => cancelAnimationFrame(frameRef.current);
   }, [requestDraw]);
+
+  // --- Animation ------------------------------------------------------------
+  //
+  // One loop, alive only while something moves. It advances the numbers the
+  // renderer reads and stops itself: an idle timeline costs no frames.
+
+  useEffect(() => {
+    // A new selection draws its links again, from the parent down.
+    animationRef.current.focus = selectedPersonId ? 0 : 1;
+    animationRef.current.pulse = 0;
+    animationRef.current.pulseElapsed = 0;
+  }, [selectedPersonId]);
+
+  useEffect(() => {
+    if (size.width === 0) return;
+    let raf = 0;
+    let last = performance.now();
+
+    const tick = (now: number) => {
+      const state = animationRef.current;
+      const dt = Math.min(now - last, 64);
+      last = now;
+
+      if (reducedMotion) {
+        state.entrance = 1;
+        state.focus = 1;
+        state.pulse = 0;
+      } else {
+        state.entrance = Math.min(state.entrance + dt / ENTRANCE_MS, 1);
+        state.focus = Math.min(state.focus + dt / FOCUS_MS, 1);
+        if (selectedPersonId && state.focus >= 1 && state.pulseElapsed < PULSE_MS * PULSE_CYCLES) {
+          state.pulseElapsed += dt;
+          state.pulse =
+            state.pulseElapsed >= PULSE_MS * PULSE_CYCLES
+              ? 0
+              : (state.pulseElapsed % PULSE_MS) / PULSE_MS;
+        }
+      }
+      draw();
+
+      const moving =
+        !reducedMotion &&
+        (state.entrance < 1 ||
+          state.focus < 1 ||
+          (selectedPersonId !== null && state.pulseElapsed < PULSE_MS * PULSE_CYCLES));
+      if (moving) raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [draw, reducedMotion, selectedPersonId, size.width]);
+
+  /** Parents and children by row, for the tooltip. */
+  const family = useMemo(() => familyOf(snapshot), [snapshot]);
 
   // --- Sizing ---------------------------------------------------------------
 
@@ -229,6 +311,8 @@ export function TimelineCanvas({
 
     const row = rowAt(event.clientY);
     if (row !== hoveredRow) setHoveredRow(row);
+    const bounds = containerRef.current?.getBoundingClientRect();
+    if (bounds) setPointer({ x: event.clientX - bounds.left, y: event.clientY - bounds.top });
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -335,7 +419,10 @@ export function TimelineCanvas({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerLeave={() => setHoveredRow(null)}
+        onPointerLeave={() => {
+          setHoveredRow(null);
+          setPointer(null);
+        }}
         onKeyDown={handleKeyDown}
       >
         <canvas
@@ -347,10 +434,19 @@ export function TimelineCanvas({
 
       {hovered && (
         <div
-          className="border-border-default bg-surface-floating pointer-events-none absolute top-2 left-2 rounded-[var(--radius-md)] border px-3 py-2 shadow-[var(--shadow-mid)]"
+          key={hovered.personId}
+          className="timeline-tooltip border-border-default bg-surface-floating pointer-events-none absolute z-10 max-w-72 rounded-[var(--radius-md)] border px-3 py-2 shadow-[var(--shadow-mid)]"
+          style={tooltipPosition(pointer, size)}
           role="status"
         >
-          <p className="font-editorial text-text-primary text-sm">{hovered.displayName}</p>
+          <p className="font-editorial text-text-primary flex items-center gap-2 text-sm">
+            <span
+              aria-hidden="true"
+              className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ background: swatchFor(hovered, colorMode) }}
+            />
+            {hovered.displayName}
+          </p>
           <p className="text-text-muted mt-0.5 text-xs">
             {hovered.redacted
               ? t('nothingPublished')
@@ -364,6 +460,24 @@ export function TimelineCanvas({
               {certainty('inferredExplanation')}
             </p>
           )}
+          {!hovered.redacted && (family.parents.get(hovered.row)?.length ?? 0) > 0 && (
+            <p className="text-text-secondary mt-1.5 text-xs">
+              {t('childOf', {
+                sex: hovered.sex,
+                parents: format.list(
+                  (family.parents.get(hovered.row) ?? []).map((row) =>
+                    ofNameIn(locale, snapshot.rows[row]?.displayName ?? ''),
+                  ),
+                  { type: 'conjunction' },
+                ),
+              })}
+            </p>
+          )}
+          {!hovered.redacted && (family.children.get(hovered.row)?.length ?? 0) > 0 && (
+            <p className="text-text-faint mt-0.5 text-xs">
+              {t('childrenCount', { count: family.children.get(hovered.row)?.length ?? 0 })}
+            </p>
+          )}
         </div>
       )}
 
@@ -375,6 +489,26 @@ export function TimelineCanvas({
       </p>
     </div>
   );
+}
+
+/**
+ * The tooltip follows the pointer, offset so it never sits under it, and
+ * flips to the other side near an edge instead of running off the canvas.
+ */
+function tooltipPosition(
+  pointer: { x: number; y: number } | null,
+  size: { width: number; height: number },
+): React.CSSProperties {
+  if (!pointer) return { top: 8, left: 8 };
+  const offset = 16;
+  const flipX = pointer.x > size.width - 300;
+  const flipY = pointer.y > size.height - 140;
+  return {
+    left: flipX ? undefined : pointer.x + offset,
+    right: flipX ? size.width - pointer.x + offset : undefined,
+    top: flipY ? undefined : pointer.y + offset,
+    bottom: flipY ? size.height - pointer.y + offset : undefined,
+  };
 }
 
 export { ROW_HEIGHT };

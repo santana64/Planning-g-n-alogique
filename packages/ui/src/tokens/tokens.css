@@ -81,6 +81,17 @@
   --certainty-inferred: oklch(0.55 0.018 258);
   --certainty-unknown: oklch(0.42 0.015 258);
 
+  /* --- Recorded sex ------------------------------------------------------
+   * Pink and blue, as genealogists draw them on paper charts, so a family can
+   * be read at a glance. Never the only signal: the side panel and the table
+   * say it in words, and "unknown" is a neutral grey rather than a guess.
+   * Same lightness for both, so neither reads as more important.
+   */
+  --sex-female: oklch(0.74 0.13 350);
+  --sex-male: oklch(0.72 0.12 240);
+  --sex-other: oklch(0.72 0.11 300);
+  --sex-unknown: oklch(0.62 0.015 258);
+
   /* --- Elevation ---------------------------------------------------------
    * Shadows on near-black do almost nothing, so elevation is carried by a
    * light top edge plus a deep ambient shadow — the way a lit object reads.
@@ -181,6 +192,11 @@
   --certainty-inferred: oklch(0.64 0.016 258);
   --certainty-unknown: oklch(0.76 0.012 258);
 
+  --sex-female: oklch(0.6 0.15 350);
+  --sex-male: oklch(0.55 0.13 240);
+  --sex-other: oklch(0.55 0.13 300);
+  --sex-unknown: oklch(0.62 0.012 258);
+
   --shadow-low: 0 1px 2px oklch(0.2 0.02 258 / 0.08);
   --shadow-mid: 0 4px 16px oklch(0.2 0.02 258 / 0.1);
   --shadow-high: 0 16px 48px oklch(0.2 0.02 258 / 0.14);
@@ -228,6 +244,11 @@
     --certainty-approximate: oklch(0.47 0.02 258);
     --certainty-inferred: oklch(0.64 0.016 258);
     --certainty-unknown: oklch(0.76 0.012 258);
+
+    --sex-female: oklch(0.6 0.15 350);
+    --sex-male: oklch(0.55 0.13 240);
+    --sex-other: oklch(0.55 0.13 300);
+    --sex-unknown: oklch(0.62 0.012 258);
 
     --shadow-low: 0 1px 2px oklch(0.2 0.02 258 / 0.08);
     --shadow-mid: 0 4px 16px oklch(0.2 0.02 258 / 0.1);

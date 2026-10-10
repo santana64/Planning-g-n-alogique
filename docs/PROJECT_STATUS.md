@@ -17,9 +17,10 @@ Ce fichier est factuel. Rien n'y est marqué fait sans avoir été exécuté.
 | Décisions importantes   | [§ Décisions importantes](#décisions-importantes)                                         |
 | Prochaine action        | [§ Prochaine action](#prochaine-action)                                                   |
 
-**Dernière exécution complète** (2026-09-21, poste de développement) :
-format, lint, types **verts** ; **703** tests unitaires, **214** d'intégration,
-**77** de bout en bout, tous verts ; `pnpm build` vert ; images Docker web et
+**Dernière exécution** (2026-10-10, poste de développement) : format, lint,
+types **verts** ; **711** tests unitaires, **214** d'intégration, **78** de
+bout en bout, tous verts ; `pnpm build` vert. Exécution complète précédente
+(2026-09-21) : images Docker web et
 worker construites ; la CI rejouée localement dans un clone vierge passe toutes
 ses étapes, et le parcours d'installation du README rejoué à la lettre (base et
 seau neufs) donne les 40 personnes de la démonstration.
@@ -798,9 +799,42 @@ l'attendait depuis la phase 1.
 
 ---
 
+## Frise : femmes et hommes, naissances reliées (2026-10-10)
+
+- **Couleur des vies** : rose pour les femmes, bleu pour les hommes, violet
+  pour « intersexe », gris quand le sexe n'est pas renseigné — lecture par
+  défaut, avec un bouton « Branches » qui revient aux couleurs de lignée. Le
+  choix est retenu par le navigateur (et survit à un stockage bloqué).
+- **Liens de naissance** : à la date de naissance de l'enfant, une ligne part
+  d'un point sur la vie du parent et arrive à un anneau où la vie de l'enfant
+  commence ; elle passe de la couleur du parent à celle de l'enfant. Une union
+  est une double ligne dorée à la date du mariage.
+- **Animations** : les vies poussent de leur naissance à leur fin à
+  l'ouverture, en cascade ; à la sélection, les liens se dessinent du parent
+  vers l'enfant, un anneau pulse deux fois à la naissance, la vie choisie
+  rayonne dans sa couleur. Tout est coupé sous « réduire les animations », et
+  la boucle s'arrête dès que rien ne bouge.
+- **Info-bulle** qui suit le pointeur : « Fils d'Eugénie CHASSAGNE et de
+  Gustave CHASSAGNE », nombre d'enfants. **Panneau de famille** : parents,
+  unions, enfants, chacun cliquable pour remonter une lignée sans quitter la
+  frise, et un lien vers la fiche.
+- Vie privée : le sexe d'une personne protégée est masqué avec le reste
+  (`redactPerson`, testé) ; la famille affichée ne vient que des liens déjà
+  filtrés par le serveur.
+
+**Tests** : 711 unitaires (8 nouveaux), 214 d'intégration, 78 E2E (1 nouveau :
+lecture par défaut, sélection depuis le tableau, remontée vers un parent,
+choix retenu après rechargement).
+
+---
+
 ## En cours
 
-Rien. Point de reprise propre : la phase 11 est terminée et committée.
+Règles d'anomalie supplémentaires (`packages/genealogy`, non committées) :
+écrites et testées en unitaire, pas encore reliées au chargement du graphe ni
+affichées. Un faux positif reste à corriger avant de les brancher : un baptême
+daté à l'année, la même année que la naissance, serait signalé « possiblement
+avant la naissance ».
 
 ---
 
@@ -947,10 +981,12 @@ moteur de recherche externe (PostgreSQL suffit largement).
 
 ### Environnement de développement
 
-- **Incident Docker Desktop (2026-09-19)** : démarrage impossible
-  (`dockerInference … The file cannot be accessed by the system`). Réparé en
-  renommant `%LOCALAPPDATA%\Docker\run`. Jamais « Reset to factory defaults »,
-  qui efface les volumes.
+- **Incident Docker Desktop (2026-09-19, revenu le 2026-09-25 et le
+  2026-10-10)** : démarrage impossible (`dockerInference … The file cannot be
+accessed by the system`). Réparé à chaque fois en arrêtant les processus
+  Docker et en renommant `%LOCALAPPDATA%\Docker\run`. Jamais « Reset to
+  factory defaults », qui efface les volumes. Trois fois en trois semaines :
+  une mise à jour de Docker Desktop (4.41.2 ici) est à envisager.
 
 ---
 

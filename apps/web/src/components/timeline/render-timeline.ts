@@ -35,7 +35,38 @@ export interface TimelineTheme {
   readonly bandColor: string;
   readonly fontSans: string;
   readonly fontSerif: string;
+  readonly sexFemale: string;
+  readonly sexMale: string;
+  readonly sexOther: string;
+  readonly sexUnknown: string;
 }
+
+/**
+ * What a bar's colour says.
+ *
+ * SEX is the reading genealogists know from paper charts — pink for women,
+ * blue for men — and the default. BRANCH colours each line of descent, which
+ * is what to use to follow one family through a crowded century.
+ */
+export type TimelineColorMode = 'SEX' | 'BRANCH';
+
+/**
+ * Animation state, owned by the canvas component and read here.
+ *
+ * Every value is a plain number in [0, 1] so a frame stays a pure function of
+ * its inputs: the renderer never reads a clock, and a test can draw any
+ * instant of any animation.
+ */
+export interface TimelineAnimation {
+  /** Lives drawing themselves on first display; 1 when done. */
+  readonly entrance: number;
+  /** The selected person's birth links drawing from parent to child. */
+  readonly focus: number;
+  /** Phase of the ring that pulses at the selected birth; 0 when still. */
+  readonly pulse: number;
+}
+
+export const STILL: TimelineAnimation = { entrance: 1, focus: 1, pulse: 0 };
 
 export interface TimelineInteraction {
   readonly hoveredRow: number | null;
@@ -60,6 +91,46 @@ export interface RenderOptions {
   readonly rowHeightPx: number;
   readonly theme: TimelineTheme;
   readonly interaction: TimelineInteraction;
+  readonly colorMode?: TimelineColorMode;
+  readonly animation?: TimelineAnimation;
+}
+
+type TimelineRowData = RenderOptions['snapshot']['rows'][number];
+
+/** The colour of one life, under the chosen reading. */
+export function rowColour(
+  row: Pick<TimelineRowData, 'sex' | 'branchKey'>,
+  theme: TimelineTheme,
+  mode: TimelineColorMode,
+): string {
+  if (mode === 'BRANCH') return branchColorForKey(row.branchKey).base;
+  switch (row.sex) {
+    case 'FEMALE':
+      return theme.sexFemale;
+    case 'MALE':
+      return theme.sexMale;
+    case 'OTHER':
+      return theme.sexOther;
+    default:
+      return theme.sexUnknown;
+  }
+}
+
+const clamp01 = (value: number): number => Math.min(Math.max(value, 0), 1);
+const easeOutCubic = (value: number): number => 1 - (1 - clamp01(value)) ** 3;
+
+/**
+ * How far along its entrance one visible row is.
+ *
+ * Rows arrive top to bottom, staggered across the first 40 % of the
+ * animation, each taking the remaining 60 % to grow — a cascade that reads as
+ * generations following each other rather than a block appearing.
+ */
+function entranceOf(animation: TimelineAnimation, index: number, first: number, last: number) {
+  if (animation.entrance >= 1) return 1;
+  const span = Math.max(last - first, 1);
+  const delay = ((index - first) / span) * 0.4;
+  return easeOutCubic((animation.entrance - delay) / 0.6);
 }
 
 /**
@@ -126,9 +197,12 @@ export function renderTimeline(
 
   drawBands(ctx, options, lod.showHistoricalBands);
   drawGrid(ctx, options);
-  if (lod.showRelationshipLinks) drawLinks(ctx, options, rowY, firstRow, lastRow);
+  if (lod.showRelationshipLinks) drawLinks(ctx, options, rowY, firstRow, lastRow, 'LINES');
   drawBars(ctx, options, rowY, firstRow, lastRow, lod.minBarWidthPx);
   if (lod.showEventMarkers) drawEvents(ctx, options, rowY, firstRow, lastRow);
+  // Nodes go over the bars: the ring at a birth sits on the child's bar,
+  // where the life it marks begins.
+  if (lod.showRelationshipLinks) drawLinks(ctx, options, rowY, firstRow, lastRow, 'NODES');
   if (lod.showPersonLabels) drawLabels(ctx, options, rowY, firstRow, lastRow);
   drawTodayLine(ctx, options);
   drawTemporalCursor(ctx, options);
@@ -176,16 +250,38 @@ function drawGrid(ctx: CanvasRenderingContext2D, options: RenderOptions): void {
   }
 }
 
+/**
+ * Relationships, in two passes.
+ *
+ * A birth is drawn where it happened: a vertical line at the child's birth,
+ * from a dot on the parent's life to a ring where the child's life begins.
+ * In the pink/blue reading the line carries the parent's colour into the
+ * child's, so "born of his mother" and "born of his father" are told apart
+ * without reading a label. A union is a double line, in the accent colour,
+ * at the marriage.
+ *
+ * The selected person's links draw themselves from parent to child, and a
+ * ring pulses at the birth — the eye is taken to the moment, not left to
+ * search for it among three centuries of lines.
+ */
 function drawLinks(
   ctx: CanvasRenderingContext2D,
   options: RenderOptions,
   rowY: (row: number) => number,
   firstRow: number,
   lastRow: number,
+  pass: 'LINES' | 'NODES',
 ): void {
   const { snapshot, viewport, theme, interaction } = options;
+  const mode = options.colorMode ?? 'SEX';
+  const animation = options.animation ?? STILL;
+  const selectedRow =
+    interaction.selectedPersonId === null
+      ? null
+      : (snapshot.rows.find((row) => row.personId === interaction.selectedPersonId)?.row ?? null);
+  const appear = easeOutCubic(animation.entrance * 1.4 - 0.4);
+  if (appear <= 0) return;
 
-  ctx.lineWidth = 1;
   for (const link of snapshot.links) {
     if (link.jdn === null) continue;
     // A link is drawn when either end is on screen, so a line into an
@@ -196,18 +292,99 @@ function drawLinks(
     const x = jdnToX(viewport, link.jdn);
     if (x < -50 || x > viewport.widthPx + 50) continue;
 
-    const highlighted =
-      interaction.relatedRows.has(link.fromRow) || interaction.relatedRows.has(link.toRow);
-
-    ctx.strokeStyle = theme.linkColor;
-    ctx.globalAlpha = highlighted ? 0.85 : interaction.selectedPersonId ? 0.15 : 0.4;
-
+    const focused =
+      selectedRow !== null && (link.fromRow === selectedRow || link.toRow === selectedRow);
+    const baseAlpha = focused ? 0.95 : selectedRow !== null ? 0.1 : 0.55;
+    const timeAlpha = Math.min(
+      cursorAlphaFor(interaction, link.fromRow),
+      cursorAlphaFor(interaction, link.toRow),
+    );
+    const alpha = baseAlpha * timeAlpha * appear;
     const y1 = rowY(link.fromRow);
     const y2 = rowY(link.toRow);
+    const progress = focused ? easeOutCubic(animation.focus) : 1;
+    const yEnd = y1 + (y2 - y1) * progress;
+
+    if (link.kind === 'PARTNER') {
+      if (pass === 'LINES') {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = theme.accent;
+        ctx.lineWidth = focused ? 1.25 : 1;
+        for (const offset of [-1.5, 1.5]) {
+          ctx.beginPath();
+          ctx.moveTo(x + offset, y1);
+          ctx.lineTo(x + offset, yEnd);
+          ctx.stroke();
+        }
+        ctx.restore();
+      } else if (progress >= 1) {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = theme.accent;
+        ctx.fillStyle = theme.surface;
+        ctx.lineWidth = 1.25;
+        ctx.beginPath();
+        ctx.arc(x, (y1 + y2) / 2, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+      continue;
+    }
+
+    const parent = snapshot.rows[link.fromRow];
+    const child = snapshot.rows[link.toRow];
+    const parentColour = parent ? rowColour(parent, theme, mode) : theme.linkColor;
+    const childColour = child ? rowColour(child, theme, mode) : theme.linkColor;
+
+    if (pass === 'LINES') {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      if (mode === 'SEX' && Math.abs(yEnd - y1) > 1) {
+        const gradient = ctx.createLinearGradient(0, y1, 0, yEnd);
+        gradient.addColorStop(0, parentColour);
+        gradient.addColorStop(1, progress >= 1 ? childColour : parentColour);
+        ctx.strokeStyle = gradient;
+      } else {
+        ctx.strokeStyle = theme.linkColor;
+      }
+      ctx.lineWidth = focused ? 2 : 1.25;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x, y1);
+      ctx.lineTo(x, yEnd);
+      ctx.stroke();
+      ctx.restore();
+      continue;
+    }
+
+    // --- Nodes: the parent's dot, the child's birth ring, the pulse ------
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = parentColour;
     ctx.beginPath();
-    ctx.moveTo(x, y1);
-    ctx.lineTo(x, y2);
-    ctx.stroke();
+    ctx.arc(x, y1, focused ? 3 : 2.25, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (progress >= 1 && link.toRow >= firstRow && link.toRow <= lastRow) {
+      ctx.fillStyle = theme.surface;
+      ctx.strokeStyle = childColour;
+      ctx.lineWidth = focused ? 2 : 1.5;
+      ctx.beginPath();
+      ctx.arc(x, y2, focused ? 4 : 3.25, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      if (focused && link.toRow === selectedRow && animation.pulse > 0) {
+        ctx.globalAlpha = alpha * (1 - animation.pulse) * 0.7;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x, y2, 4 + animation.pulse * 12, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
   }
   ctx.globalAlpha = 1;
 }
@@ -232,23 +409,41 @@ function drawBars(
       continue;
     }
 
-    const bar = barGeometry(viewport, { earliest: row.earliestJdn, latest: row.latestJdn });
-    if (!bar.visible || bar.width < minBarWidthPx) continue;
+    const full = barGeometry(viewport, { earliest: row.earliestJdn, latest: row.latestJdn });
+    if (!full.visible || full.width < minBarWidthPx) continue;
+
+    // On first display a life grows from its birth to its end.
+    const grown = entranceOf(options.animation ?? STILL, i, firstRow, lastRow);
+    if (grown <= 0) continue;
+    const bar = { ...full, width: Math.max(full.width * grown, 1) };
 
     const y = rowY(row.row) - barHeight / 2;
-    const colour = branchColorForKey(row.branchKey);
+    const colour = rowColour(row, options.theme, options.colorMode ?? 'SEX');
+    const selected = interaction.selectedPersonId === row.personId;
 
     const dimmed = interaction.selectedPersonId !== null && !interaction.relatedRows.has(row.row);
-    ctx.globalAlpha = (dimmed ? 0.22 : 1) * cursorAlphaFor(interaction, i);
+    ctx.globalAlpha = (dimmed ? 0.22 : 1) * cursorAlphaFor(interaction, i) * Math.min(grown * 2, 1);
 
     // An open edge fades instead of ending. A hard cap there would assert a
     // boundary nobody recorded.
     const fill = needsFade(row.startCertainty, row.endCertainty)
-      ? fadeGradient(ctx, bar.x, bar.width, colour.base, row.startCertainty, row.endCertainty)
-      : colour.base;
+      ? fadeGradient(ctx, bar.x, bar.width, colour, row.startCertainty, row.endCertainty)
+      : colour;
 
     ctx.fillStyle = fill;
-    ctx.fillRect(bar.x, y, bar.width, barHeight);
+    if (selected) {
+      // The selected life glows in its own colour: found at a glance, and
+      // still the same colour as everything that says who they are.
+      ctx.save();
+      ctx.shadowColor = colour;
+      ctx.shadowBlur = 14;
+      roundedBar(ctx, bar.x, y - 1, bar.width, barHeight + 2);
+      ctx.fill();
+      ctx.restore();
+    } else {
+      roundedBar(ctx, bar.x, y, bar.width, barHeight);
+      ctx.fill();
+    }
 
     // An approximate date is dashed as well as faded, so the distinction
     // survives greyscale and colour-blindness.
@@ -291,6 +486,23 @@ function drawRedactedRow(
     ctx.fillRect(x + i, y - barHeight / 2, 3, barHeight);
   }
   ctx.restore();
+}
+
+/** A bar with softly rounded ends, never rounder than half its height. */
+function roundedBar(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): void {
+  const radius = Math.min(height / 2, width / 2, 4);
+  ctx.beginPath();
+  if (radius < 1 || typeof ctx.roundRect !== 'function') {
+    ctx.rect(x, y, width, height);
+    return;
+  }
+  ctx.roundRect(x, y, width, height, radius);
 }
 
 function needsFade(start: EdgeCertainty, end: EdgeCertainty): boolean {
@@ -407,9 +619,14 @@ function drawLabels(
     const bar = barGeometry(viewport, { earliest: row.earliestJdn, latest: row.latestJdn });
     if (!bar.visible) continue;
 
+    const arrived = entranceOf(options.animation ?? STILL, i, firstRow, lastRow);
+    if (arrived <= 0) continue;
     const dimmed = interaction.selectedPersonId !== null && !interaction.relatedRows.has(row.row);
-    ctx.globalAlpha = (dimmed ? 0.3 : 1) * cursorAlphaFor(interaction, i);
-    ctx.fillStyle = interaction.hoveredRow === row.row ? theme.textPrimary : theme.textMuted;
+    ctx.globalAlpha = (dimmed ? 0.3 : 1) * cursorAlphaFor(interaction, i) * arrived;
+    ctx.fillStyle =
+      interaction.hoveredRow === row.row || interaction.selectedPersonId === row.personId
+        ? theme.textPrimary
+        : theme.textMuted;
 
     // Label to the left of the bar, or inside it when the bar runs off the
     // left edge — so a name never floats in space away from its life.
@@ -428,7 +645,7 @@ function drawLabels(
     ctx.strokeStyle = theme.surface;
     ctx.lineWidth = 3;
     ctx.lineJoin = 'round';
-    ctx.globalAlpha = (dimmed ? 0.3 : 1) * 0.85;
+    ctx.globalAlpha = (dimmed ? 0.3 : 1) * 0.85 * arrived;
     ctx.strokeText(row.displayName, x, y);
     ctx.restore();
 

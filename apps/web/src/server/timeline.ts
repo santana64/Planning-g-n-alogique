@@ -55,6 +55,16 @@ export interface TimelineRow {
   readonly lifespanLabel: string;
   /** True when this viewer may not see who this is. */
   readonly redacted: boolean;
+  /** Recorded sex, for the pink/blue reading of the chart. */
+  readonly sex: TimelineSex;
+}
+
+export type TimelineSex = 'FEMALE' | 'MALE' | 'OTHER' | 'UNKNOWN';
+
+function timelineSex(recorded: string | null | undefined): TimelineSex {
+  if (recorded === 'FEMALE' || recorded === 'MALE') return recorded;
+  if (recorded === 'INTERSEX') return 'OTHER';
+  return 'UNKNOWN';
 }
 
 export interface TimelineEvent {
@@ -165,6 +175,7 @@ export const loadTimeline = cache(async (treeSlug: string): Promise<TimelineSnap
           person?.isDeceased === false ? '' : formatYearOnly(death)
         }`.trim(),
         redacted: false,
+        sex: timelineSex(person?.recordedSex),
       },
       isHidden(row.personId),
     );

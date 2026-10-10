@@ -45,6 +45,10 @@
   --color-approximate: var(--certainty-approximate);
   --color-inferred: var(--certainty-inferred);
   --color-uncertain: var(--certainty-unknown);
+  --color-sex-female: var(--sex-female);
+  --color-sex-male: var(--sex-male);
+  --color-sex-other: var(--sex-other);
+  --color-sex-unknown: var(--sex-unknown);
 
   --font-sans: var(--font-sans);
   --font-serif: var(--font-serif);
@@ -274,6 +278,29 @@
   animation: fade-rise 0.7s var(--ease-out) forwards;
   animation-delay: var(--delay, 0s);
   opacity: 0;
+}
+
+/*
+ * The timeline's tooltip and family panel arrive rather than appear: a short
+ * fade and lift, keyed on the person so moving to another life replays it.
+ */
+.timeline-tooltip {
+  animation: pop-in 140ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.timeline-panel {
+  animation: story-in 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /*
