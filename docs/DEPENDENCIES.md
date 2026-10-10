@@ -49,6 +49,13 @@ cette machine. Extensions PostgreSQL : `citext`, `pg_trgm`, `postgis`,
 | three (`three/webgpu`, TSL)       | 0.186.0 |
 | maplibre-gl                       | 6.9.1   |
 
+## Documents et photographies
+
+| Paquet     | Version | Où            | Note                                                                                                                                  |
+| ---------- | ------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| sharp      | 0.35.5  | `apps/worker` | vignettes (320 px) et aperçus (2048 px) en WebP, orientés, **sans métadonnées** ; limite de pixels contre les bombes de décompression |
+| pdfjs-dist | 6.4.299 | `apps/web`    | PDF dessinés dans le navigateur, page par page, redessinés plus nets au zoom ; aucun script du PDF n'est exécuté                      |
+
 ## Données, travaux, stockage, IA
 
 | Paquet                                            | Version  | Note                                                                                                |
@@ -93,17 +100,16 @@ Outils de build propres à `apps/web` : `topojson-client` et `world-atlas`
 Ces briques ont été retirées du catalogue une fois constaté qu'aucune ligne de
 code ne les importait. Les garder aurait donné une fausse idée de la pile.
 
-| Brique                                  | Pourquoi elle n'est pas là                                                                                                                                             |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Radix UI (10 paquets)                   | Les seuls éléments à comportement sont des `<dialog>` natifs et des champs standard ; rien n'en importait                                                              |
-| Motion, GSAP                            | Le mouvement utile est en CSS, en SVG ou dans la boucle de rendu ([DESIGN_SYSTEM.md](DESIGN_SYSTEM.md))                                                                |
-| Zustand, TanStack Query                 | L'état vient du serveur (composants serveur, actions, revalidation) ; l'état client tient dans `useState` et l'URL                                                     |
-| bitECS, Graphology, ELK.js, Comlink, d3 | Pas d'ECS, pas de worker de mise en page, pas de moteur de graphe générique : mises en page dédiées et mesurées ([ENGINE.md](ENGINE.md))                               |
-| sharp, pdfjs-dist                       | Ni vignettes ni rendu de pages : la visionneuse de documents n'existe pas encore ([ROADMAP](ROADMAP.md)) ; `sharp` reste installé comme dépendance optionnelle de Next |
-| ioredis (en direct)                     | BullMQ apporte le sien ; rien ne l'importait                                                                                                                           |
-| @testing-library/*, jsdom               | Aucun test ne rend un composant en isolation : les composants sont vérifiés par les E2E, la logique est testée sans React                                              |
-| read-gedcom                             | Le lecteur GEDCOM 7 est écrit ici, avec la tolérance aux fichiers 5.5 ([GEDCOM.md](GEDCOM.md))                                                                         |
-| Elasticsearch / OpenSearch              | `pg_trgm` répond en 39 ms à 20 000 personnes ([PERFORMANCE.md](PERFORMANCE.md)) : la règle du projet interdit d'ajouter un moteur sans preuve du contraire             |
+| Brique                                  | Pourquoi elle n'est pas là                                                                                                                                 |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Radix UI (10 paquets)                   | Les seuls éléments à comportement sont des `<dialog>` natifs et des champs standard ; rien n'en importait                                                  |
+| Motion, GSAP                            | Le mouvement utile est en CSS, en SVG ou dans la boucle de rendu ([DESIGN_SYSTEM.md](DESIGN_SYSTEM.md))                                                    |
+| Zustand, TanStack Query                 | L'état vient du serveur (composants serveur, actions, revalidation) ; l'état client tient dans `useState` et l'URL                                         |
+| bitECS, Graphology, ELK.js, Comlink, d3 | Pas d'ECS, pas de worker de mise en page, pas de moteur de graphe générique : mises en page dédiées et mesurées ([ENGINE.md](ENGINE.md))                   |
+| ioredis (en direct)                     | BullMQ apporte le sien ; rien ne l'importait                                                                                                               |
+| @testing-library/*, jsdom               | Aucun test ne rend un composant en isolation : les composants sont vérifiés par les E2E, la logique est testée sans React                                  |
+| read-gedcom                             | Le lecteur GEDCOM 7 est écrit ici, avec la tolérance aux fichiers 5.5 ([GEDCOM.md](GEDCOM.md))                                                             |
+| Elasticsearch / OpenSearch              | `pg_trgm` répond en 39 ms à 20 000 personnes ([PERFORMANCE.md](PERFORMANCE.md)) : la règle du projet interdit d'ajouter un moteur sans preuve du contraire |
 
 ## Politique de mise à jour
 

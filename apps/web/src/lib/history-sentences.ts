@@ -269,6 +269,28 @@ export function describeRevision(facts: RevisionFacts, t: Translator, locale = '
         sentence: h('claimReject', { predicate: claimName(t, text(before, 'predicate')) }),
         changes,
       };
+    case 'Media:CREATE':
+      return { sentence: h('mediaCreate', { title: text(after, 'title') ?? '' }), changes: [] };
+    case 'Media:UPDATE':
+      return {
+        sentence: h('mediaUpdate', { title: text(after, 'title') ?? text(before, 'title') ?? '' }),
+        changes: [],
+      };
+    case 'PersonMediaTag:CREATE':
+      return {
+        sentence: h('mediaTag', { name: text(after, 'name') ?? h('somePerson') }),
+        changes: [],
+      };
+    case 'PersonMediaTag:DELETE':
+      return {
+        sentence: h('mediaUntag', { name: text(before, 'name') ?? h('somePerson') }),
+        changes: [],
+      };
+    case 'Document:UPDATE':
+      return {
+        sentence: h('documentTranscribed', { title: text(after, 'title') ?? h('someRecord') }),
+        changes: [],
+      };
     case 'ResearchTask:CREATE':
       return {
         sentence: h('researchTaskCreate', { title: text(after, 'title') ?? h('someTask') }),

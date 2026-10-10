@@ -7,6 +7,7 @@ import { assertDeployable, getServerEnv, scrubErrorReport } from '@chronolignee/
 import {
   createDatabase,
   purgeDeletedTree,
+  recordMediaDerivatives,
   scanDuplicates,
   treesAwaitingPurge,
 } from '@chronolignee/db';
@@ -19,6 +20,7 @@ import {
   reportConnectionErrors,
 } from '@chronolignee/jobs';
 import { runGedcomImport } from './gedcom-import';
+import { runMediaDerivatives } from './media-derivatives';
 
 /**
  * The background worker.
@@ -195,7 +197,45 @@ reportConnectionErrors(duplicateWorker, (error, suppressed) =>
   logger.error({ error: error.name, suppressed }, 'queue unavailable, retrying'),
 );
 
-const workers = [gedcomWorker, duplicateWorker];
+/**
+ * Thumbnails and previews of photographs.
+ *
+ * A 40-megapixel TIFF takes seconds to decode, and the gallery should not
+ * wait on it: the page shows the photograph as soon as it is uploaded, and
+ * its light versions replace it once they exist. Metadata is stripped from
+ * both — a phone's EXIF holds the GPS position where it was taken.
+ */
+const mediaWorker = new Worker(
+  QUEUE_NAMES.mediaDerivatives,
+  async (job: Job) => {
+    const payload = assertPayload(QUEUE_NAMES.mediaDerivatives, job.data);
+    const log = logger.child({ jobId: job.id, treeId: payload.treeId, mediaId: payload.mediaId });
+    const result = await runMediaDerivatives(
+      {
+        read: (key) => objectStore.get(key),
+        write: (key, bytes, contentType) => objectStore.put(key, bytes, { contentType }),
+        record: (mediaId, derivatives) => recordMediaDerivatives(db, mediaId, derivatives),
+      },
+      payload,
+    );
+    log.info({ width: result.width, height: result.height }, 'media derivatives written');
+    return result;
+  },
+  // Two at a time: decoding is memory-bound, and a gallery upload of fifty
+  // photographs should not take the worker's whole heap.
+  { connection, concurrency: 2, ...WORKER_RETENTION },
+);
+
+mediaWorker.on('failed', (job, error) => {
+  logger.error({ jobId: job?.id, error: error.name }, 'media derivatives failed');
+  sentry?.captureException(error, { tags: { queue: QUEUE_NAMES.mediaDerivatives } });
+});
+
+reportConnectionErrors(mediaWorker, (error, suppressed) =>
+  logger.error({ error: error.name, suppressed }, 'queue unavailable, retrying'),
+);
+
+const workers = [gedcomWorker, duplicateWorker, mediaWorker];
 
 /**
  * Finish erasing deleted trees.

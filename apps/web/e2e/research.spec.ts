@@ -90,7 +90,8 @@ test('a contradiction and a missing source become a question, and its answer is 
 });
 
 test('is not shown to someone outside the tree', async ({ browser }) => {
-  const anonymous = await browser.newContext();
+  // Explicitly no session: a bare context inherits the signed-in one.
+  const anonymous = await browser.newContext({ storageState: undefined });
   const page = await anonymous.newPage();
   // The public demonstration is readable; its research desk is not.
   const response = await page.goto('/app/famille-chassagne-demo/recherche');

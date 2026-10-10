@@ -143,7 +143,8 @@
       "settings": "Réglages",
       "research": "Recherche",
       "overview": "Vue d’ensemble",
-      "statistics": "Statistiques"
+      "statistics": "Statistiques",
+      "photos": "Photos"
     },
     "roles": {
       "OWNER": "Propriétaire",
@@ -209,7 +210,8 @@
     "recordHistory": "Historique de la fiche",
     "birth": "Naissance",
     "death": "Décès",
-    "notes": "Notes"
+    "notes": "Notes",
+    "photos": "{count, plural, one {1 photographie} other {# photographies}}"
   },
   "events": {
     "BIRTH": "Naissance",
@@ -583,7 +585,12 @@
     "older": "Plus anciennes",
     "researchTaskCreate": "a ouvert la piste « {title} »",
     "researchTaskUpdate": "a passé la piste « {title} » à « {status} »",
-    "someTask": "une piste"
+    "someTask": "une piste",
+    "mediaCreate": "a ajouté la photographie « {title} »",
+    "mediaUpdate": "a complété la photographie « {title} »",
+    "mediaTag": "a identifié {name} sur une photographie",
+    "mediaUntag": "a retiré {name} d’une photographie",
+    "documentTranscribed": "a transcrit « {title} »"
   },
   "timeline": {
     "counts": "{people} personnes · {events} événements",
@@ -1332,6 +1339,18 @@
       "invalid": "Certains champs sont à corriger.",
       "notFound": "Cette piste n’existe pas dans cet arbre.",
       "personNotFound": "Cette personne n’est pas dans l’arbre."
+    },
+    "media": {
+      "notFound": "Cette photographie n’existe pas dans cet arbre.",
+      "personNotFound": "Cette personne n’est pas dans l’arbre.",
+      "badRegion": "Le rectangle sort de l’image.",
+      "tagged": "Personne identifiée.",
+      "untagged": "Identification retirée.",
+      "invalid": "Certains champs sont à corriger.",
+      "saved": "Enregistré.",
+      "documentNotFound": "Ce document n’existe pas dans cet arbre.",
+      "transcriptionTooLong": "La transcription est trop longue.",
+      "transcriptionSaved": "Transcription enregistrée."
     }
   },
   "research": {
@@ -1452,7 +1471,8 @@
       "map": "Où la famille a vécu, et quand elle a bougé.",
       "archive": "Sources, citations et documents.",
       "statistics": "Durées de vie, mariages, prénoms, métiers.",
-      "stories": "Une lignée racontée, chaque phrase sourcée."
+      "stories": "Une lignée racontée, chaque phrase sourcée.",
+      "photos": "L’album de famille, et qui y figure."
     },
     "recent": "Dernières modifications",
     "allHistory": "Tout l’historique"
@@ -1534,6 +1554,106 @@
         "3": "arrière-grand-parent",
         "4": "ancêtre"
       }
+    }
+  },
+  "viewer": {
+    "stage": "Visionneuse : {label}",
+    "roledescription": "visionneuse",
+    "zoomIn": "Agrandir",
+    "zoomOut": "Réduire",
+    "fit": "Ajuster à l’écran",
+    "actual": "Taille réelle",
+    "rotate": "Pivoter d’un quart de tour",
+    "fullscreen": "Plein écran",
+    "exitFullscreen": "Quitter le plein écran",
+    "keys": "Molette ou plus et moins pour zoomer, flèches pour se déplacer, 0 pour ajuster, 1 pour la taille réelle, R pour pivoter, F pour le plein écran.",
+    "loading": "Chargement du document…",
+    "failed": "Ce document ne peut pas être affiché ici. Il reste téléchargeable.",
+    "page": "page {page} sur {pages}",
+    "pageOf": "{title}, page {page} sur {pages}",
+    "previousPage": "Page précédente",
+    "nextPage": "Page suivante"
+  },
+  "documentView": {
+    "back": "Archives",
+    "download": "Télécharger l’original",
+    "source": "Source",
+    "citations": "{count, plural, =0 {Cité nulle part} one {Cité par 1 fait} other {Cité par # faits}}",
+    "noCitation": "Aucun fait de l’arbre ne cite encore ce document.",
+    "claim": "Affirmation",
+    "proposals": "{count, plural, one {1 lecture proposée attend une décision} other {# lectures proposées attendent une décision}}",
+    "transcription": "Transcription",
+    "transcriptionPlaceholder": "Recopier le texte tel qu’il est écrit, abréviations comprises.",
+    "saveTranscription": "Enregistrer la transcription",
+    "unsaved": "Modifications non enregistrées",
+    "noTranscription": "Pas encore de transcription.",
+    "kinds": {
+      "BIRTH_ACT": "Acte de naissance",
+      "MARRIAGE_ACT": "Acte de mariage",
+      "DEATH_ACT": "Acte de décès",
+      "BAPTISM_ACT": "Acte de baptême",
+      "BURIAL_ACT": "Acte de sépulture",
+      "CENSUS_PAGE": "Page de recensement",
+      "MILITARY_RECORD": "Registre militaire",
+      "NOTARIAL_ACT": "Acte notarié",
+      "LETTER": "Lettre",
+      "CERTIFICATE": "Certificat",
+      "NEWSPAPER_CLIPPING": "Coupure de presse",
+      "OTHER": "Document"
+    }
+  },
+  "photos": {
+    "title": "Photographies",
+    "lead": "L’album de la famille. Chaque personne y est reconnue par quelqu’un qui l’a nommée, jamais par une machine.",
+    "empty": "Aucune photographie pour l’instant.",
+    "processing": "En préparation…",
+    "back": "Toutes les photographies",
+    "noRecognition": "Aucune reconnaissance faciale : les personnes sont identifiées à la main, et les versions affichées ne contiennent aucune métadonnée (lieu de prise de vue compris).",
+    "upload": {
+      "drop": "Déposer des photographies ici",
+      "formats": "JPEG, PNG, WebP, AVIF ou TIFF, 40 Mo au plus chacune",
+      "choose": "Choisir des fichiers",
+      "privacy": "L’original est conservé tel quel pour les membres ; ce qui est affiché est une version sans métadonnées.",
+      "status": {
+        "waiting": "en attente",
+        "sending": "envoi…",
+        "done": "ajoutée",
+        "duplicate": "déjà présente"
+      },
+      "errors": {
+        "TOO_LARGE": "trop volumineuse",
+        "NOT_AN_IMAGE": "ce n’est pas une image",
+        "UNRECOGNISED_TYPE": "format non reconnu",
+        "DISALLOWED_TYPE": "format non accepté",
+        "DECLARED_TYPE_MISMATCH": "le contenu ne correspond pas à l’extension",
+        "EMPTY": "fichier vide",
+        "NETWORK": "connexion interrompue",
+        "UNKNOWN": "échec de l’envoi"
+      }
+    },
+    "tagger": {
+      "identify": "Identifier quelqu’un",
+      "stopIdentifying": "Terminer",
+      "howTo": "Tracez un rectangle autour de la personne, puis choisissez qui c’est.",
+      "who": "Qui est-ce ?",
+      "search": "Chercher une personne",
+      "noMatch": "Personne de ce nom dans l’arbre.",
+      "cancel": "Annuler",
+      "inPhoto": "{count, plural, =0 {Personne identifiée} one {1 personne identifiée} other {# personnes identifiées}}",
+      "noneYet": "Personne n’a encore été identifié sur cette photographie.",
+      "noneYetEditor": "Personne n’est encore identifié. Utilisez « Identifier quelqu’un ».",
+      "remove": "Retirer {name} de la photographie",
+      "removeShort": "Retirer",
+      "loading": "Chargement de la photographie…"
+    },
+    "details": {
+      "edit": "Légende, date et crédit",
+      "title": "Titre",
+      "captured": "Prise le",
+      "capturedHint": "Une date comme dans un acte : 1910, ABT 1910, 14 JUL 1919.",
+      "description": "Légende",
+      "copyright": "Crédit",
+      "save": "Enregistrer"
     }
   }
 }

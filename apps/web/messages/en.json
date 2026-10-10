@@ -143,7 +143,8 @@
       "settings": "Settings",
       "research": "Research",
       "overview": "Overview",
-      "statistics": "Statistics"
+      "statistics": "Statistics",
+      "photos": "Photos"
     },
     "roles": {
       "OWNER": "Owner",
@@ -209,7 +210,8 @@
     "recordHistory": "Record history",
     "birth": "Birth",
     "death": "Death",
-    "notes": "Notes"
+    "notes": "Notes",
+    "photos": "{count, plural, one {1 photograph} other {# photographs}}"
   },
   "events": {
     "BIRTH": "Birth",
@@ -583,7 +585,12 @@
     "older": "Older",
     "researchTaskCreate": "opened the lead “{title}”",
     "researchTaskUpdate": "moved the lead “{title}” to “{status}”",
-    "someTask": "a lead"
+    "someTask": "a lead",
+    "mediaCreate": "added the photograph “{title}”",
+    "mediaUpdate": "completed the photograph “{title}”",
+    "mediaTag": "identified {name} in a photograph",
+    "mediaUntag": "removed {name} from a photograph",
+    "documentTranscribed": "transcribed “{title}”"
   },
   "timeline": {
     "counts": "{people} people · {events} events",
@@ -1332,6 +1339,18 @@
       "invalid": "Some fields need correcting.",
       "notFound": "This lead does not exist in this tree.",
       "personNotFound": "This person is not in the tree."
+    },
+    "media": {
+      "notFound": "This photograph does not exist in this tree.",
+      "personNotFound": "This person is not in the tree.",
+      "badRegion": "The rectangle goes outside the image.",
+      "tagged": "Person identified.",
+      "untagged": "Identification removed.",
+      "invalid": "Some fields need correcting.",
+      "saved": "Saved.",
+      "documentNotFound": "This document does not exist in this tree.",
+      "transcriptionTooLong": "The transcription is too long.",
+      "transcriptionSaved": "Transcription saved."
     }
   },
   "research": {
@@ -1452,7 +1471,8 @@
       "map": "Where the family lived, and when it moved.",
       "archive": "Sources, citations and documents.",
       "statistics": "Lifespans, marriages, first names, occupations.",
-      "stories": "A lineage told, every sentence sourced."
+      "stories": "A lineage told, every sentence sourced.",
+      "photos": "The family album, and who is in it."
     },
     "recent": "Recent changes",
     "allHistory": "Full history"
@@ -1534,6 +1554,106 @@
         "3": "great-grandparent",
         "4": "ancestor"
       }
+    }
+  },
+  "viewer": {
+    "stage": "Viewer: {label}",
+    "roledescription": "viewer",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fit": "Fit to screen",
+    "actual": "Actual size",
+    "rotate": "Rotate a quarter turn",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen",
+    "keys": "Wheel or plus and minus to zoom, arrows to move, 0 to fit, 1 for actual size, R to rotate, F for full screen.",
+    "loading": "Loading the document…",
+    "failed": "This document cannot be shown here. It can still be downloaded.",
+    "page": "page {page} of {pages}",
+    "pageOf": "{title}, page {page} of {pages}",
+    "previousPage": "Previous page",
+    "nextPage": "Next page"
+  },
+  "documentView": {
+    "back": "Archive",
+    "download": "Download the original",
+    "source": "Source",
+    "citations": "{count, plural, =0 {Cited nowhere} one {Cited by 1 fact} other {Cited by # facts}}",
+    "noCitation": "No fact in the tree cites this document yet.",
+    "claim": "Claim",
+    "proposals": "{count, plural, one {1 proposed reading awaits a decision} other {# proposed readings await a decision}}",
+    "transcription": "Transcription",
+    "transcriptionPlaceholder": "Copy the text as it is written, abbreviations included.",
+    "saveTranscription": "Save the transcription",
+    "unsaved": "Unsaved changes",
+    "noTranscription": "No transcription yet.",
+    "kinds": {
+      "BIRTH_ACT": "Birth record",
+      "MARRIAGE_ACT": "Marriage record",
+      "DEATH_ACT": "Death record",
+      "BAPTISM_ACT": "Baptism record",
+      "BURIAL_ACT": "Burial record",
+      "CENSUS_PAGE": "Census page",
+      "MILITARY_RECORD": "Military record",
+      "NOTARIAL_ACT": "Notarial act",
+      "LETTER": "Letter",
+      "CERTIFICATE": "Certificate",
+      "NEWSPAPER_CLIPPING": "Newspaper clipping",
+      "OTHER": "Document"
+    }
+  },
+  "photos": {
+    "title": "Photographs",
+    "lead": "The family album. Everyone in it was recognised by someone who named them, never by a machine.",
+    "empty": "No photographs yet.",
+    "processing": "Being prepared…",
+    "back": "All photographs",
+    "noRecognition": "No face recognition: people are identified by hand, and the versions shown carry no metadata (where the picture was taken included).",
+    "upload": {
+      "drop": "Drop photographs here",
+      "formats": "JPEG, PNG, WebP, AVIF or TIFF, 40 MB at most each",
+      "choose": "Choose files",
+      "privacy": "The original is kept as it is for members; what is shown is a version without metadata.",
+      "status": {
+        "waiting": "waiting",
+        "sending": "sending…",
+        "done": "added",
+        "duplicate": "already here"
+      },
+      "errors": {
+        "TOO_LARGE": "too large",
+        "NOT_AN_IMAGE": "not an image",
+        "UNRECOGNISED_TYPE": "unrecognised format",
+        "DISALLOWED_TYPE": "format not accepted",
+        "DECLARED_TYPE_MISMATCH": "the content does not match the extension",
+        "EMPTY": "empty file",
+        "NETWORK": "connection lost",
+        "UNKNOWN": "upload failed"
+      }
+    },
+    "tagger": {
+      "identify": "Identify someone",
+      "stopIdentifying": "Done",
+      "howTo": "Draw a rectangle around the person, then choose who it is.",
+      "who": "Who is it?",
+      "search": "Search for a person",
+      "noMatch": "No one by that name in the tree.",
+      "cancel": "Cancel",
+      "inPhoto": "{count, plural, =0 {No one identified} one {1 person identified} other {# people identified}}",
+      "noneYet": "No one has been identified in this photograph yet.",
+      "noneYetEditor": "No one is identified yet. Use “Identify someone”.",
+      "remove": "Remove {name} from the photograph",
+      "removeShort": "Remove",
+      "loading": "Loading the photograph…"
+    },
+    "details": {
+      "edit": "Caption, date and credit",
+      "title": "Title",
+      "captured": "Taken",
+      "capturedHint": "A date as in a record: 1910, ABT 1910, 14 JUL 1919.",
+      "description": "Caption",
+      "copyright": "Credit",
+      "save": "Save"
     }
   }
 }

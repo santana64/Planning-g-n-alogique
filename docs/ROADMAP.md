@@ -50,13 +50,17 @@ de recherche) et les règles de mariage et d'événements hors de la vie sont
 d'une piste à un membre et une échéance (les colonnes existent), et le constat
 `DUPLICATE_CANDIDATE` sur la fiche.
 
-### Visionneuse de documents et photographies
+### Documents et photographies : ce qui reste
 
-Les tables sont prêtes (`document_pages`, `media`, `person_media_tags`,
-`event_media`) ; aucun écran. Le travail : rendu des pages (pdfjs-dist),
-vignettes (sharp) dans le worker, lecture plein écran avec zoom, identification
-manuelle de personnes sur une photographie (régions normalisées, **jamais de
-reconnaissance faciale**), et la surcouche des extractions d'IA sur la page.
+Faits : la visionneuse (zoom à la molette sous le pointeur, déplacement,
+pincement, rotation, plein écran, clavier ; PDF dessinés page par page par
+pdf.js dans le navigateur), la transcription à côté de l'image, l'album avec
+envoi multiple, vignettes et aperçus sans métadonnées faits par le worker, et
+l'identification manuelle des personnes par rectangle — **jamais de
+reconnaissance faciale**. Restent : la surcouche des extractions d'IA sur la
+page (les propositions n'ont pas encore de coordonnées), les liens
+photographie ↔ événement (`event_media`), l'audio et la vidéo, et une
+photographie dans la démonstration.
 
 ### Statistiques et tableau de bord : ce qui reste
 

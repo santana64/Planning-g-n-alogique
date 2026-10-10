@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { can } from '@chronolignee/domain';
 import { Link } from '@/i18n/navigation';
 import { features } from '@/lib/env';
+import { loadPersonPhotos } from '@/server/media';
 import { findingMessage, severityLabel } from '@/lib/finding-messages';
 import { loadPersonDetail } from '@/server/people';
 import { DeletePerson } from '@/components/people/delete-person';
@@ -52,6 +53,7 @@ export default async function PersonPage({
   // Members only, and never for someone this reader may not see.
   const history =
     person.redacted || access.role === null ? [] : await loadPersonHistory(access, person.personId);
+  const photos = person.redacted ? [] : await loadPersonPhotos(access, person.personId);
 
   return (
     <main id="main" className="bg-surface-0 min-h-dvh px-6 py-10">
@@ -146,6 +148,34 @@ export default async function PersonPage({
           <p className="border-source/30 bg-source/10 text-source rounded-[var(--radius-md)] border px-4 py-3">
             {t('protected')}
           </p>
+        ) : null}
+
+        {photos.length > 0 ? (
+          <section aria-labelledby="photos-title" className="flex flex-col gap-2">
+            <h2 id="photos-title" className="text-text-faint text-xs tracking-wide uppercase">
+              {t('photos', { count: photos.length })}
+            </h2>
+            <ul className="flex gap-3 overflow-x-auto pb-1">
+              {photos.map((photo) => (
+                <li key={photo.mediaId} className="shrink-0">
+                  <Link
+                    href={`/app/${treeSlug}/photos/${photo.mediaId}`}
+                    className="group border-border-subtle bg-surface-sunken block h-28 overflow-hidden rounded-[var(--radius-md)] border"
+                  >
+                    <img
+                      src={`/api/trees/${treeSlug}/media/${photo.mediaId}?variant=thumbnail`}
+                      alt={photo.title}
+                      loading="lazy"
+                      className="h-full w-auto transition-transform duration-[var(--duration-slow)] group-hover:scale-[1.05]"
+                    />
+                  </Link>
+                  {photo.captured ? (
+                    <p className="text-text-faint mt-1 text-[11px]">{photo.captured}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </section>
         ) : null}
 
         {person.findings.length > 0 ? (

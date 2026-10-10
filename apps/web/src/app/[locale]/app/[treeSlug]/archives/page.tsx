@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { Link } from '@/i18n/navigation';
 import { loadArchive, loadDocuments } from '@/server/archive';
 import { DocumentUpload } from '@/components/archive/document-upload';
 import { SourceForm } from '@/components/archive/source-form';
@@ -141,16 +142,31 @@ export default async function ArchivesPage({
               {documents.documents.map((document) => (
                 <li
                   key={document.documentId}
-                  className="border-border-subtle flex flex-col gap-1 rounded-[var(--radius-md)] border p-3"
+                  className="border-border-subtle hover:border-border-strong group flex flex-col gap-1 overflow-hidden rounded-[var(--radius-md)] border p-3 transition-colors duration-[var(--duration-fast)]"
                 >
-                  <a
-                    href={`/api/trees/${treeSlug}/documents/${document.documentId}`}
-                    target="_blank"
-                    rel="noreferrer"
+                  {/* The scan itself, when it is an image: a register page is
+                      recognised by its look long before its title is read. */}
+                  {document.isImage ? (
+                    <Link
+                      href={`/app/${treeSlug}/archives/documents/${document.documentId}`}
+                      tabIndex={-1}
+                      aria-hidden="true"
+                      className="bg-surface-sunken -mx-3 -mt-3 mb-2 block h-32 overflow-hidden"
+                    >
+                      <img
+                        src={`/api/trees/${treeSlug}/documents/${document.documentId}/content`}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover opacity-90 transition-transform duration-[var(--duration-slow)] group-hover:scale-[1.03]"
+                      />
+                    </Link>
+                  ) : null}
+                  <Link
+                    href={`/app/${treeSlug}/archives/documents/${document.documentId}`}
                     className="text-text-primary hover:text-accent font-editorial text-sm"
                   >
                     {document.title}
-                  </a>
+                  </Link>
                   <span className="text-text-faint flex flex-wrap gap-2 text-xs">
                     <span>{formatBytes(t, document.byteSize)}</span>
                     <span>{document.mimeType}</span>

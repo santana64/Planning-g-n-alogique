@@ -30,6 +30,7 @@ export async function TreeNav({
     | 'stories'
     | 'map'
     | 'archive'
+    | 'photos'
     | 'research'
     | 'proposals'
     | 'duplicates'
@@ -58,6 +59,7 @@ export async function TreeNav({
       : []),
     { key: 'map' as const, href: `/app/${treeSlug}/carte`, label: t('nav.map') },
     { key: 'archive' as const, href: `/app/${treeSlug}/archives`, label: t('nav.archive') },
+    { key: 'photos' as const, href: `/app/${treeSlug}/photos`, label: t('nav.photos') },
     {
       key: 'statistics' as const,
       href: `/app/${treeSlug}/statistiques`,

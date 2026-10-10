@@ -8,6 +8,7 @@ import {
   duplicateScanJobId,
   reportConnectionErrors,
   type GedcomImportPayload,
+  type MediaDerivativesPayload,
   type QueueName,
 } from '@chronolignee/jobs';
 import { env } from './env';
@@ -40,6 +41,12 @@ export async function enqueueGedcomImport(payload: GedcomImportPayload): Promise
   // Checked here, where a malformed payload points at the code that built it.
   const data = assertPayload(QUEUE_NAMES.gedcomImport, payload);
   await queueFor(QUEUE_NAMES.gedcomImport).add('import', data, IMPORT_JOB_OPTIONS);
+}
+
+/** Thumbnail and preview of a photograph, made by the worker. */
+export async function enqueueMediaDerivatives(payload: MediaDerivativesPayload): Promise<void> {
+  const data = assertPayload(QUEUE_NAMES.mediaDerivatives, payload);
+  await queueFor(QUEUE_NAMES.mediaDerivatives).add('derive', data, DEFAULT_JOB_OPTIONS);
 }
 
 export type ScanState = 'idle' | 'queued' | 'running' | 'failed';

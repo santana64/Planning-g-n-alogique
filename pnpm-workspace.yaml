@@ -47,6 +47,13 @@ catalog:
   clsx: 2.1.1
   tailwind-merge: 3.7.0
 
+  # --- Documents and photographs -----------------------------------------
+  # sharp: thumbnails and previews in the worker (also Next's optional image
+  # dependency, already allowed to build above). pdfjs-dist: PDF pages drawn
+  # in the reader's browser, so no page is rasterised on the server.
+  sharp: 0.35.5
+  pdfjs-dist: 6.4.299
+
   # --- Validation ---------------------------------------------------------
   zod: 4.6.5
 

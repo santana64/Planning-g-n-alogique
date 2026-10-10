@@ -87,6 +87,24 @@ travaillent. Il faut d'abord nommer un autre propriétaire, ou supprimer l'arbre
 Exige : une connexion de moins de 15 minutes (une session volée ou un poste
 resté ouvert ne suffisent pas) et l'adresse du compte tapée en entier.
 
+## Photographies
+
+- **Aucune reconnaissance faciale.** Une personne est identifiée sur une
+  photographie par quelqu'un qui trace un rectangle et choisit son nom ; aucun
+  visage n'est détecté, mesuré ni comparé, et aucun gabarit biométrique n'est
+  fabriqué.
+- **Une photographie où figure une personne masquée pour ce lecteur lui est
+  entièrement cachée** : ni la vignette, ni l'aperçu, ni l'original, ni la
+  carte dans l'album. La flouter ou ôter le nom publierait quand même le
+  visage.
+- **Les versions affichées n'ont pas de métadonnées.** Le worker produit
+  vignette et aperçu sans EXIF : le GPS d'une photo de téléphone donne souvent
+  l'adresse d'un proche. L'original, intact, n'est servi qu'aux membres.
+- Les fichiers sont servis depuis l'origine de l'application avec leur propre
+  politique (`default-src 'none'; sandbox`, `nosniff`) : un fichier ouvert
+  directement ne peut rien exécuter. Les droits sont revérifiés à chaque
+  requête.
+
 ## Intelligence artificielle
 
 - Aucun texte n'est envoyé sans le geste d'un éditeur (« Proposer des faits à

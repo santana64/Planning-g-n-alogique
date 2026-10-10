@@ -23,6 +23,9 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
  * `'unsafe-eval'` is permitted in development only: Turbopack's HMR runtime
  * needs it. Production gets no eval.
  */
+/** For a family's files served from our origin: nothing in them may run. */
+const FILE_POLICY = "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox";
+
 function contentSecurityPolicy(isDev: boolean): string {
   const directives: Record<string, string[]> = {
     'default-src': ["'self'"],
@@ -94,27 +97,43 @@ const config: NextConfig = {
   serverExternalPackages: ['@prisma/client', 'pg', 'pino', 'bullmq'],
 
   async headers() {
+    const shared = [
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      { key: 'X-Frame-Options', value: 'DENY' },
+      {
+        key: 'Permissions-Policy',
+        value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+      },
+      ...(isDev
+        ? []
+        : [
+            {
+              key: 'Strict-Transport-Security',
+              value: 'max-age=63072000; includeSubDomains; preload',
+            },
+          ]),
+    ];
     return [
       {
-        source: '/:path*',
+        // Every page — except the routes that send a family's files, which
+        // get their own, stricter policy below. Two rules matching one path
+        // both apply, and the page policy would replace the file's: found by
+        // the end-to-end suite, a PDF opened directly was not sandboxed.
+        source: '/((?!api/trees/[^/]+/(?:media/[^/]+|documents/[^/]+/content)$).*)',
         headers: [
           { key: 'Content-Security-Policy', value: contentSecurityPolicy(isDev) },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'X-Frame-Options', value: 'DENY' },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
-          },
-          ...(isDev
-            ? []
-            : [
-                {
-                  key: 'Strict-Transport-Security',
-                  value: 'max-age=63072000; includeSubDomains; preload',
-                },
-              ]),
+          ...shared,
         ],
+      },
+      {
+        // An uploaded file is hostile content: shown, never run.
+        source: '/api/trees/:tree/media/:media',
+        headers: [{ key: 'Content-Security-Policy', value: FILE_POLICY }, ...shared],
+      },
+      {
+        source: '/api/trees/:tree/documents/:document/content',
+        headers: [{ key: 'Content-Security-Policy', value: FILE_POLICY }, ...shared],
       },
     ];
   },

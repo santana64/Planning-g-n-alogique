@@ -52,6 +52,7 @@ export default async function TreeOverviewPage({
       : []),
     { key: 'map', href: `/app/${treeSlug}/carte`, glyph: '◍' },
     { key: 'archive', href: `/app/${treeSlug}/archives`, glyph: '▤' },
+    { key: 'photos', href: `/app/${treeSlug}/photos`, glyph: '◫' },
     { key: 'statistics', href: `/app/${treeSlug}/statistiques`, glyph: '▥' },
     ...(features.storyDirector
       ? [{ key: 'stories', href: `/app/${treeSlug}/recits`, glyph: '❧' }]

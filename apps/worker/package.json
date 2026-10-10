@@ -18,6 +18,7 @@
     "@sentry/node": "catalog:",
     "bullmq": "catalog:",
     "pino": "catalog:",
+    "sharp": "catalog:",
     "tsx": "catalog:"
   },
   "devDependencies": {
