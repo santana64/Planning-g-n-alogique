@@ -12,7 +12,7 @@ risque acceptable, et ce document commence donc par ce qui la prévient.
 | Worker         | Écriture des imports GEDCOM, purge des arbres supprimés                    | `infra/docker/worker.Dockerfile` (utilisateur non root) |
 | PostgreSQL 18  | Toutes les données ; extensions `citext`, `pg_trgm`, `postgis`, `unaccent` | géré ou `postgis/postgis:18-3.6`                        |
 | Redis          | File des imports, du web vers le worker                                    | Redis 8                                                 |
-| Stockage objet | Documents numérisés, fichiers GEDCOM importés                              | S3 ou compatible (MinIO en local)                       |
+| Stockage objet | Documents numérisés, fichiers GEDCOM importés                              | S3 ou compatible (RustFS en local)                      |
 | Courriel       | Confirmation d'adresse, mot de passe oublié, invitations                   | SMTP (Mailpit en local)                                 |
 
 ```bash

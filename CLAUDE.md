@@ -22,7 +22,7 @@ vie est un intervalle temporel, les relations relient les intervalles.
 
 ```bash
 pnpm setup              # install + infra + generate + migrate + seed (première fois)
-pnpm infra:up           # postgres 5434, redis 6380, minio 9000/9001, mailpit 1025/8025
+pnpm infra:up           # postgres 5434, redis 6380, s3 (RustFS) 9000/9001, mailpit 1025/8025
 pnpm dev                # web + worker (le worker écrit les imports)
 pnpm verify             # format:check + lint + typecheck + test:unit  ← avant tout commit
 pnpm test:integration   # nécessite pnpm infra:up
@@ -65,8 +65,8 @@ pas dans `engine`.
   **séparé** — jamais la base principale, que Prisma vide.
 - **TypeScript reste en 5.9.3** : `typescript-eslint` déclare `<6.1.0`.
 - **`next lint` n'existe plus** (Next 16) : c'est `eslint .`.
-- **PostgreSQL 18** monte son volume sur `/var/lib/postgresql`. **MinIO** vit
-  sur `quay.io`. **Postgres est sur 5434**, Redis sur **6380**.
+- **PostgreSQL 18** monte son volume sur `/var/lib/postgresql`. **MinIO n’est plus publié** :
+  le stockage local est RustFS (`rustfs/rustfs`). **Postgres est sur 5434**, Redis sur **6380**.
 - **Un index écrit à la main doit être déclaré dans le schéma Prisma**, sinon
   le prochain `migrate dev` écrit sa suppression (trigrammes, GiST).
 - **L'import GEDCOM s'écrit dans le worker** : le web met en file (Redis),

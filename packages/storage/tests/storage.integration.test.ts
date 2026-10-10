@@ -12,7 +12,7 @@ import {
 } from '../src/index';
 
 /**
- * Object storage against the real MinIO from docker-compose.
+ * Object storage against the real S3 store (RustFS) from docker-compose.
  *
  * The interesting behaviours here — presigned URLs, prefix deletion, what an
  * S3 backend does with an accented Content-Disposition — exist only in the

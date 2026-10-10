@@ -130,8 +130,8 @@ approximatives ou absentes dans les proportions des registres).
 ## Intégration continue
 
 `.github/workflows/ci.yml`, quatre travaux : **qualité** (format, lint, types,
-unitaires), **intégration** (PostgreSQL + MinIO + Mailpit, migrations, contrôle
-de dérive du schéma, seed, tests), **bout en bout** (PostgreSQL + Redis + MinIO
+unitaires), **intégration** (PostgreSQL + RustFS S3 + Mailpit, migrations, contrôle
+de dérive du schéma, seed, tests), **bout en bout** (PostgreSQL + Redis + RustFS
 
 - Mailpit, build, Playwright, rapport archivé en cas d'échec), **images** (les
   deux images de production sont construites, jamais poussées).

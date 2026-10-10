@@ -23,7 +23,7 @@ temporel, les relations relient les intervalles.
 
 ```bash
 pnpm install
-pnpm infra:up      # PostgreSQL 18 + PostGIS, Redis, MinIO, Mailpit
+pnpm infra:up      # PostgreSQL 18 + PostGIS, Redis, RustFS (S3), Mailpit
 cp .env.example .env
 # renseigner BETTER_AUTH_SECRET :
 #   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
@@ -45,7 +45,7 @@ pnpm setup
 | ---------------------- | ----------- | ------------------------------------------ |
 | PostgreSQL             | **5434**    | 5432 et 5433 sont souvent déjà pris        |
 | Redis                  | **6380**    | idem pour 6379                             |
-| MinIO API / console    | 9000 / 9001 |                                            |
+| RustFS S3 / console    | 9000 / 9001 |                                            |
 | Mailpit SMTP / console | 1025 / 8025 | attrape les courriels : rien ne sort d'ici |
 
 ---

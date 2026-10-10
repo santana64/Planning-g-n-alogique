@@ -123,7 +123,7 @@ de menace dans [SECURITY.md](SECURITY.md).
 
 ## Stockage des fichiers
 
-Seau S3 privé (MinIO en local). Les clés sont générées par le serveur et
+Seau S3 privé (RustFS en local). Les clés sont générées par le serveur et
 préfixées par arbre (`documents/<arbre>/…`, `imports/<arbre>/…`) — jamais le
 nom de fichier de l'utilisateur. Les fichiers sont validés à leurs nombres
 magiques (`file-type`), pas à leur extension. Le téléchargement passe par une

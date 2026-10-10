@@ -39,7 +39,7 @@ seau neufs) donne les 40 personnes de la démonstration.
 | Prettier                                          | `pnpm format:check` passe            |
 | Docker Compose                                    | 3 services _healthy_                 |
 | PostgreSQL 18.6 + PostGIS 3.6.4                   | interrogé en direct                  |
-| Redis 8, MinIO (bucket privé)                     | `PING` / log d'init                  |
+| Redis 8, RustFS S3 (bucket privé)                 | `PING` / log d'init                  |
 | Collation ICU `fr-FR`                             | `Lefebvre < Lefèvre < Lefort < Lévy` |
 | UUIDv7 natif                                      | `uuidv7()` renvoie un id horodaté    |
 
@@ -114,7 +114,7 @@ seau neufs) donne les 40 personnes de la démonstration.
 | Écran de revue avant écriture                | analyse = 0 ligne en base, vérifié en HTTP         |
 | Import complet (upload → revue → validation) | 4 personnes, 5 relations, 0 rejet                  |
 | Rejeu d'un import déjà appliqué              | HTTP 409                                           |
-| Stockage privé S3/MinIO                      | URL présignée OK, non signée refusée               |
+| Stockage privé S3 (RustFS)                   | URL présignée OK, non signée refusée               |
 | Validation par nombres magiques              | script renommé en `.png` refusé                    |
 | CI GitHub Actions                            | 4 jobs : qualité, intégration, E2E, images         |
 | Tests de bout en bout                        | **18**, dont contrôle axe                          |
@@ -483,7 +483,10 @@ l'attendait depuis la phase 1.
    refusait de démarrer.
 
 3. **Images MinIO.** `minio/minio` et `minio/mc` ne sont plus servies par
-   Docker Hub — elles vivent sur `quay.io`.
+   Docker Hub, puis plus par `quay.io` non plus (401, octobre 2026) : la CI
+   échouait à « Start the object store » (code 125). Remplacées par RustFS
+   (`rustfs/rustfs:1.0.1`, non-root) et `amazon/aws-cli` pour créer le seau ;
+   l’application ne parle que S3.
 
 4. **Antislash simple dans le matcher de locale.** `'\.'` dans une chaîne JS
    perd son antislash : le motif excluait « tout chemin contenant un caractère

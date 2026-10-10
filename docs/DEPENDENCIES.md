@@ -22,12 +22,12 @@ et autorisés paquet par paquet (`allowBuilds`).
 
 ## Services (docker-compose)
 
-| Service    | Image                        | Version constatée              | Port local  |
-| ---------- | ---------------------------- | ------------------------------ | ----------- |
-| PostgreSQL | `postgis/postgis:18-3.6`     | PostgreSQL 18.6, PostGIS 3.6.4 | **5434**    |
-| Redis      | `redis:8-alpine`             | Redis 8                        | **6380**    |
-| MinIO      | `quay.io/minio/minio:latest` | —                              | 9000 / 9001 |
-| Mailpit    | `axllent/mailpit:latest`     | v1.31.2                        | 1025 / 8025 |
+| Service     | Image                    | Version constatée              | Port local  |
+| ----------- | ------------------------ | ------------------------------ | ----------- |
+| PostgreSQL  | `postgis/postgis:18-3.6` | PostgreSQL 18.6, PostGIS 3.6.4 | **5434**    |
+| Redis       | `redis:8-alpine`         | Redis 8                        | **6380**    |
+| RustFS (S3) | `rustfs/rustfs:1.0.1`    | 1.0.1                          | 9000 / 9001 |
+| Mailpit     | `axllent/mailpit:latest` | v1.31.2                        | 1025 / 8025 |
 
 Ports décalés parce que 5432, 5433 et 6379 sont pris par d'autres projets sur
 cette machine. Extensions PostgreSQL : `citext`, `pg_trgm`, `postgis`,
