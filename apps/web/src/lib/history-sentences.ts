@@ -269,6 +269,24 @@ export function describeRevision(facts: RevisionFacts, t: Translator, locale = '
         sentence: h('claimReject', { predicate: claimName(t, text(before, 'predicate')) }),
         changes,
       };
+    case 'ResearchTask:CREATE':
+      return {
+        sentence: h('researchTaskCreate', { title: text(after, 'title') ?? h('someTask') }),
+        changes: [],
+      };
+    case 'ResearchTask:UPDATE': {
+      const status = text(after, 'status');
+      return {
+        sentence: h('researchTaskUpdate', {
+          title: text(after, 'title') ?? h('someTask'),
+          status:
+            status && t.has?.(`research.tasks.status.${status}`)
+              ? t(`research.tasks.status.${status}`)
+              : (status ?? ''),
+        }),
+        changes: [],
+      };
+    }
     case 'Tree:CREATE':
       return { sentence: h('treeCreate'), changes };
     case 'Tree:IMPORT':

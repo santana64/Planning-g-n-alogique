@@ -53,6 +53,39 @@ export function isBiologicalParentType(type: RelationshipType): boolean {
 /** Recorded sex, as the register wrote it. See RecordedSex in the schema. */
 export type GraphRecordedSex = 'MALE' | 'FEMALE' | 'INTERSEX' | 'UNKNOWN';
 
+/** How a person took part in an event, as the participant table records it. */
+export type GraphEventRole =
+  | 'PRINCIPAL'
+  | 'SPOUSE'
+  | 'PARENT'
+  | 'CHILD'
+  | 'WITNESS'
+  | 'GODPARENT'
+  | 'OFFICIANT'
+  | 'INFORMANT'
+  | 'OTHER';
+
+/**
+ * An event a person took part in, as far as the audit needs to know it.
+ *
+ * The role matters: a father is a participant in his child's birth, a witness
+ * in a neighbour's marriage — and neither is an event of his own life that
+ * his birth and death have to frame.
+ */
+export interface GraphEvent {
+  readonly eventId?: string;
+  readonly type: string;
+  readonly role: GraphEventRole;
+  readonly date: GenealogicalDate | null;
+}
+
+/** A date a human has accepted as the truth, by predicate (BIRTH_DATE…). */
+export interface GraphDateClaim {
+  readonly claimId?: string;
+  readonly predicate: string;
+  readonly date: GenealogicalDate;
+}
+
 export interface GraphPerson {
   readonly id: PersonId;
   readonly displayName: string;
@@ -75,6 +108,13 @@ export interface GraphPerson {
   readonly privacy?: 'INHERIT' | 'VISIBLE' | 'REDACTED' | 'RESTRICTED';
   /** A death, a burial, or an accepted claim of either, is recorded. */
   readonly deathRecorded?: boolean;
+  /**
+   * The events this person took part in. Absent on a graph built for
+   * structural work, and the event rules are then simply not applied.
+   */
+  readonly events?: readonly GraphEvent[];
+  /** Accepted date claims, for the rule that two of them must not disagree. */
+  readonly acceptedDateClaims?: readonly GraphDateClaim[];
 }
 
 export interface GraphEdge {

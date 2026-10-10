@@ -105,6 +105,8 @@
     "CHILD_BORN_BEFORE_PARENT_WITH_DAYS": "{child} is born {days} days before {parent}, their parent.",
     "BIRTH_AFTER_MOTHER_DEATH": "{child} is born {days} days after the death of their mother {parent}.",
     "EVENT_OUTSIDE_LIFESPAN": "An event of {first} falls outside their life.",
+    "EVENT_OUTSIDE_LIFESPAN_BEFORE_BIRTH": "{first}: the event “{event}” is dated before their birth.",
+    "EVENT_OUTSIDE_LIFESPAN_AFTER_DEATH": "{first}: the event “{event}” is dated after their death.",
     "CUSTOM_EVENT_UNLABELLED": "A custom event has no label.",
     "PARENT_TOO_YOUNG": "{parent} would be {age} at the birth of {child} (threshold: {threshold}).",
     "MOTHER_TOO_OLD": "{parent} would be {age} at the birth of {child} (threshold: {threshold}).",
@@ -138,7 +140,8 @@
       "import": "Import",
       "history": "History",
       "sharing": "Sharing",
-      "settings": "Settings"
+      "settings": "Settings",
+      "research": "Research"
     },
     "roles": {
       "OWNER": "Owner",
@@ -575,7 +578,10 @@
     "lead": "Every change to the tree, by whom, and what it changed. Nothing is erased from here: a corrected value stays readable, for the day the correction turns out to be the mistake.",
     "pages": "Pages of the history",
     "newest": "The most recent",
-    "older": "Older"
+    "older": "Older",
+    "researchTaskCreate": "opened the lead “{title}”",
+    "researchTaskUpdate": "moved the lead “{title}” to “{status}”",
+    "someTask": "a lead"
   },
   "timeline": {
     "counts": "{people} people · {events} events",
@@ -1316,6 +1322,101 @@
         "REJECTED_REQUEST": "The request was refused by the service.",
         "INVALID_OUTPUT": "The model’s answer was incomplete. The rules-based selection stays on screen.",
         "ABORTED": "Request interrupted."
+      }
+    },
+    "research": {
+      "created": "Lead opened.",
+      "updated": "Lead updated.",
+      "invalid": "Some fields need correcting.",
+      "notFound": "This lead does not exist in this tree.",
+      "personNotFound": "This person is not in the tree."
+    }
+  },
+  "research": {
+    "title": "Research",
+    "lead": "What the dates find odd, what has no source yet, what is disputed, and the questions still open.",
+    "summary": {
+      "label": "Summary",
+      "findings": "anomalies to examine",
+      "unsourced": "facts without a source",
+      "contested": "disputed claims",
+      "tasks": "open leads"
+    },
+    "findings": {
+      "title": "What the dates say",
+      "lead": "Inconsistencies and curiosities found in the records. None is corrected automatically: each is to be checked against the documents.",
+      "none": "Nothing unusual in the dates of this tree.",
+      "filter": "Filter by severity",
+      "all": "All",
+      "open": "Open the record"
+    },
+    "unsourced": {
+      "title": "Facts without a source",
+      "lead": "Events and accepted claims that no citation supports yet.",
+      "none": "Every recorded fact cites at least one source.",
+      "more": "{shown} shown out of {total}.",
+      "how": "A citation is added from the person’s record or from the <archive>archive</archive>."
+    },
+    "contested": {
+      "title": "Disputed claims",
+      "lead": "What a researcher marked as doubtful, with their reason.",
+      "none": "No disputed claims."
+    },
+    "tasks": {
+      "title": "Research leads",
+      "lead": "The questions still open, where to look, and what was found — including “nothing”, which is a result.",
+      "noneOpen": "No open leads.",
+      "closed": "{count, plural, one {1 closed lead} other {# closed leads}}",
+      "outcome": "Outcome",
+      "outcomePlaceholder": "What was found, or “nothing in …”",
+      "update": "Update",
+      "statusLabel": "Status",
+      "save": "Save",
+      "cancel": "Cancel",
+      "openOnline": "View online",
+      "status": {
+        "TODO": "To do",
+        "IN_PROGRESS": "In progress",
+        "BLOCKED": "Blocked",
+        "RESOLVED": "Resolved",
+        "ABANDONED": "Abandoned"
+      },
+      "priority": {
+        "LOW": "Low",
+        "NORMAL": "Normal",
+        "HIGH": "High",
+        "URGENT": "Urgent"
+      }
+    },
+    "form": {
+      "open": "Open a lead",
+      "title": "Question",
+      "titlePlaceholder": "Baptism of Jean CHASSAGNE",
+      "person": "About",
+      "nobody": "No one in particular",
+      "hypothesis": "Hypothesis",
+      "hypothesisHint": "What you expect to find, and why.",
+      "repository": "Repository",
+      "repositoryPlaceholder": "County archives…",
+      "callNumber": "Call number",
+      "place": "Place",
+      "from": "From",
+      "to": "To",
+      "priority": "Priority",
+      "priorities": {
+        "LOW": "Low",
+        "NORMAL": "Normal",
+        "HIGH": "High",
+        "URGENT": "Urgent"
+      },
+      "url": "Online address",
+      "submit": "Open the lead",
+      "errors": {
+        "title": "The question is required (200 characters at most).",
+        "date": "Unreadable date: write for example 1698, ABT 1700 or BEF 1710.",
+        "period": "The end of the period is before its start.",
+        "url": "The address must start with http:// or https://.",
+        "generic": "Incorrect value."
       }
     }
   }

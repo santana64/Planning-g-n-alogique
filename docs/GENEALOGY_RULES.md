@@ -68,17 +68,46 @@ de vie est ramenée à son premier jour, la base l'accepte, et l'audit affiche
 l'erreur. Une faute de frappe ne doit pas faire perdre la fiche.
 
 `auditTree` (cycles, constats de chaque personne, composantes déconnectées
-`DISCONNECTED_COMPONENT`, dédoublonnage des constats vus des deux côtés) existe
-et est testé, mais **aucun écran ne l'affiche encore** (voir
-[ROADMAP](ROADMAP.md)).
+`DISCONNECTED_COMPONENT`, dédoublonnage des constats vus des deux côtés) est
+affiché par l'écran **Recherche** de chaque arbre (membres seulement), avec les
+faits sans source, les affirmations contestées et les pistes de recherche.
+
+### Les événements d'une vie, mesurés à la vie
+
+Chaque personne arrive à l'audit avec **ses propres** événements (rôle
+principal ou conjoint — un témoin, un parrain, le père d'un enfant né après sa
+mort ne sont pas mesurés à leur propre vie) et ses affirmations datées
+acceptées.
+
+| Code                            | Gravité              | Règle                                                                                                                          |
+| ------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `MARRIAGE_BEFORE_BIRTH`         | ERROR                | une union certainement antérieure à la naissance                                                                               |
+| `MARRIAGE_AFTER_DEATH`          | WARNING même certain | une union après le décès : le mariage posthume existe (art. 171 du Code civil)                                                 |
+| `MARRIED_TOO_YOUNG`             | WARNING              | sous 12 ans ; certain si même l'âge maximal est en dessous, « probablement » si l'âge le plus probable (milieu à milieu) l'est |
+| `EVENT_OUTSIDE_LIFESPAN`        | ERROR                | un autre événement certainement avant la naissance, ou après le décès (inhumation, crémation, succession exceptées)            |
+| `CONTRADICTORY_ACCEPTED_CLAIMS` | WARNING              | deux affirmations acceptées sur la même date, dont les fenêtres ne se recouvrent pas                                           |
+
+Deux décisions, chacune prise après un faux positif réel :
+
+- **Seul un ordre certain est signalé** pour les événements. Deux dates à
+  l'année se recouvrent dès qu'elles partagent l'année : un baptême « 1850 »
+  et une naissance « 1850 » sont le cas normal, pas un « baptême possiblement
+  avant la naissance ».
+- **Deux dates « vers » ne fabriquent pas une enfant mariée.** Perrine, née
+  « vers 1708 », mariée « vers 1728 » : les fenêtres permettent dix ans, l'âge
+  probable est vingt. Le doute n'est dit que si l'âge probable est sous le
+  seuil.
+
+Au passage, une **date inconnue** (fenêtre sans bornes) ne produit plus de
+soupçon : comparées naïvement, deux dates inconnues donnaient « décès
+possiblement avant la naissance » à chaque personne sans dates.
 
 ### Codes réservés, non encore produits
 
-Le vocabulaire prévoit `EVENT_OUTSIDE_LIFESPAN`, `CUSTOM_EVENT_UNLABELLED` (la
-base l'interdit déjà par contrainte), `MARRIAGE_BEFORE_BIRTH`,
-`MARRIAGE_AFTER_DEATH`, `MARRIED_TOO_YOUNG`, `CONTRADICTORY_ACCEPTED_CLAIMS`,
-`DUPLICATE_CANDIDATE`, `CLAIM_WITHOUT_CITATION`, `PEDIGREE_COLLAPSE` : leurs
-messages existent, **aucune règle ne les émet**. Les doublons ont leur propre
+`CUSTOM_EVENT_UNLABELLED` (la base l'interdit déjà par contrainte),
+`DUPLICATE_CANDIDATE`, `CLAIM_WITHOUT_CITATION` (l'écran Recherche liste les
+faits sans source par requête plutôt que par constat), `PEDIGREE_COLLAPSE` :
+leurs messages existent, **aucune règle ne les émet**. Les doublons ont leur propre
 écran (voir plus bas) ; ils ne remontent pas encore comme constat sur la fiche. L'implexe est aujourd'hui
 montré par la numérotation Sosa (une personne à plusieurs numéros), pas comme un
 constat.
@@ -88,16 +117,16 @@ constat.
 `DEFAULT_THRESHOLDS`, injectables, jugements sur ce qui est inhabituel — pas sur
 ce qui est possible :
 
-| Seuil                               | Valeur                                     |
-| ----------------------------------- | ------------------------------------------ |
-| âge minimal d'un parent             | 13 ans                                     |
-| âge maximal d'une mère              | 55 ans                                     |
-| âge maximal d'un père               | 80 ans                                     |
-| durée de vie maximale               | 123 ans                                    |
-| âge minimal au mariage              | 12 ans (réservé : aucune règle de mariage) |
-| naissance posthume (père)           | 320 jours                                  |
-| naissance après décès (mère)        | 2 jours                                    |
-| écart minimal entre frères et sœurs | 240 jours                                  |
+| Seuil                               | Valeur    |
+| ----------------------------------- | --------- |
+| âge minimal d'un parent             | 13 ans    |
+| âge maximal d'une mère              | 55 ans    |
+| âge maximal d'un père               | 80 ans    |
+| durée de vie maximale               | 123 ans   |
+| âge minimal au mariage              | 12 ans    |
+| naissance posthume (père)           | 320 jours |
+| naissance après décès (mère)        | 2 jours   |
+| écart minimal entre frères et sœurs | 240 jours |
 
 ## Doublons et fusion
 

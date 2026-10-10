@@ -18,6 +18,7 @@ import {
   isParentType,
   type GenealogyGraph,
   type GraphEdge,
+  type GraphEvent,
   type GraphPerson,
   type PersonId,
   type RelationshipType,
@@ -76,6 +77,54 @@ function severityFrom(violation: Trivalent, hardWhenCertain: boolean): Severity 
 function certaintyFrom(violation: Trivalent): 'CERTAIN' | 'POSSIBLE' {
   return violation === 'YES' ? 'CERTAIN' : 'POSSIBLE';
 }
+
+type Bounded = { readonly earliest: number; readonly latest: number };
+
+function bounded(interval: JdnInterval | null | undefined): interval is Bounded {
+  return !!interval && interval.earliest !== null && interval.latest !== null;
+}
+
+/**
+ * Does `a` come before `b` — and is that worth saying?
+ *
+ * `isBefore` answers MAYBE whenever it cannot tell, which includes the case
+ * where one side has no date at all. An undated marriage is not "possibly
+ * before the birth"; it is undated, and saying otherwise would bury every
+ * real lead under one warning per undated record. So a MAYBE is kept only
+ * when both windows are bounded and genuinely overlap. A YES is always kept:
+ * "before 1800" is before a birth in 1850 even with its start unknown.
+ */
+function precedes(
+  a: JdnInterval | null | undefined,
+  b: JdnInterval | null | undefined,
+): 'YES' | 'MAYBE' | null {
+  if (!a || !b) return null;
+  const answer = isBefore(a, b);
+  if (answer === 'YES') return 'YES';
+  if (answer === 'MAYBE' && bounded(a) && bounded(b)) return 'MAYBE';
+  return null;
+}
+
+/** Events that make a union, for the marriage rules. */
+const UNION_EVENTS: ReadonlySet<string> = new Set(['MARRIAGE', 'CIVIL_UNION', 'MARRIAGE_CONTRACT']);
+
+/** Events about a life that may, and often do, come after it. */
+const AFTER_DEATH_EVENTS: ReadonlySet<string> = new Set([
+  'DEATH',
+  'BURIAL',
+  'CREMATION',
+  'PROBATE',
+]);
+
+/**
+ * The roles that make an event part of this person's own life.
+ *
+ * A father takes part in his child's birth, a godparent in a baptism, a
+ * witness in a neighbour's marriage; none of those has to fall between the
+ * participant's birth and death — a birth after the father's death is a
+ * posthumous birth, and has its own rule.
+ */
+const OWN_ROLES: ReadonlySet<GraphEvent['role']> = new Set(['PRINCIPAL', 'SPOUSE']);
 
 // --- Pre-write validation ---------------------------------------------------
 
@@ -330,8 +379,12 @@ export function auditPerson(
   const self = [personRef(person, personId)];
 
   // --- Death before birth --------------------------------------------------
-  if (person.birth?.interval && person.death?.interval) {
-    const violation = isBefore(person.death.interval, person.birth.interval);
+  // Through `precedes`, not `isBefore` alone: an unknown date is a window
+  // with no bounds, and comparing two of them answered MAYBE — a "possible
+  // death before birth" on every person recorded without dates.
+  const deathFirst = precedes(person.death?.interval, person.birth?.interval);
+  if (deathFirst) {
+    const violation = deathFirst;
     const severity = severityFrom(violation, true);
     if (severity) {
       findings.push(
@@ -385,6 +438,176 @@ export function auditPerson(
   // --- Siblings born impossibly close --------------------------------------
   findings.push(...checkSiblingSpacing(graph, personId, thresholds));
 
+  // --- The events of a life, against the life ------------------------------
+  findings.push(...checkEventsInLife(person, personId, thresholds));
+
+  // --- Two accepted answers to one question --------------------------------
+  findings.push(...checkAcceptedClaims(person, personId));
+
+  return findings;
+}
+
+/**
+ * A person's own events, measured against their birth and death.
+ *
+ * Unions get their own codes because they are what researchers look at
+ * first and what goes wrong most often (a marriage copied onto the wrong
+ * generation). Everything else falls under EVENT_OUTSIDE_LIFESPAN.
+ *
+ * A marriage after death is a warning even when certain: French law allows
+ * a posthumous marriage (article 171 of the Civil Code), so the date may be
+ * right. Every other event before a birth or after a death is an error when
+ * certain — nobody is censused before being born.
+ */
+function checkEventsInLife(
+  person: GraphPerson,
+  personId: PersonId,
+  thresholds: PlausibilityThresholds,
+): Finding[] {
+  const events = person.events ?? [];
+  if (events.length === 0) return [];
+
+  const birth = person.birth?.interval;
+  const death = person.death?.interval;
+  const self = personRef(person, personId);
+  const findings: Finding[] = [];
+
+  // Only a certain ordering is reported here. Two windows at the same
+  // precision overlap whenever they share a year: a baptism "1850" and a
+  // birth "1850" are the normal case, not a possible baptism before birth.
+  // A MAYBE would put a warning on every person whose records were dated to
+  // the year, which is most people before 1800 — and the one real case it
+  // could catch (a union in the year of birth) MARRIED_TOO_YOUNG reports.
+  const before = (a: JdnInterval | null | undefined, b: JdnInterval | null | undefined) =>
+    precedes(a, b) === 'YES';
+
+  for (const event of events) {
+    if (!OWN_ROLES.has(event.role)) continue;
+    const when = event.date?.interval;
+    if (!when) continue;
+    const refs = event.eventId ? [self, { kind: 'EVENT' as const, id: event.eventId }] : [self];
+
+    if (UNION_EVENTS.has(event.type)) {
+      if (before(when, birth)) {
+        findings.push(
+          finding('MARRIAGE_BEFORE_BIRTH', 'ERROR', 'CERTAIN', refs, undefined, 'REVIEW_DATES'),
+        );
+        // An age at a union that precedes the birth is negative, and saying
+        // so a second time adds nothing.
+        continue;
+      }
+
+      if (before(death, when)) {
+        findings.push(
+          finding('MARRIAGE_AFTER_DEATH', 'WARNING', 'CERTAIN', refs, undefined, 'REVIEW_DATES'),
+        );
+      }
+
+      if (bounded(birth) && bounded(when)) {
+        // CERTAIN when even the oldest the person can have been is under the
+        // threshold. POSSIBLE only when the most likely age — midpoint to
+        // midpoint — is: two "about" dates ten years wide each can always
+        // produce a child bride at their extremes (born "about 1708",
+        // married "about 1728" allows ten), and flagging that would accuse
+        // every couple recorded from an approximate register.
+        const oldest = wholeYearsBetween(birth.earliest, when.latest);
+        const likely = wholeYearsBetween(
+          Math.floor((birth.earliest + birth.latest) / 2),
+          Math.floor((when.earliest + when.latest) / 2),
+        );
+        const minimum = thresholds.minMarriageAgeYears;
+        if (oldest < minimum || likely < minimum) {
+          findings.push(
+            finding(
+              'MARRIED_TOO_YOUNG',
+              'WARNING',
+              oldest < minimum ? 'CERTAIN' : 'POSSIBLE',
+              refs,
+              { age: Math.max(0, oldest < minimum ? oldest : likely), threshold: minimum },
+              'REVIEW_DATES',
+            ),
+          );
+        }
+      }
+      continue;
+    }
+
+    // The end of a life before its start is DEATH_BEFORE_BIRTH's to report;
+    // saying it again per burial and probate would only repeat it.
+    if (event.type !== 'BIRTH' && !AFTER_DEATH_EVENTS.has(event.type)) {
+      if (before(when, birth)) {
+        findings.push(
+          finding(
+            'EVENT_OUTSIDE_LIFESPAN',
+            'ERROR',
+            'CERTAIN',
+            refs,
+            { eventType: event.type, side: 'BEFORE_BIRTH' },
+            'REVIEW_DATES',
+          ),
+        );
+        continue;
+      }
+    }
+
+    if (!AFTER_DEATH_EVENTS.has(event.type)) {
+      if (before(death, when)) {
+        findings.push(
+          finding(
+            'EVENT_OUTSIDE_LIFESPAN',
+            'ERROR',
+            'CERTAIN',
+            refs,
+            { eventType: event.type, side: 'AFTER_DEATH' },
+            'REVIEW_DATES',
+          ),
+        );
+      }
+    }
+  }
+
+  return findings;
+}
+
+/**
+ * Two accepted claims that answer the same question differently.
+ *
+ * Accepting a claim is a researcher's judgement about which record to
+ * believe; accepting two that cannot both be true means one judgement has to
+ * be taken back. Overlapping windows ("1877" and "about 1877") are the same
+ * answer at two precisions, and are not a contradiction.
+ */
+function checkAcceptedClaims(person: GraphPerson, personId: PersonId): Finding[] {
+  const claims = person.acceptedDateClaims ?? [];
+  if (claims.length < 2) return [];
+
+  const findings: Finding[] = [];
+  const reported = new Set<string>();
+  for (let i = 0; i < claims.length; i += 1) {
+    for (let j = i + 1; j < claims.length; j += 1) {
+      const a = claims[i];
+      const b = claims[j];
+      if (!a || !b || a.predicate !== b.predicate || reported.has(a.predicate)) continue;
+      const apart =
+        isBefore(a.date.interval, b.date.interval) === 'YES' ||
+        isBefore(b.date.interval, a.date.interval) === 'YES';
+      if (!apart) continue;
+      reported.add(a.predicate);
+      const refs: EntityRef[] = [personRef(person, personId)];
+      if (a.claimId) refs.push({ kind: 'CLAIM', id: a.claimId });
+      if (b.claimId) refs.push({ kind: 'CLAIM', id: b.claimId });
+      findings.push(
+        finding(
+          'CONTRADICTORY_ACCEPTED_CLAIMS',
+          'WARNING',
+          'CERTAIN',
+          refs,
+          { predicate: a.predicate },
+          'REVIEW_CLAIMS',
+        ),
+      );
+    }
+  }
   return findings;
 }
 

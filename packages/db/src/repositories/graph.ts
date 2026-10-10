@@ -1,4 +1,12 @@
-import { GenealogyGraph, type GraphEdge, type GraphPerson } from '@chronolignee/genealogy';
+import { parseGenealogicalDate } from '@chronolignee/domain';
+import {
+  GenealogyGraph,
+  type GraphDateClaim,
+  type GraphEdge,
+  type GraphEvent,
+  type GraphPerson,
+} from '@chronolignee/genealogy';
+import { decodeDate } from '../date-codec';
 import type { Database } from '../client';
 import { projectPersonLifespan } from '../projections/person-lifespan';
 
@@ -36,8 +44,10 @@ export async function loadGenealogyGraph(
         eventRoles: {
           where: { event: { deletedAt: null } },
           select: {
+            role: true,
             event: {
               select: {
+                id: true,
                 type: true,
                 dateQualifier: true,
                 dateCalendar: true,
@@ -54,7 +64,7 @@ export async function loadGenealogyGraph(
             },
           },
         },
-        claims: { select: { predicate: true, status: true, value: true } },
+        claims: { select: { id: true, predicate: true, status: true, value: true } },
       },
     }),
     db.relationship.findMany({
@@ -83,9 +93,35 @@ export async function loadGenealogyGraph(
       todayJdn,
     );
 
+    // The person's own events and accepted dated claims, for the audit's
+    // life-against-events rules. Undated events are kept: the rules skip
+    // them, and "has an undated marriage" is still a fact about the record.
+    const events: GraphEvent[] = person.eventRoles.map((role) => ({
+      eventId: role.event.id,
+      type: role.event.type,
+      role: role.role,
+      date: decodeDate(role.event),
+    }));
+    const acceptedDateClaims: GraphDateClaim[] = [];
+    for (const claim of person.claims) {
+      if (claim.status !== 'ACCEPTED' || !claim.predicate.endsWith('_DATE')) continue;
+      const raw =
+        typeof claim.value === 'object' && claim.value !== null
+          ? (claim.value as { date?: unknown }).date
+          : undefined;
+      if (typeof raw !== 'string' || raw.length === 0) continue;
+      acceptedDateClaims.push({
+        claimId: claim.id,
+        predicate: claim.predicate,
+        date: parseGenealogicalDate(raw),
+      });
+    }
+
     return {
       id: person.id,
       displayName: person.displayName,
+      events,
+      acceptedDateClaims,
       recordedSex: person.recordedSex,
       birth: projection.birth,
       death: projection.death,

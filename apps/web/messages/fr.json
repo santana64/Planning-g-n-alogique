@@ -105,6 +105,8 @@
     "CHILD_BORN_BEFORE_PARENT_WITH_DAYS": "{child} naît {days} jours avant {parent}, son parent.",
     "BIRTH_AFTER_MOTHER_DEATH": "{child} naît {days} jours après le décès de sa mère {parent}.",
     "EVENT_OUTSIDE_LIFESPAN": "Un événement de {first} se situe hors de sa vie.",
+    "EVENT_OUTSIDE_LIFESPAN_BEFORE_BIRTH": "{first} : l’événement « {event} » est daté avant sa naissance.",
+    "EVENT_OUTSIDE_LIFESPAN_AFTER_DEATH": "{first} : l’événement « {event} » est daté après son décès.",
     "CUSTOM_EVENT_UNLABELLED": "Un événement personnalisé est sans intitulé.",
     "PARENT_TOO_YOUNG": "{parent} aurait {age} ans à la naissance de {child} (seuil : {threshold}).",
     "MOTHER_TOO_OLD": "{parent} aurait {age} ans à la naissance de {child} (seuil : {threshold}).",
@@ -138,7 +140,8 @@
       "import": "Importer",
       "history": "Historique",
       "sharing": "Partage",
-      "settings": "Réglages"
+      "settings": "Réglages",
+      "research": "Recherche"
     },
     "roles": {
       "OWNER": "Propriétaire",
@@ -575,7 +578,10 @@
     "lead": "Chaque modification de l’arbre, par qui, et ce qu’elle a changé. Rien ne s’efface d’ici : une valeur corrigée reste lisible, pour le jour où la correction se révélerait être l’erreur.",
     "pages": "Pages de l’historique",
     "newest": "Les plus récentes",
-    "older": "Plus anciennes"
+    "older": "Plus anciennes",
+    "researchTaskCreate": "a ouvert la piste « {title} »",
+    "researchTaskUpdate": "a passé la piste « {title} » à « {status} »",
+    "someTask": "une piste"
   },
   "timeline": {
     "counts": "{people} personnes · {events} événements",
@@ -1316,6 +1322,101 @@
         "REJECTED_REQUEST": "La demande a été refusée par le service.",
         "INVALID_OUTPUT": "La réponse du modèle était incomplète. La sélection par règles reste affichée.",
         "ABORTED": "Demande interrompue."
+      }
+    },
+    "research": {
+      "created": "Piste ouverte.",
+      "updated": "Piste mise à jour.",
+      "invalid": "Certains champs sont à corriger.",
+      "notFound": "Cette piste n’existe pas dans cet arbre.",
+      "personNotFound": "Cette personne n’est pas dans l’arbre."
+    }
+  },
+  "research": {
+    "title": "Recherche",
+    "lead": "Ce que les dates disent d’étrange, ce qui n’a pas encore de source, ce qui est contesté, et les questions qui restent ouvertes.",
+    "summary": {
+      "label": "Résumé",
+      "findings": "anomalies à examiner",
+      "unsourced": "faits sans source",
+      "contested": "affirmations contestées",
+      "tasks": "pistes ouvertes"
+    },
+    "findings": {
+      "title": "Ce que disent les dates",
+      "lead": "Des incohérences et des curiosités relevées dans les fiches. Aucune n’est corrigée automatiquement : chacune est à vérifier dans les actes.",
+      "none": "Rien d’anormal dans les dates de cet arbre.",
+      "filter": "Filtrer par gravité",
+      "all": "Tout",
+      "open": "Ouvrir la fiche"
+    },
+    "unsourced": {
+      "title": "Faits sans source",
+      "lead": "Événements et affirmations acceptées qu’aucune citation ne soutient encore.",
+      "none": "Chaque fait enregistré cite au moins une source.",
+      "more": "{shown} affichés sur {total}.",
+      "how": "Une citation s’ajoute depuis la fiche de la personne ou depuis les <archive>archives</archive>."
+    },
+    "contested": {
+      "title": "Affirmations contestées",
+      "lead": "Ce qu’un chercheur a marqué comme douteux, avec sa raison.",
+      "none": "Aucune affirmation contestée."
+    },
+    "tasks": {
+      "title": "Pistes de recherche",
+      "lead": "Les questions encore ouvertes, où chercher, et ce qui a été trouvé — y compris « rien », qui est un résultat.",
+      "noneOpen": "Aucune piste ouverte.",
+      "closed": "{count, plural, one {1 piste close} other {# pistes closes}}",
+      "outcome": "Résultat",
+      "outcomePlaceholder": "Ce qui a été trouvé, ou « rien dans … »",
+      "update": "Mettre à jour",
+      "statusLabel": "État",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "openOnline": "Consulter en ligne",
+      "status": {
+        "TODO": "À faire",
+        "IN_PROGRESS": "En cours",
+        "BLOCKED": "Bloquée",
+        "RESOLVED": "Résolue",
+        "ABANDONED": "Abandonnée"
+      },
+      "priority": {
+        "LOW": "Basse",
+        "NORMAL": "Normale",
+        "HIGH": "Haute",
+        "URGENT": "Urgente"
+      }
+    },
+    "form": {
+      "open": "Ouvrir une piste",
+      "title": "Question",
+      "titlePlaceholder": "Baptême de Jean CHASSAGNE",
+      "person": "À propos de",
+      "nobody": "Personne en particulier",
+      "hypothesis": "Hypothèse",
+      "hypothesisHint": "Ce que l’on pense trouver, et pourquoi.",
+      "repository": "Dépôt",
+      "repositoryPlaceholder": "Archives départementales…",
+      "callNumber": "Cote",
+      "place": "Lieu",
+      "from": "De",
+      "to": "À",
+      "priority": "Priorité",
+      "priorities": {
+        "LOW": "Basse",
+        "NORMAL": "Normale",
+        "HIGH": "Haute",
+        "URGENT": "Urgente"
+      },
+      "url": "Adresse en ligne",
+      "submit": "Ouvrir la piste",
+      "errors": {
+        "title": "La question est obligatoire (200 caractères au plus).",
+        "date": "Date illisible : écrivez par exemple 1698, ABT 1700 ou BEF 1710.",
+        "period": "La fin de la période précède son début.",
+        "url": "L’adresse doit commencer par http:// ou https://.",
+        "generic": "Valeur incorrecte."
       }
     }
   }

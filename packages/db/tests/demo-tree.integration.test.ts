@@ -103,6 +103,33 @@ describe('the planted anomaly is found', () => {
     expect(hers?.params?.['age']).toBe(57);
   });
 
+  it('hands the audit each life with its own events and accepted dated claims', () => {
+    const gustave = personNamed('Gustave CHASSAGNE');
+    expect(gustave.events?.some((e) => e.type === 'MARRIAGE' && e.role !== 'PRINCIPAL')).toBe(true);
+    expect(gustave.events?.every((e) => typeof e.eventId === 'string')).toBe(true);
+
+    // Only the accepted birth reaches the audit, not the disputed census one.
+    const jeanBaptiste = personNamed('Jean-Baptiste');
+    expect(
+      jeanBaptiste.acceptedDateClaims?.filter((c) => c.predicate === 'BIRTH_DATE'),
+    ).toHaveLength(1);
+  });
+
+  it('finds nothing to say about the events of a correctly dated family', () => {
+    // The life-against-events rules, run against eleven generations of real
+    // records dated to the day, the month and the year. Every finding here
+    // would be a false accusation.
+    const quiet = [
+      'MARRIAGE_BEFORE_BIRTH',
+      'MARRIAGE_AFTER_DEATH',
+      'MARRIED_TOO_YOUNG',
+      'EVENT_OUTSIDE_LIFESPAN',
+      'CONTRADICTORY_ACCEPTED_CLAIMS',
+    ];
+    const noisy = findings.filter((f) => quiet.includes(f.code));
+    expect(noisy.map((f) => `${f.code}: ${f.entities[0]?.label ?? ''}`)).toEqual([]);
+  });
+
   it('produces no blocking errors anywhere in the tree', () => {
     // The demo data is unusual in places and wrong in none. A single ERROR
     // here would mean either the seed writes corrupt data or the validator

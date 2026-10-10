@@ -28,6 +28,7 @@ export async function TreeNav({
     | 'stories'
     | 'map'
     | 'archive'
+    | 'research'
     | 'proposals'
     | 'duplicates'
     | 'import'
@@ -54,6 +55,16 @@ export async function TreeNav({
       : []),
     { key: 'map' as const, href: `/app/${treeSlug}/carte`, label: t('nav.map') },
     { key: 'archive' as const, href: `/app/${treeSlug}/archives`, label: t('nav.archive') },
+    // Members only: it lists what the family does not know yet.
+    ...(role !== null
+      ? [
+          {
+            key: 'research' as const,
+            href: `/app/${treeSlug}/recherche`,
+            label: t('nav.research'),
+          },
+        ]
+      : []),
     // Editors only: a proposal is a reading nobody has vouched for yet.
     ...(canEdit
       ? [

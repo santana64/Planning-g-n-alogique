@@ -42,20 +42,13 @@ rapprochement **entre deux arbres** d'un même compte, le constat
 — la fiche retirée est effacée en douceur, donc techniquement récupérable,
 mais aucun écran ne le propose.
 
-### L'écran « Recherche »
+### Recherche : ce qui reste
 
-`auditTree` calcule déjà cycles, anomalies et composantes déconnectées, et la
-table `research_tasks` attend ses questions (hypothèse, dépôt, cote, période,
-résultat, y compris « rien trouvé », qui est un résultat). Rien de tout cela
-n'est affiché. Le travail : une page par arbre — anomalies, faits sans source,
-affirmations contestées, tâches de recherche.
-
-### Règles d'anomalie manquantes
-
-Les codes existent, les messages aussi ; les règles ne sont pas écrites :
-mariage avant la naissance, mariage après le décès, marié trop jeune,
-événement hors de la durée de vie, affirmations acceptées contradictoires,
-affirmation sans citation ([GENEALOGY_RULES.md](GENEALOGY_RULES.md)).
+L'écran existe (anomalies, faits sans source, affirmations contestées, pistes
+de recherche) et les règles de mariage et d'événements hors de la vie sont
+écrites ([GENEALOGY_RULES.md](GENEALOGY_RULES.md)). Restent : l'attribution
+d'une piste à un membre et une échéance (les colonnes existent), et le constat
+`DUPLICATE_CANDIDATE` sur la fiche.
 
 ### Visionneuse de documents et photographies
 

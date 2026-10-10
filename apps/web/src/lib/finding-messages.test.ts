@@ -117,6 +117,34 @@ describe('uncertainty survives into the sentence', () => {
   });
 });
 
+describe('an event outside a life is named, with its side', () => {
+  const subject = { kind: 'PERSON' as const, id: 'c', label: 'Hippolyte MARCHAND' };
+  const census = (side: string): Finding => ({
+    code: 'EVENT_OUTSIDE_LIFESPAN',
+    severity: 'ERROR',
+    certainty: 'CERTAIN',
+    entities: [subject],
+    params: { eventType: 'CENSUS', side },
+  });
+  const name = (type: string) => (type === 'CENSUS' ? 'Recensement' : type);
+
+  it('says which event, and whether it falls before the birth or after the death', () => {
+    expect(findingMessage(french, census('AFTER_DEATH'), name)).toBe(
+      'Hippolyte MARCHAND : l’événement « Recensement » est daté après son décès.',
+    );
+    expect(findingMessage(english, census('BEFORE_BIRTH'), () => 'Census')).toBe(
+      'Hippolyte MARCHAND: the event “Census” is dated before their birth.',
+    );
+  });
+
+  it('falls back to the general sentence when the side is not known', () => {
+    const plain: Finding = { ...census('AFTER_DEATH'), params: {} };
+    expect(findingMessage(french, plain)).toBe(
+      'Un événement de Hippolyte MARCHAND se situe hors de sa vie.',
+    );
+  });
+});
+
 describe('a finding with no names still reads', () => {
   it('falls back rather than rendering "undefined"', () => {
     const nameless: Finding = {

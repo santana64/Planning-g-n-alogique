@@ -43,7 +43,11 @@ export interface FindingText {
  * birth of Victoire" — a sentence that sends the researcher to correct the
  * wrong person's dates. Naming the roles here is what keeps that honest.
  */
-export function findingText(finding: Finding, unknownPerson: string): FindingText {
+export function findingText(
+  finding: Finding,
+  unknownPerson: string,
+  eventName: (type: string) => string = (type) => type,
+): FindingText {
   const p: Values = finding.params ?? {};
   const first = finding.entities[0]?.label ?? unknownPerson;
   const second = finding.entities[1]?.label ?? unknownPerson;
@@ -82,6 +86,16 @@ export function findingText(finding: Finding, unknownPerson: string): FindingTex
     case 'DUPLICATE_RELATIONSHIP':
     case 'DUPLICATE_CANDIDATE':
       return { key: finding.code, values: { first, second } };
+    case 'EVENT_OUTSIDE_LIFESPAN': {
+      // Which event and which side of the life, when the audit said so; the
+      // generic sentence otherwise (findings written before it did).
+      const side = p['side'];
+      const type = p['eventType'];
+      if ((side === 'BEFORE_BIRTH' || side === 'AFTER_DEATH') && typeof type === 'string') {
+        return { key: `EVENT_OUTSIDE_LIFESPAN_${side}`, values: { first, event: eventName(type) } };
+      }
+      return { key: finding.code, values: { first } };
+    }
     case 'CUSTOM_EVENT_UNLABELLED':
       return { key: finding.code, values: {} };
     default:
@@ -90,8 +104,12 @@ export function findingText(finding: Finding, unknownPerson: string): FindingTex
 }
 
 /** The sentence itself, uncertainty included. */
-export function findingMessage(t: FindingTranslator, finding: Finding): string {
-  const text = findingText(finding, t('unknownPerson'));
+export function findingMessage(
+  t: FindingTranslator,
+  finding: Finding,
+  eventName?: (type: string) => string,
+): string {
+  const text = findingText(finding, t('unknownPerson'), eventName);
   const sentence = t(text.key, text.values);
   // "Probably" is not softening: the dates genuinely permit both readings,
   // and stating it flatly would be a claim the evidence does not support.

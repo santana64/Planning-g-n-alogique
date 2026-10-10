@@ -39,6 +39,8 @@ export default async function PersonPage({
 
   const t = await getTranslations('person');
   const findings = await getTranslations('findings');
+  const eventTypes = await getTranslations('events');
+  const eventName = (type: string) => (eventTypes.has(type) ? eventTypes(type) : type);
 
   const { access } = person;
   const ai = getAIStatus();
@@ -164,7 +166,7 @@ export default async function PersonPage({
                   <span className="shrink-0 text-xs tracking-wide uppercase">
                     {severityLabel(findings, finding.severity)}
                   </span>
-                  <span>{findingMessage(findings, finding)}</span>
+                  <span>{findingMessage(findings, finding, eventName)}</span>
                 </li>
               ))}
             </ul>
