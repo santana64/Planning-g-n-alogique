@@ -20,6 +20,7 @@ export const QUEUE_NAMES = {
   documentAnalysis: 'document-analysis',
   mediaDerivatives: 'media-derivatives',
   duplicateScan: 'duplicate-scan',
+  researchAssist: 'research-assistant',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -39,6 +40,8 @@ export const documentAnalysisPayload = z.object({
   documentId: z.uuid(),
   pageNumbers: z.array(z.number().int().positive()).optional(),
   promptVersion: z.string().min(1),
+  /** Whose record the reading was started from, to attribute statements. */
+  subjectPersonId: z.uuid().nullable().optional(),
 });
 export type DocumentAnalysisPayload = z.infer<typeof documentAnalysisPayload>;
 
@@ -55,11 +58,19 @@ export const duplicateScanPayload = z.object({
 });
 export type DuplicateScanPayload = z.infer<typeof duplicateScanPayload>;
 
+export const researchAssistPayload = z.object({
+  treeId: z.uuid(),
+  personId: z.uuid(),
+  limit: z.number().int().min(1).max(8),
+});
+export type ResearchAssistPayload = z.infer<typeof researchAssistPayload>;
+
 export const PAYLOAD_SCHEMAS = {
   [QUEUE_NAMES.gedcomImport]: gedcomImportPayload,
   [QUEUE_NAMES.documentAnalysis]: documentAnalysisPayload,
   [QUEUE_NAMES.mediaDerivatives]: mediaDerivativesPayload,
   [QUEUE_NAMES.duplicateScan]: duplicateScanPayload,
+  [QUEUE_NAMES.researchAssist]: researchAssistPayload,
 } as const;
 
 /**
@@ -72,6 +83,16 @@ export const PAYLOAD_SCHEMAS = {
  */
 export function duplicateScanJobId(treeId: string): string {
   return `scan-${treeId}`;
+}
+
+/** One reading of a document at a time; a second click joins the first. */
+export function documentAnalysisJobId(documentId: string): string {
+  return `read-${documentId}`;
+}
+
+/** One round of suggestions per person at a time. */
+export function researchAssistJobId(personId: string): string {
+  return `assist-${personId}`;
 }
 
 // --- Retry policy -----------------------------------------------------------

@@ -105,7 +105,7 @@ model Event {
   /// Midpoint for ordering. Never rendered as if it were the date.
   dateSortJdn     Int?
 
-  placeId String? @db.Uuid
+  placeId           String? @db.Uuid
   /// Place exactly as written in the record, before any normalisation.
   placeOriginalText String?
 
@@ -113,10 +113,10 @@ model Event {
   notes       String?
   confidence  Confidence @default(MEDIUM)
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  createdById String? @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?   @db.Uuid
 
   tree  Tree   @relation(fields: [treeId], references: [id], onDelete: Cascade)
   place Place? @relation(fields: [placeId], references: [id], onDelete: SetNull)
@@ -134,10 +134,10 @@ model Event {
 }
 
 model EventParticipant {
-  id       String @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  eventId  String @db.Uuid
-  personId String @db.Uuid
-  role     ParticipantRole @default(PRINCIPAL)
+  id        String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  eventId   String          @db.Uuid
+  personId  String          @db.Uuid
+  role      ParticipantRole @default(PRINCIPAL)
   /// Free label for roles the enum does not cover, e.g. "sage-femme".
   roleLabel String?
 
@@ -173,7 +173,7 @@ model Place {
 
   name           String
   /// Accent-folded lowercase, for trigram search.
-  normalisedName String @default("")
+  normalisedName String    @default("")
   type           PlaceType @default(OTHER)
 
   parentId String? @db.Uuid
@@ -244,11 +244,11 @@ enum HistoricalEventCategory {
 model HistoricalEvent {
   id String @id @default(dbgenerated("uuidv7()")) @db.Uuid
 
-  title       String
-  summary     String?
-  category    HistoricalEventCategory
+  title        String
+  summary      String?
+  category     HistoricalEventCategory
   /// 1-5. Drives whether the event surfaces at a given zoom level.
-  significance Int @default(3)
+  significance Int                     @default(3)
 
   startJdn Int
   endJdn   Int
@@ -281,9 +281,9 @@ model HistoricalEvent {
 /// researcher attached. Absence of a row does not mean the event is
 /// irrelevant; relevance is computed.
 model TreeHistoricalEvent {
-  id                String @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  treeId            String @db.Uuid
-  historicalEventId String @db.Uuid
+  id                String  @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId            String  @db.Uuid
+  historicalEventId String  @db.Uuid
   pinned            Boolean @default(false)
   note              String?
 

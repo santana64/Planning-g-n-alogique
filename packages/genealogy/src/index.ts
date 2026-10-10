@@ -5,3 +5,4 @@ export * from './findings';
 export * from './validate';
 export * from './duplicates';
 export * from './statistics';
+export * from './research-plan';

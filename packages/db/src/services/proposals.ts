@@ -40,6 +40,8 @@ export interface RecordProposalsInput {
   };
   /** The citation whose transcription was read. */
   readonly citationId?: string | undefined;
+  /** The document whose scan was read, when the reading came from the image. */
+  readonly documentId?: string | undefined;
   /** The person whose record the reading was started from. */
   readonly subjectPersonId?: string | undefined;
 }
@@ -120,6 +122,13 @@ export async function recordProposals(
     });
   }
 
+  if (input.documentId) {
+    await db.document.findFirstOrThrow({
+      where: { id: input.documentId, treeId: input.treeId },
+      select: { id: true },
+    });
+  }
+
   const proposalIds: string[] = [];
   for (const fact of input.facts) {
     const personId = await resolvePerson(db, input.treeId, fact.subjectName, subject);
@@ -142,6 +151,7 @@ export async function recordProposals(
         pipelineVersion: input.provenance.pipelineVersion,
         ...(personId ? { personId } : {}),
         ...(input.citationId ? { citationId: input.citationId } : {}),
+        ...(input.documentId ? { documentId: input.documentId } : {}),
       },
       select: { id: true },
     });
@@ -177,6 +187,8 @@ export async function acceptProposal(
         valueText: true,
         personId: true,
         citationId: true,
+        documentId: true,
+        evidenceSnippet: true,
         provider: true,
         model: true,
       },
@@ -240,6 +252,30 @@ export async function acceptProposal(
       await tx.claimCitation.create({
         data: { claimId: claim.id, citationId: proposal.citationId },
       });
+    } else if (proposal.documentId) {
+      // Read from a scan: the accepted fact cites that document, quoting the
+      // passage of the reading it rests on. A citation needs a source; a
+      // document filed under none leaves the fact visibly unsourced, on the
+      // research page, rather than citing a source nobody chose.
+      const document = await tx.document.findFirst({
+        where: { id: proposal.documentId, treeId: context.treeId },
+        select: { sourceId: true },
+      });
+      if (document?.sourceId) {
+        const citation = await tx.citation.create({
+          data: {
+            treeId: context.treeId,
+            sourceId: document.sourceId,
+            documentId: proposal.documentId,
+            quotation: proposal.evidenceSnippet,
+            confidence: 'MEDIUM',
+            notes: `Passage d’une lecture automatique (${proposal.provider}), vérifiée et acceptée.`,
+            ...(context.actorId ? { createdById: context.actorId } : {}),
+          },
+          select: { id: true },
+        });
+        await tx.claimCitation.create({ data: { claimId: claim.id, citationId: citation.id } });
+      }
     }
 
     if (SINGLE_VALUED.has(proposal.predicate)) {

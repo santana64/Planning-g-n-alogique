@@ -24,3 +24,4 @@ export * from './services/tree';
 export * from './services/duplicates';
 export * from './services/research';
 export * from './services/media';
+export * from './services/machine-reading';

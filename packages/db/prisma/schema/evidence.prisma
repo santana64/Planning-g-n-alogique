@@ -37,25 +37,25 @@ model Source {
   title String
   type  SourceType @default(OTHER)
 
-  author       String?
-  publisher    String?
-  publishedAt  String?
-  repository   String?
+  author      String?
+  publisher   String?
+  publishedAt String?
+  repository  String?
   /// Archival call number ("cote" in French archives). The single most useful
   /// field for anyone who has to find this document again.
-  callNumber   String?
-  url          String?
-  accessedAt   DateTime?
+  callNumber  String?
+  url         String?
+  accessedAt  DateTime?
 
-  notes String?
+  notes       String?
   /// How much weight this source carries in general, independent of any one
   /// citation from it.
   reliability Confidence @default(MEDIUM)
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  createdById String? @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?   @db.Uuid
 
   tree Tree @relation(fields: [treeId], references: [id], onDelete: Cascade)
 
@@ -73,9 +73,9 @@ model Citation {
   sourceId String @db.Uuid
 
   /// Where inside the source: page, folio, view, act number.
-  locator String?
-  page    String?
-  volume  String?
+  locator   String?
+  page      String?
+  volume    String?
   /// Verbatim transcription of the relevant passage.
   quotation String?
 
@@ -86,9 +86,9 @@ model Citation {
   documentPageId String? @db.Uuid
   eventId        String? @db.Uuid
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdById String? @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?  @db.Uuid
 
   tree         Tree          @relation(fields: [treeId], references: [id], onDelete: Cascade)
   source       Source        @relation(fields: [sourceId], references: [id], onDelete: Cascade)
@@ -156,7 +156,7 @@ model Claim {
   /// Structured value. Shape depends on `predicate`; see domain/claim schemas.
   value     Json
   /// Flattened, human-readable rendering for lists, search and diffs.
-  valueText String  @default("")
+  valueText String         @default("")
 
   status     ClaimStatus @default(PROPOSED)
   confidence Confidence  @default(MEDIUM)

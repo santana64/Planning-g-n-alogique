@@ -1,6 +1,28 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
-import { EXTRACTION_SYSTEM_PROMPT, PROMPT_VERSION } from './prompt';
+import {
+  EXTRACTION_SYSTEM_PROMPT,
+  PROMPT_VERSION,
+  SCAN_PROMPT_VERSION,
+  SCAN_SYSTEM_PROMPT,
+} from './prompt';
+import {
+  RESEARCH_PROMPT_VERSION,
+  RESEARCH_SYSTEM_PROMPT,
+  assertAssistable,
+  researchOutputSchema,
+  researchUserText,
+  validateResearch,
+  type ResearchAssistRequest,
+  type ResearchAssistResult,
+} from './research-assistant';
+import {
+  assertReadable,
+  verifyVision,
+  visionOutputSchema,
+  type VisionRequest,
+  type VisionResult,
+} from './vision';
 import {
   PIPELINE_VERSION,
   extractionOutputSchema,
@@ -152,6 +174,114 @@ export class AnthropicProvider implements AIProvider {
     signal?: AbortSignal,
   ): Promise<StorySelectionResult> {
     return chooseStoriesWithClaude(this.client, this.model, request, signal);
+  }
+
+  /**
+   * A scan, read by the model directly: an image block for a photograph of a
+   * page, a document block for a PDF (the API reads PDFs page by page itself,
+   * so no page is rasterised here). Same structured output, same refusal
+   * fallback, same evidence check — against the model's own transcription.
+   */
+  async readScan(request: VisionRequest, signal?: AbortSignal): Promise<VisionResult> {
+    assertReadable(request);
+    const data = Buffer.from(request.bytes).toString('base64');
+    const source =
+      request.mediaType === 'application/pdf'
+        ? {
+            type: 'document' as const,
+            source: { type: 'base64' as const, media_type: 'application/pdf' as const, data },
+          }
+        : {
+            type: 'image' as const,
+            source: { type: 'base64' as const, media_type: request.mediaType, data },
+          };
+    const hint = request.subjectHint?.trim();
+    const instruction = hint
+      ? `Read this record. The researcher opened it from the record of ${hint}.`
+      : 'Read this record.';
+
+    let response;
+    try {
+      response = await this.client.beta.messages.parse(
+        {
+          model: this.model,
+          max_tokens: MAX_OUTPUT_TOKENS,
+          betas: [FALLBACK_BETA],
+          fallbacks: 'default',
+          system: SCAN_SYSTEM_PROMPT,
+          // The scan first, the instruction after it: the order that reads
+          // best for image and document input.
+          messages: [{ role: 'user', content: [source, { type: 'text', text: instruction }] }],
+          output_config: {
+            format: betaZodOutputFormat(visionOutputSchema),
+            // Old hands, faded ink, abbreviations: the hardest reading this
+            // product asks for.
+            effort: 'high',
+          },
+        },
+        signal ? { signal } : undefined,
+      );
+    } catch (error) {
+      throw toExtractionError(error);
+    }
+
+    if (response.stop_reason === 'refusal') {
+      throw new ExtractionError('REFUSED', response.stop_details?.category ?? undefined);
+    }
+    if (response.stop_reason === 'max_tokens') {
+      throw new ExtractionError('INVALID_OUTPUT', 'truncated');
+    }
+    const parsed = response.parsed_output;
+    if (!parsed) throw new ExtractionError('INVALID_OUTPUT', 'unparseable');
+
+    return verifyVision(parsed, {
+      provider: 'anthropic',
+      model: response.model,
+      promptVersion: SCAN_PROMPT_VERSION,
+      pipelineVersion: PIPELINE_VERSION,
+    });
+  }
+
+  async suggestResearch(
+    request: ResearchAssistRequest,
+    signal?: AbortSignal,
+  ): Promise<ResearchAssistResult> {
+    assertAssistable(request);
+    let response;
+    try {
+      response = await this.client.beta.messages.parse(
+        {
+          model: this.model,
+          max_tokens: SELECTION_MAX_TOKENS,
+          betas: [FALLBACK_BETA],
+          fallbacks: 'default',
+          system: RESEARCH_SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: researchUserText(request) }],
+          output_config: {
+            format: betaZodOutputFormat(researchOutputSchema),
+            // Knowing which series of a French archive answers which question
+            // is judgement, not lookup.
+            effort: 'medium',
+          },
+        },
+        signal ? { signal } : undefined,
+      );
+    } catch (error) {
+      throw toExtractionError(error);
+    }
+    if (response.stop_reason === 'refusal') {
+      throw new ExtractionError('REFUSED', response.stop_details?.category ?? undefined);
+    }
+    if (response.stop_reason === 'max_tokens') {
+      throw new ExtractionError('INVALID_OUTPUT', 'truncated');
+    }
+    const parsed = response.parsed_output;
+    if (!parsed) throw new ExtractionError('INVALID_OUTPUT', 'unparseable');
+    return validateResearch(parsed, request, {
+      provider: 'anthropic',
+      model: response.model,
+      version: RESEARCH_PROMPT_VERSION,
+    });
   }
 }
 

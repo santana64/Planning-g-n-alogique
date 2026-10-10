@@ -1,12 +1,26 @@
 import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
-import { duplicateScanJobId, reportConnectionErrors } from './index';
+import {
+  documentAnalysisJobId,
+  duplicateScanJobId,
+  reportConnectionErrors,
+  researchAssistJobId,
+} from './index';
 
 describe('duplicateScanJobId', () => {
   it('is one id per tree, and never one BullMQ refuses', () => {
     const id = '0198f3a0-1c2d-7a3b-8c4d-5e6f70819a2b';
     expect(duplicateScanJobId(id)).toBe(`scan-${id}`);
     expect(duplicateScanJobId(id)).not.toContain(':');
+  });
+});
+
+describe('the other job ids', () => {
+  it('never contain the colon BullMQ refuses', () => {
+    const id = '0198f3a0-1c2d-7a3b-8c4d-5e6f70819a2b';
+    expect(documentAnalysisJobId(id)).toBe(`read-${id}`);
+    expect(researchAssistJobId(id)).toBe(`assist-${id}`);
+    expect(`${documentAnalysisJobId(id)}${researchAssistJobId(id)}`).not.toContain(':');
   });
 });
 

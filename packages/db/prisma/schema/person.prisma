@@ -61,8 +61,8 @@ model Person {
   // one query; resolving that through events and claims per person would
   // make the signature view unusable. Rebuilt on write, and rebuildable
   // wholesale from claims at any time.
-  lifespanEarliestJdn Int?
-  lifespanLatestJdn   Int?
+  lifespanEarliestJdn    Int?
+  lifespanLatestJdn      Int?
   /// True when lifespanLatestJdn came from the maximum-lifespan rule rather
   /// than a recorded death. The renderer must fade this end, not draw it.
   lifespanLatestInferred Boolean @default(false)
@@ -72,24 +72,25 @@ model Person {
 
   notes String?
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  createdById String? @db.Uuid
-  updatedById String? @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
 
   tree Tree @relation(fields: [treeId], references: [id], onDelete: Cascade)
 
-  names             PersonName[]
-  outgoingRelations Relationship[]       @relation("RelationSource")
-  incomingRelations Relationship[]       @relation("RelationTarget")
-  eventRoles        EventParticipant[]
-  claims            Claim[]
-  mediaTags         PersonMediaTag[]
-  researchTasks     ResearchTask[]
-  duplicatesAsLeft  DuplicateCandidate[] @relation("DuplicateLeft")
-  duplicatesAsRight DuplicateCandidate[] @relation("DuplicateRight")
-  aiProposals       AiProposal[]
+  names                 PersonName[]
+  outgoingRelations     Relationship[]         @relation("RelationSource")
+  incomingRelations     Relationship[]         @relation("RelationTarget")
+  eventRoles            EventParticipant[]
+  claims                Claim[]
+  mediaTags             PersonMediaTag[]
+  researchTasks         ResearchTask[]
+  duplicatesAsLeft      DuplicateCandidate[]   @relation("DuplicateLeft")
+  duplicatesAsRight     DuplicateCandidate[]   @relation("DuplicateRight")
+  aiProposals           AiProposal[]
+  aiResearchSuggestions AiResearchSuggestion[]
 
   @@index([treeId, deletedAt])
   @@index([treeId, searchName])
@@ -122,14 +123,14 @@ model PersonName {
 
   type NameType @default(BIRTH)
 
-  prefix     String?
-  given      String?
+  prefix        String?
+  given         String?
   /// Particles kept separate from the surname so "de La Tour" sorts under T
   /// or L according to the user's convention, without mangling the name.
-  nickname   String?
-  surname    String?
+  nickname      String?
+  surname       String?
   surnamePrefix String?
-  suffix     String?
+  suffix        String?
 
   /// Maiden or pre-marriage surname, when distinct.
   birthSurname String?
@@ -200,10 +201,10 @@ model Relationship {
   confidence Confidence @default(MEDIUM)
   notes      String?
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  createdById String? @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?   @db.Uuid
 
   tree   Tree   @relation(fields: [treeId], references: [id], onDelete: Cascade)
   source Person @relation("RelationSource", fields: [sourceId], references: [id], onDelete: Cascade)

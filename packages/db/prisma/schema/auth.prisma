@@ -18,16 +18,16 @@ model User {
 
   displayLocale String @default("fr")
 
-  sessions           Session[]
-  accounts           Account[]
-  memberships        TreeMember[]
-  sentInvitations    TreeInvitation[] @relation("InvitationInviter")
-  revisions          Revision[]
-  createdClaims      Claim[]          @relation("ClaimCreator")
-  reviewedClaims     Claim[]          @relation("ClaimReviewer")
-  assignedTasks      ResearchTask[]   @relation("TaskAssignee")
-  reviewedProposals  AiProposal[]     @relation("ProposalReviewer")
-  importJobs         ImportJob[]
+  sessions          Session[]
+  accounts          Account[]
+  memberships       TreeMember[]
+  sentInvitations   TreeInvitation[] @relation("InvitationInviter")
+  revisions         Revision[]
+  createdClaims     Claim[]          @relation("ClaimCreator")
+  reviewedClaims    Claim[]          @relation("ClaimReviewer")
+  assignedTasks     ResearchTask[]   @relation("TaskAssignee")
+  reviewedProposals AiProposal[]     @relation("ProposalReviewer")
+  importJobs        ImportJob[]
 
   @@index([deletedAt])
   @@map("users")
@@ -121,23 +121,24 @@ model Tree {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  members         TreeMember[]
-  invitations     TreeInvitation[]
-  people          Person[]
-  relationships   Relationship[]
-  events          Event[]
-  places          Place[]
-  sources         Source[]
-  citations       Citation[]
-  claims          Claim[]
-  media           Media[]
-  documents       Document[]
-  historicalLinks TreeHistoricalEvent[]
-  researchTasks   ResearchTask[]
-  revisions       Revision[]
-  aiProposals     AiProposal[]
-  importJobs      ImportJob[]
-  duplicateLeads  DuplicateCandidate[]
+  members               TreeMember[]
+  invitations           TreeInvitation[]
+  people                Person[]
+  relationships         Relationship[]
+  events                Event[]
+  places                Place[]
+  sources               Source[]
+  citations             Citation[]
+  claims                Claim[]
+  media                 Media[]
+  documents             Document[]
+  historicalLinks       TreeHistoricalEvent[]
+  researchTasks         ResearchTask[]
+  revisions             Revision[]
+  aiProposals           AiProposal[]
+  aiResearchSuggestions AiResearchSuggestion[]
+  importJobs            ImportJob[]
+  duplicateLeads        DuplicateCandidate[]
 
   @@index([deletedAt])
   @@map("trees")
@@ -159,17 +160,17 @@ model TreeMember {
 }
 
 model TreeInvitation {
-  id         String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  treeId     String    @db.Uuid
-  email      String    @db.Citext
-  role       TreeRole  @default(VIEWER)
+  id          String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId      String    @db.Uuid
+  email       String    @db.Citext
+  role        TreeRole  @default(VIEWER)
   // Stored as a hash: a leaked database must not yield usable invite links.
-  tokenHash  String    @unique
-  invitedById String   @db.Uuid
-  expiresAt  DateTime
-  acceptedAt DateTime?
-  revokedAt  DateTime?
-  createdAt  DateTime  @default(now())
+  tokenHash   String    @unique
+  invitedById String    @db.Uuid
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
 
   tree      Tree @relation(fields: [treeId], references: [id], onDelete: Cascade)
   invitedBy User @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: Cascade)

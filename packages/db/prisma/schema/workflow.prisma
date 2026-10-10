@@ -34,15 +34,15 @@ model ResearchTask {
   priority ResearchPriority   @default(NORMAL)
 
   /// Where to look.
-  repository     String?
-  collection     String?
-  callNumber     String?
-  url            String?
-  searchFromJdn  Int?
-  searchToJdn    Int?
-  placeLabel     String?
+  repository    String?
+  collection    String?
+  callNumber    String?
+  url           String?
+  searchFromJdn Int?
+  searchToJdn   Int?
+  placeLabel    String?
 
-  notes String?
+  notes   String?
   /// What was found, including "nothing" — which is itself a finding.
   outcome String?
 
@@ -50,9 +50,9 @@ model ResearchTask {
   dueAt        DateTime?
   resolvedAt   DateTime?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdById String? @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?  @db.Uuid
 
   tree       Tree    @relation(fields: [treeId], references: [id], onDelete: Cascade)
   person     Person? @relation(fields: [personId], references: [id], onDelete: SetNull)
@@ -90,7 +90,7 @@ model Revision {
   treeId String @db.Uuid
 
   entityType String
-  entityId   String @db.Uuid
+  entityId   String         @db.Uuid
   action     RevisionAction
 
   /// Changed fields only, not whole snapshots: full copies of every row on
@@ -155,19 +155,19 @@ model ImportJob {
   /// written to their tree.
   isDryRun Boolean @default(true)
 
-  peopleCount        Int @default(0)
-  familyCount        Int @default(0)
-  eventCount         Int @default(0)
-  sourceCount        Int @default(0)
-  mediaCount         Int @default(0)
-  warningCount       Int @default(0)
+  peopleCount             Int @default(0)
+  familyCount             Int @default(0)
+  eventCount              Int @default(0)
+  sourceCount             Int @default(0)
+  mediaCount              Int @default(0)
+  warningCount            Int @default(0)
   duplicateCandidateCount Int @default(0)
 
   processedRecords Int @default(0)
   totalRecords     Int @default(0)
 
   /// Structured warnings, each pointing at a line in the source file.
-  warnings Json?
+  warnings    Json?
   /// Tags the parser did not recognise, kept so export can round-trip them.
   unknownTags Json?
   /// What the commit wrote — counts and the links the database refused —

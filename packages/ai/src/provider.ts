@@ -1,5 +1,7 @@
 import type { ExtractionResult } from './extraction';
 import type { StorySelectionRequest, StorySelectionResult } from './story-selection';
+import type { ResearchAssistRequest, ResearchAssistResult } from './research-assistant';
+import type { VisionRequest, VisionResult } from './vision';
 
 /**
  * The provider boundary.
@@ -42,6 +44,17 @@ export interface AIProvider {
     request: StorySelectionRequest,
     signal?: AbortSignal,
   ): Promise<StorySelectionResult>;
+  /**
+   * Read a scan — an image or a PDF — into a proposed transcription and the
+   * statements it supports. Always called from the worker, never from a
+   * request: a page takes the time a page takes.
+   */
+  readScan(request: VisionRequest, signal?: AbortSignal): Promise<VisionResult>;
+  /** Propose research leads grounded in the given facts. See research-assistant.ts. */
+  suggestResearch(
+    request: ResearchAssistRequest,
+    signal?: AbortSignal,
+  ): Promise<ResearchAssistResult>;
 }
 
 export type ExtractionErrorCode =

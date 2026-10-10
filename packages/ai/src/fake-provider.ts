@@ -7,6 +7,14 @@ import {
 } from './extraction';
 import { assertExtractable, type AIProvider, type ExtractionRequest } from './provider';
 import {
+  RESEARCH_PROMPT_VERSION,
+  assertAssistable,
+  validateResearch,
+  type ResearchAssistRequest,
+  type ResearchAssistResult,
+} from './research-assistant';
+import { assertReadable, verifyVision, type VisionRequest, type VisionResult } from './vision';
+import {
   STORY_SELECTION_VERSION,
   assertSelectable,
   validateStorySelection,
@@ -93,6 +101,75 @@ export class FakeAIProvider implements AIProvider {
       },
       request,
       { provider: 'fake', model: 'rules-fr-1', version: STORY_SELECTION_VERSION },
+    );
+  }
+
+  /**
+   * A "reading" of a scan that reads no pixels.
+   *
+   * The test double cannot see an image, and does not pretend to: it reads
+   * text that the test file itself carries — a PNG's `Transcription` text
+   * chunk, the text-showing operators of a PDF — and runs the same rules on
+   * it. That exercises the whole loop (queue, worker, proposals, review)
+   * deterministically; on a real scan it finds nothing, and says so.
+   */
+  async readScan(request: VisionRequest): Promise<VisionResult> {
+    assertReadable(request);
+    const embedded =
+      request.mediaType === 'application/pdf'
+        ? pdfText(request.bytes)
+        : request.mediaType === 'image/png'
+          ? pngText(request.bytes, 'Transcription')
+          : '';
+    const provenance = {
+      provider: 'fake',
+      model: 'rules-fr-1',
+      promptVersion: 'fake-scan-1',
+      pipelineVersion: PIPELINE_VERSION,
+    };
+    if (!embedded.trim()) {
+      return verifyVision(
+        {
+          legibility: 'POOR',
+          transcription: '',
+          documentKind: 'OTHER',
+          facts: [],
+          caveats: ['Le lecteur de test ne lit pas les images : aucun texte intégré au fichier.'],
+        },
+        provenance,
+      );
+    }
+    const extraction = await this.extract({ text: embedded, subjectHint: request.subjectHint });
+    return verifyVision(
+      {
+        legibility: 'GOOD',
+        transcription: embedded,
+        documentKind: extraction.documentKind,
+        facts: [...extraction.facts],
+        caveats: [
+          'Texte lu dans le fichier lui-même, pas dans l’image : lecteur de test.',
+          ...extraction.caveats,
+        ],
+      },
+      provenance,
+    );
+  }
+
+  /** One lead per gap the rules found, resting on it: predictable, and labelled. */
+  async suggestResearch(request: ResearchAssistRequest): Promise<ResearchAssistResult> {
+    assertAssistable(request);
+    const base = request.facts[0];
+    const suggestions = request.known.slice(0, request.limit).map((gap) => ({
+      question: `Une seconde source confirme-t-elle ce point : ${gap.text.toLowerCase()} ?`,
+      rationale:
+        'Piste proposée par le lecteur de test, à partir des lacunes relevées par les règles.',
+      whereToLook: null,
+      basis: [gap.id, ...(base ? [base.id] : [])],
+    }));
+    return validateResearch(
+      { suggestions, caveats: ['Pistes du lecteur de test, sans modèle.'] },
+      request,
+      { provider: 'fake', model: 'rules-fr-1', version: RESEARCH_PROMPT_VERSION },
     );
   }
 
@@ -208,4 +285,40 @@ export class FakeAIProvider implements AIProvider {
       },
     );
   }
+}
+
+/** The text of a PNG text chunk (tEXt, or uncompressed iTXt) with this keyword. */
+export function pngText(bytes: Uint8Array, keyword: string): string {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let offset = 8;
+  const decoder = new TextDecoder('utf-8');
+  while (offset + 8 <= bytes.byteLength) {
+    const length = view.getUint32(offset);
+    const type = String.fromCharCode(...bytes.subarray(offset + 4, offset + 8));
+    const data = bytes.subarray(offset + 8, offset + 8 + length);
+    if (type === 'tEXt' || type === 'iTXt') {
+      const nul = data.indexOf(0);
+      const key = decoder.decode(data.subarray(0, nul));
+      if (key === keyword) {
+        if (type === 'tEXt') return new TextDecoder('latin1').decode(data.subarray(nul + 1));
+        // iTXt: keyword  compression-flag compression-method lang  translated  text
+        if (data[nul + 1] !== 0) return '';
+        let cursor = nul + 3;
+        cursor = data.indexOf(0, cursor) + 1;
+        cursor = data.indexOf(0, cursor) + 1;
+        return decoder.decode(data.subarray(cursor));
+      }
+    }
+    if (type === 'IEND') break;
+    offset += 12 + length;
+  }
+  return '';
+}
+
+/** The literal strings a PDF shows with Tj, in order: enough for a test file. */
+export function pdfText(bytes: Uint8Array): string {
+  const raw = new TextDecoder('latin1').decode(bytes);
+  return [...raw.matchAll(/\(((?:\\.|[^\\)])*)\)\s*Tj/g)]
+    .map((match) => (match[1] ?? '').replace(/\\([()\\])/g, '$1'))
+    .join('\n');
 }

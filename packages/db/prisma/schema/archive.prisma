@@ -30,8 +30,8 @@ model Media {
   thumbnailStorageKey String?
   previewStorageKey   String?
 
-  width          Int?
-  height         Int?
+  width           Int?
+  height          Int?
   durationSeconds Float?
 
   title       String?
@@ -39,17 +39,17 @@ model Media {
 
   /// When the photograph was taken, if known. Stored as a JDN window like
   /// every other date in the product.
-  capturedEarliestJdn Int?
-  capturedLatestJdn   Int?
+  capturedEarliestJdn  Int?
+  capturedLatestJdn    Int?
   capturedOriginalText String?
 
   copyright String?
   privacy   PrivacyLevel @default(INHERIT)
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  createdById String? @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?   @db.Uuid
 
   tree Tree @relation(fields: [treeId], references: [id], onDelete: Cascade)
 
@@ -91,8 +91,8 @@ model PersonMediaTag {
   confidence Confidence @default(MEDIUM)
   note       String?
 
-  createdAt DateTime @default(now())
-  createdById String? @db.Uuid
+  createdAt   DateTime @default(now())
+  createdById String?  @db.Uuid
 
   media  Media  @relation(fields: [mediaId], references: [id], onDelete: Cascade)
   person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
@@ -142,10 +142,24 @@ model Document {
   privacy PrivacyLevel @default(INHERIT)
   notes   String?
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  createdById String? @db.Uuid
+  /// A machine's reading of the scan, kept apart from `transcription`: it is
+  /// a proposal, shown as one, and becomes the transcription only when a
+  /// person copies it there. Never overwritten silently.
+  machineTranscription String?
+  /// GOOD, PARTIAL or POOR, as the reader judged the scan.
+  machineLegibility    String?
+  /// What the reader could not make out, in its own words.
+  machineCaveats       Json?
+  machineReader        String?
+  machineReadAt        DateTime?
+  analysisStatus       DocumentAnalysisStatus @default(NONE)
+  /// An error code only, never a message: it may quote the document.
+  analysisError        String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?   @db.Uuid
 
   tree   Tree    @relation(fields: [treeId], references: [id], onDelete: Cascade)
   source Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
@@ -163,24 +177,73 @@ model DocumentPage {
   id         String @id @default(dbgenerated("uuidv7()")) @db.Uuid
   documentId String @db.Uuid
 
-  pageNumber Int
+  pageNumber          Int
   /// Rendered raster of this page, for the viewer. Derived, re-creatable.
   imageStorageKey     String?
   thumbnailStorageKey String?
-  width      Int?
-  height     Int?
+  width               Int?
+  height              Int?
 
   transcription String?
 
-  document  Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  citations Citation[]
+  document    Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  citations   Citation[]
   aiProposals AiProposal[]
 
   @@unique([documentId, pageNumber])
   @@map("document_pages")
 }
 
+enum DocumentAnalysisStatus {
+  NONE
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+}
+
 // --- AI ---------------------------------------------------------------------
+
+enum ResearchSuggestionStatus {
+  PENDING
+  ADOPTED
+  DISMISSED
+}
+
+/// A research lead proposed by the assistant, waiting for a person.
+///
+/// Like an AiProposal, it is never acted on by itself: adopting one opens a
+/// research task that a person can edit; dismissing it keeps it, so the same
+/// idea is not offered again as if new. Every suggestion names the facts it
+/// rests on (`basis`), checked against what the assistant was given.
+model AiResearchSuggestion {
+  id       String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  treeId   String @db.Uuid
+  personId String @db.Uuid
+
+  question    String
+  rationale   String
+  /// Where to look, in words: a series, a repository, a period.
+  whereToLook String?
+  /// The identifiers of the facts it rests on, as given to the assistant.
+  basis       Json
+
+  status ResearchSuggestionStatus @default(PENDING)
+
+  provider      String
+  model         String
+  promptVersion String
+
+  createdAt   DateTime  @default(now())
+  decidedAt   DateTime?
+  decidedById String?   @db.Uuid
+
+  tree   Tree   @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([treeId, personId, status])
+  @@map("ai_research_suggestions")
+}
 
 enum AiProposalStatus {
   PENDING
@@ -212,7 +275,7 @@ model AiProposal {
 
   predicate ClaimPredicate
   value     Json
-  valueText String @default("")
+  valueText String         @default("")
 
   /// The model's own stated confidence, 0-1. Displayed, never used to
   /// auto-accept.
@@ -220,10 +283,10 @@ model AiProposal {
   /// Verbatim snippet the model says supports the value.
   evidenceSnippet String?
   /// Normalised 0-1 region on the page, for the extraction overlay.
-  regionX      Float?
-  regionY      Float?
-  regionWidth  Float?
-  regionHeight Float?
+  regionX         Float?
+  regionY         Float?
+  regionWidth     Float?
+  regionHeight    Float?
 
   // --- Provenance ---------------------------------------------------------
   provider        String
