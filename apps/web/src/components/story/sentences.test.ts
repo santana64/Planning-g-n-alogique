@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { gregorianToJdn } from '@chronolignee/domain';
 import type { StoryDate, StoryPlan } from '@chronolignee/engine';
 import type { StoryViewPerson } from '@/server/story';
-import { ageText, dateClause, describeCandidate, ofName, renderStory } from './sentences';
+import { ageText, dateClause, describeCandidate, ofName, renderStory, routeOf } from './sentences';
 
 /**
  * The words of a story: every one of them has to be defensible from the
@@ -353,5 +353,55 @@ describe('a Director candidate, in words', () => {
       describeCandidate({ kind: 'deep-line', generations: 6, earliestYear: null }, 'emile', people)
         .reason,
     ).toBe('6 générations depuis Émile MOREAU.');
+  });
+});
+
+describe('scenes with a photograph and a route', () => {
+  const plan: StoryPlan = {
+    subjectId: 'emile',
+    line: 'paternal',
+    generations: 1,
+    scenes: [
+      { kind: 'person-focus', personId: 'emile' },
+      {
+        kind: 'ancestor-step',
+        childId: 'emile',
+        parentId: 'paul',
+        relation: 'father',
+        generation: 1,
+        ageAtChildBirth: null,
+      },
+      {
+        kind: 'migration',
+        childId: 'emile',
+        parentId: 'paul',
+        from: TOURS,
+        to: PARIS,
+        distanceKm: 205,
+      },
+    ],
+  };
+  const photo = { src: '/api/trees/t/media/m?variant=preview', title: 'Illustration — La noce' };
+  const chapters = renderStory({
+    plan,
+    people: { emile: EMILE, paul: PAUL },
+    history: {},
+    photos: { paul: photo },
+  });
+
+  it('shows a person’s photograph with their chapter, and only theirs', () => {
+    expect(chapters[0]?.photo).toBeNull();
+    expect(chapters[1]?.photo).toEqual(photo);
+  });
+
+  it('draws a move between two located places', () => {
+    expect(chapters[1]?.asides[0]?.route).toEqual({
+      from: { name: 'Tours', latitude: 47.39, longitude: 0.68 },
+      to: { name: 'Paris', latitude: 48.86, longitude: 2.35 },
+    });
+  });
+
+  it('draws no route when a place has no coordinates', () => {
+    expect(routeOf({ name: 'Ailleurs', latitude: null, longitude: null }, PARIS)).toBeNull();
   });
 });

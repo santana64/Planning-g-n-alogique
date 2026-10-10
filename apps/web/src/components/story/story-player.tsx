@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { play } from '@/lib/sound';
+import { RouteSketch } from './route-sketch';
 import { collectNotes, sourceText, type RenderedChapter, type StorySentence } from './sentences';
 
 /**
@@ -198,6 +199,20 @@ export function StoryPlayer({
               </p>
               <p className="text-xs tracking-wide text-[#a9b0c0] uppercase">{chapter.eyebrow}</p>
               <h2 className="font-editorial text-3xl tracking-tight">{chapter.title}</h2>
+              {chapter.photo ? (
+                <figure className="story-photo-frame shrink-0 self-start overflow-hidden rounded-[var(--radius-md)] border border-white/10 shadow-[0_18px_50px_-20px_rgba(0,0,0,0.8)]">
+                  <div className="overflow-hidden">
+                    <img
+                      src={chapter.photo.src}
+                      alt={chapter.photo.title}
+                      className="story-photo block h-[34vh] max-h-80 w-auto max-w-full object-cover"
+                    />
+                  </div>
+                  <figcaption className="bg-black/40 px-3 py-1.5 text-xs text-[#c9ccd6]">
+                    {chapter.photo.title}
+                  </figcaption>
+                </figure>
+              ) : null}
               <div className="flex flex-col gap-2 text-lg">
                 <Sentences sentences={chapter.sentences} notes={notes} />
               </div>
@@ -212,6 +227,7 @@ export function StoryPlayer({
                   </p>
                   <p className="font-editorial text-xl text-[#e9e4d8]">{aside.title}</p>
                   <Sentences sentences={aside.sentences} notes={notes} />
+                  {aside.route ? <RouteSketch route={aside.route} /> : null}
                 </div>
               ))}
               {notes.length > 0 ? (

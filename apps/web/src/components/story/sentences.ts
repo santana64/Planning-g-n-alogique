@@ -35,9 +35,23 @@ export interface StorySentence {
   readonly factual: boolean;
 }
 
+/** A photograph shown with a chapter: the person, or an event of their life. */
+export interface ChapterPhoto {
+  readonly src: string;
+  readonly title: string;
+}
+
+/** The two ends of a move, for the route drawn beside it. */
+export interface AsideRoute {
+  readonly from: { readonly name: string; readonly latitude: number; readonly longitude: number };
+  readonly to: { readonly name: string; readonly latitude: number; readonly longitude: number };
+}
+
 export interface RenderedAside {
   readonly key: string;
   readonly kind: 'migration' | 'historical-context';
+  /** A move between two located places. */
+  readonly route?: AsideRoute | null;
   /** Its own year, shown small: an aside never moves the clock. */
   readonly marker: string | null;
   readonly eyebrow: string;
@@ -58,6 +72,8 @@ export interface RenderedChapter {
   readonly asides: readonly RenderedAside[];
   /** The person the chapter is about, for a link to their record. */
   readonly personId: string | null;
+  /** A photograph of them, when the archive holds one this reader may see. */
+  readonly photo?: ChapterPhoto | null;
 }
 
 export interface StoryInput {
@@ -66,7 +82,31 @@ export interface StoryInput {
   readonly history: Readonly<Record<string, StoryHistoricalEvent>>;
   /** The reader's language; French unless said otherwise. */
   readonly locale?: string;
+  /** One photograph per person, by person, already checked for this reader. */
+  readonly photos?: Readonly<Record<string, ChapterPhoto>>;
 }
+
+/** A move's route, when both of its places have coordinates. */
+export function routeOf(from: StoryScenePlace, to: StoryScenePlace): AsideRoute | null {
+  if (
+    from.latitude === null ||
+    from.longitude === null ||
+    to.latitude === null ||
+    to.longitude === null
+  ) {
+    return null;
+  }
+  return {
+    from: { name: from.name, latitude: from.latitude, longitude: from.longitude },
+    to: { name: to.name, latitude: to.latitude, longitude: to.longitude },
+  };
+}
+
+type StoryScenePlace = {
+  readonly name: string;
+  readonly latitude: number | null;
+  readonly longitude: number | null;
+};
 
 export { ofName };
 
@@ -213,6 +253,7 @@ function renderScene(scene: StoryScene, index: number, input: StoryInput): Rende
           sentences: lifeSentences(subject),
           asides: [],
           personId: subject.id,
+          photo: input.photos?.[subject.id] ?? null,
         },
       };
     }
@@ -241,6 +282,7 @@ function renderScene(scene: StoryScene, index: number, input: StoryInput): Rende
           sentences,
           asides: [],
           personId: parent.id,
+          photo: input.photos?.[parent.id] ?? null,
         },
       };
     }
@@ -257,6 +299,7 @@ function renderScene(scene: StoryScene, index: number, input: StoryInput): Rende
           marker: null,
           eyebrow: 'Un déplacement',
           title: `De ${scene.from.name} à ${scene.to.name}`,
+          route: routeOf(scene.from, scene.to),
           sentences: [
             {
               text: `La naissance ${ofName(parent.name)} est enregistrée à ${scene.from.name}, celle de ${childNoun(child)} ${child.name} à ${scene.to.name} : ${distance} km les séparent.`,

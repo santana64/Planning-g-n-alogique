@@ -458,3 +458,54 @@
     animation: none;
   }
 }
+
+/* --- Story scenes -----------------------------------------------------------
+ * A photograph drifts slowly closer while its chapter is read, and a move's
+ * route draws itself from departure to arrival. Both still under reduced
+ * motion: the photograph is shown, the route is drawn. */
+.story-photo {
+  animation: story-drift 14s ease-out both;
+  transform-origin: 50% 40%;
+}
+
+@keyframes story-drift {
+  from {
+    transform: scale(1.12) translate(1.5%, 1%);
+  }
+  to {
+    transform: scale(1) translate(0, 0);
+  }
+}
+
+.story-route {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: story-route 1.8s cubic-bezier(0.45, 0, 0.2, 1) 0.35s forwards;
+}
+
+.story-route-arrival {
+  opacity: 0;
+  animation: fade-rise 0.5s ease-out 2s forwards;
+}
+
+@keyframes story-route {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-photo {
+    animation: none;
+  }
+
+  .story-route {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .story-route-arrival {
+    animation: none;
+    opacity: 1;
+  }
+}

@@ -26,7 +26,13 @@ import {
 import type { GenealogyGraph } from '@chronolignee/genealogy';
 import { db } from '@/lib/db';
 import { treeGraph } from './graph-cache';
-import { describeCandidate, renderStory, type RenderedChapter } from '@/components/story/sentences';
+import {
+  describeCandidate,
+  renderStory,
+  type ChapterPhoto,
+  type RenderedChapter,
+} from '@/components/story/sentences';
+import { loadPersonPhotos } from './media';
 import {
   REDACTED_LABEL,
   graphSubject,
@@ -69,6 +75,43 @@ export interface StoryView {
   readonly plan: StoryPlan | null;
   readonly people: Readonly<Record<string, StoryViewPerson>>;
   readonly history: Readonly<Record<string, StoryHistoricalEvent>>;
+  /** One photograph per person in the story, when the archive has one. */
+  readonly photos: Readonly<Record<string, ChapterPhoto>>;
+}
+
+/**
+ * A photograph for each person a story names: one they were recognised in,
+ * or else one of an event of their life — through the same checks as the
+ * album, so a picture this reader may not see never reaches a scene.
+ * `allowed` narrows further: a suggested story keeps to the dead, so a
+ * photograph in which a living relative is recognised stays out of it even
+ * for a member entitled to see them.
+ */
+async function photosFor(
+  access: TreeAccess,
+  treeSlug: string,
+  personIds: readonly string[],
+  allowed: (personId: string) => boolean = () => true,
+): Promise<Record<string, ChapterPhoto>> {
+  const entries = await Promise.all(
+    personIds.map(async (personId) => {
+      const photos = (await loadPersonPhotos(access, personId)).filter(
+        (photo) => photo.processed && photo.taggedIds.every(allowed),
+      );
+      const chosen =
+        photos.find((photo) => photo.taggedIds.includes(personId)) ?? photos[0] ?? null;
+      return chosen
+        ? ([
+            personId,
+            {
+              src: `/api/trees/${treeSlug}/media/${chosen.mediaId}?variant=preview`,
+              title: chosen.title,
+            },
+          ] as const)
+        : null;
+    }),
+  );
+  return Object.fromEntries(entries.filter((entry) => entry !== null));
 }
 
 const VITAL_TYPES = [
@@ -303,7 +346,7 @@ export const loadLineageStory = cache(
 
     const hidden = hiddenInGraph(graph, access);
 
-    const base = { access, subjectId, line, people: {}, history: {} };
+    const base = { access, subjectId, line, people: {}, history: {}, photos: {} };
     if (hidden(subjectId)) {
       return { ...base, subjectName: REDACTED_LABEL, subjectHidden: true, plan: null };
     }
@@ -323,13 +366,20 @@ export const loadLineageStory = cache(
       await readerLocale(),
     );
     const plan = planLineageAscent(subjectId, people, historical, line);
+    const told = referencedBy(plan, people, historical);
+    const photos = await photosFor(
+      access,
+      treeSlug,
+      Object.keys(told.people).filter((id) => !hidden(id)),
+    );
 
     return {
       ...base,
       subjectName: subject.displayName,
       subjectHidden: false,
       plan,
-      ...referencedBy(plan, people, historical),
+      ...told,
+      photos,
     };
   },
 );
@@ -381,16 +431,24 @@ export const loadStorySuggestions = cache(
     ]);
 
     const candidates = findStoryCandidates({ people, coverage, historical }).slice(0, OFFERED);
-    const suggestions = candidates.map((candidate) => {
-      const described = describeCandidate(candidate.facts, candidate.subjectId, people, locale);
-      const told = referencedBy(candidate.plan, people, historical);
-      return {
-        id: candidate.id,
-        kind: candidate.facts.kind,
-        ...described,
-        chapters: renderStory({ plan: candidate.plan, ...told, locale }),
-      };
-    });
+    const suggestions = await Promise.all(
+      candidates.map(async (candidate) => {
+        const described = describeCandidate(candidate.facts, candidate.subjectId, people, locale);
+        const told = referencedBy(candidate.plan, people, historical);
+        const photos = await photosFor(
+          access,
+          treeSlug,
+          Object.keys(told.people).filter((id) => !excluded(id)),
+          (id) => !excluded(id),
+        );
+        return {
+          id: candidate.id,
+          kind: candidate.facts.kind,
+          ...described,
+          chapters: renderStory({ plan: candidate.plan, ...told, locale, photos }),
+        };
+      }),
+    );
 
     return {
       access,

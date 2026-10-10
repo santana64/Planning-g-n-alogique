@@ -1,7 +1,13 @@
 import { jdnToGregorian } from '@chronolignee/domain';
 import type { AgeRange, StoryCandidateFacts, StoryDate, StoryScene } from '@chronolignee/engine';
 import type { StoryViewPerson } from '@/server/story';
-import type { RenderedAside, RenderedChapter, StoryInput, StorySentence } from './sentences';
+import {
+  routeOf,
+  type RenderedAside,
+  type RenderedChapter,
+  type StoryInput,
+  type StorySentence,
+} from './sentences';
 
 /**
  * A story plan, told in English.
@@ -141,6 +147,7 @@ export function renderSceneEn(scene: StoryScene, index: number, input: StoryInpu
           sentences: lifeSentences(subject),
           asides: [],
           personId: subject.id,
+          photo: input.photos?.[subject.id] ?? null,
         },
       };
     }
@@ -168,6 +175,7 @@ export function renderSceneEn(scene: StoryScene, index: number, input: StoryInpu
           sentences,
           asides: [],
           personId: parent.id,
+          photo: input.photos?.[parent.id] ?? null,
         },
       };
     }
@@ -184,6 +192,7 @@ export function renderSceneEn(scene: StoryScene, index: number, input: StoryInpu
           marker: null,
           eyebrow: 'A move',
           title: `From ${scene.from.name} to ${scene.to.name}`,
+          route: routeOf(scene.from, scene.to),
           sentences: [
             {
               text: `${possessive(parent.name)} birth is recorded in ${scene.from.name}, that of ${childNoun(parent, child)} ${child.name} in ${scene.to.name}: ${distance} km apart.`,

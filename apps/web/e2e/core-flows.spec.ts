@@ -752,6 +752,10 @@ test.describe('the story director', () => {
     // Born and buried in Buenos Aires: the First World War, confined to
     // Europe in the historical layer, is not his context.
     await expect(player).not.toContainText('Première Guerre mondiale');
+    // The next scene is the father's, with the move between the two births
+    // drawn as a route.
+    await page.keyboard.press('ArrowRight');
+    await expect(player.getByRole('img', { name: 'Tours → Buenos Aires' })).toBeVisible();
     await page.keyboard.press('Escape');
 
     const body = await page.content();
