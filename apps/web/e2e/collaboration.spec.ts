@@ -47,7 +47,7 @@ test.describe('sharing a tree', () => {
     const temoin = personIdOf(page);
 
     // --- The owner invites a contributor --------------------------------
-    await page.getByRole('link', { name: 'Partage' }).click();
+    await page.getByRole('link', { name: 'Partage', exact: true }).click();
     const email = `e2e-invitee-${stamp}@chronolignee.invalid`;
     await fillStable(page, 'Adresse e-mail', email);
     await page.getByLabel('Rôle', { exact: true }).selectOption('CONTRIBUTOR');
@@ -92,7 +92,7 @@ test.describe('sharing a tree', () => {
     await expect(
       guest.getByRole('button', { name: 'Retirer cette personne de l’arbre' }),
     ).toHaveCount(0);
-    await expect(guest.getByRole('link', { name: 'Réglages' })).toHaveCount(0);
+    await expect(guest.getByRole('link', { name: 'Réglages', exact: true })).toHaveCount(0);
 
     // The owner removes the witness, and the request is kept as it was sent.
     let captured: { url: string; headers: Record<string, string>; body: Buffer } | null = null;
@@ -199,7 +199,7 @@ test.describe('the tree’s settings', () => {
     const visitor = await stranger(browser);
     expect((await visitor.goto(`/app/${slug}/personnes`))?.status()).toBe(404);
 
-    await page.getByRole('link', { name: 'Réglages' }).click();
+    await page.getByRole('link', { name: 'Réglages', exact: true }).click();
     await page.getByLabel('Par lien').check();
     await page.getByRole('button', { name: 'Enregistrer les réglages' }).click();
     await expect(page.getByText('Réglages enregistrés.')).toBeVisible();

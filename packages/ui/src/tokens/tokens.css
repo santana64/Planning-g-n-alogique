@@ -87,8 +87,8 @@
    * say it in words, and "unknown" is a neutral grey rather than a guess.
    * Same lightness for both, so neither reads as more important.
    */
-  --sex-female: oklch(0.74 0.13 350);
-  --sex-male: oklch(0.72 0.12 240);
+  --sex-female: oklch(0.665 0.14 350);
+  --sex-male: oklch(0.65 0.13 240);
   --sex-other: oklch(0.72 0.11 300);
   --sex-unknown: oklch(0.62 0.015 258);
 

@@ -141,7 +141,9 @@
       "history": "History",
       "sharing": "Sharing",
       "settings": "Settings",
-      "research": "Research"
+      "research": "Research",
+      "overview": "Overview",
+      "statistics": "Statistics"
     },
     "roles": {
       "OWNER": "Owner",
@@ -1417,6 +1419,120 @@
         "period": "The end of the period is before its start.",
         "url": "The address must start with http:// or https://.",
         "generic": "Incorrect value."
+      }
+    }
+  },
+  "overview": {
+    "eyebrow": "Family tree",
+    "summary": "{people, plural, one {1 person} other {# people}} from {from} to {to} — {years} years and {generations, plural, one {1 generation} other {# generations}} recorded.",
+    "summaryEmpty": "{people, plural, =0 {No one yet.} one {1 person, not dated yet.} other {# people, not dated yet.}}",
+    "sparkline": "Births per decade, women and men",
+    "figures": "Key figures",
+    "tiles": {
+      "people": "people",
+      "generations": "generations",
+      "span": "covered",
+      "yearsValue": "{years} years",
+      "dated": "of records dated"
+    },
+    "waiting": {
+      "title": "Waiting",
+      "go": "View",
+      "anomalies": "{count, plural, =0 {no anomalies} one {anomaly to examine} other {anomalies to examine}}",
+      "openLeads": "{count, plural, =0 {no open leads} one {open lead} other {open leads}}",
+      "unsourced": "{count, plural, =0 {everything sourced} one {fact without a source} other {facts without a source}}",
+      "proposals": "{count, plural, =0 {no proposals} one {reading proposal} other {reading proposals}}",
+      "duplicates": "{count, plural, =0 {no suspected duplicates} one {suspected duplicate} other {suspected duplicates}}"
+    },
+    "views": {
+      "title": "Explore",
+      "timeline": "Every life on the time axis, and who was alive when.",
+      "people": "All the records, with their dates and sources.",
+      "constellation": "The family as a sky, lit by its evidence.",
+      "map": "Where the family lived, and when it moved.",
+      "archive": "Sources, citations and documents.",
+      "statistics": "Lifespans, marriages, first names, occupations.",
+      "stories": "A lineage told, every sentence sourced."
+    },
+    "recent": "Recent changes",
+    "allHistory": "Full history"
+  },
+  "statistics": {
+    "title": "Statistics",
+    "lead": "What the recorded records say: when the family was born, how long it lived, at what age it married, what it was called.",
+    "headline": "Main figures",
+    "caveat": "These figures describe the recorded tree, not a population: a tree often follows one line more than the others, and children who died young are often missing from the registers. An age is computed only between two dates known to within a year; protected people are not counted.",
+    "years": "{count, plural, one {# year} other {# years}}",
+    "century": "{century, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} c.",
+    "basedOn": "{count, plural, =0 {no measurable data} one {from 1 person} other {from # people}}",
+    "couplesBasedOn": "{count, plural, =0 {no complete couple} one {from 1 couple} other {from # couples}}",
+    "tiles": {
+      "people": "people",
+      "peopleNote": "{female} women · {male} men",
+      "generations": "generations on the longest line",
+      "span": "years covered",
+      "dated": "of records have a date",
+      "datedNote": "{births} births · {deaths} deaths dated"
+    },
+    "series": {
+      "female": "Women",
+      "male": "Men",
+      "other": "Sex not recorded",
+      "count": "Count"
+    },
+    "units": {
+      "births": "{count, plural, one {1 birth} other {# births}}",
+      "people": "{count, plural, one {1 person} other {# people}}",
+      "couples": "{count, plural, one {1 couple} other {# couples}}"
+    },
+    "charts": {
+      "births": "Births per decade",
+      "ageAtDeath": "Age at death, in ten-year bands",
+      "familySize": "Children per couple",
+      "lifespanByCentury": "Median lifespan, by century of birth",
+      "namesFemale": "Women’s first names",
+      "namesMale": "Men’s first names",
+      "occupations": "Occupations",
+      "birthPlaces": "Places of birth"
+    },
+    "chart": {
+      "empty": "Not enough data yet.",
+      "showData": "Show the data",
+      "label": "Value"
+    },
+    "figures": {
+      "title": "Ages",
+      "lead": "Medians: the middle value, which a lone centenarian does not move.",
+      "lifespan": "median lifespan",
+      "marriageFemale": "median age of women at first marriage",
+      "marriageMale": "median age of men at first marriage",
+      "children": "children per couple (median)",
+      "migration": "Between the place of birth and the place of death, the median distance is {median} km ({count, plural, one {1 person} other {# people}}). The longest journey: {from} → {to}, {km} km."
+    },
+    "atAge": {
+      "title": "At the same age",
+      "lead": "The same birthday, one generation further up on each row: the year, whether they were alive, married, and how many children they already had.",
+      "nobody": "At least one person with a recorded parent is needed.",
+      "person": "Starting from",
+      "age": "At the age of",
+      "line": "Going up through",
+      "father": "the father",
+      "mother": "the mother",
+      "compare": "Compare",
+      "caption": "Comparison at {age}",
+      "who": "Who",
+      "year": "Year they turned {age}",
+      "alive": "Alive",
+      "married": "Married",
+      "children": "Children already born",
+      "yes": "yes",
+      "no": "no",
+      "generation": {
+        "0": "self",
+        "1": "parent",
+        "2": "grandparent",
+        "3": "great-grandparent",
+        "4": "ancestor"
       }
     }
   }

@@ -141,7 +141,9 @@
       "history": "Historique",
       "sharing": "Partage",
       "settings": "Réglages",
-      "research": "Recherche"
+      "research": "Recherche",
+      "overview": "Vue d’ensemble",
+      "statistics": "Statistiques"
     },
     "roles": {
       "OWNER": "Propriétaire",
@@ -1417,6 +1419,120 @@
         "period": "La fin de la période précède son début.",
         "url": "L’adresse doit commencer par http:// ou https://.",
         "generic": "Valeur incorrecte."
+      }
+    }
+  },
+  "overview": {
+    "eyebrow": "Arbre généalogique",
+    "summary": "{people, plural, one {1 personne} other {# personnes}} de {from} à {to} — {years} ans et {generations, plural, one {1 génération} other {# générations}} enregistrés.",
+    "summaryEmpty": "{people, plural, =0 {Aucune personne pour l’instant.} one {1 personne, sans date encore.} other {# personnes, sans date encore.}}",
+    "sparkline": "Naissances par décennie, femmes et hommes",
+    "figures": "Chiffres clés",
+    "tiles": {
+      "people": "personnes",
+      "generations": "générations",
+      "span": "couverts",
+      "yearsValue": "{years} ans",
+      "dated": "des fiches datées"
+    },
+    "waiting": {
+      "title": "En attente",
+      "go": "Voir",
+      "anomalies": "{count, plural, =0 {aucune anomalie} one {anomalie à examiner} other {anomalies à examiner}}",
+      "openLeads": "{count, plural, =0 {aucune piste ouverte} one {piste ouverte} other {pistes ouvertes}}",
+      "unsourced": "{count, plural, =0 {tout est sourcé} one {fait sans source} other {faits sans source}}",
+      "proposals": "{count, plural, =0 {aucune proposition} one {proposition de lecture} other {propositions de lecture}}",
+      "duplicates": "{count, plural, =0 {aucun doublon suspecté} one {doublon suspecté} other {doublons suspectés}}"
+    },
+    "views": {
+      "title": "Explorer",
+      "timeline": "Chaque vie sur l’axe du temps, et qui était vivant quand.",
+      "people": "Toutes les fiches, avec leurs dates et leurs sources.",
+      "constellation": "La famille comme un ciel, éclairé par les preuves.",
+      "map": "Où la famille a vécu, et quand elle a bougé.",
+      "archive": "Sources, citations et documents.",
+      "statistics": "Durées de vie, mariages, prénoms, métiers.",
+      "stories": "Une lignée racontée, chaque phrase sourcée."
+    },
+    "recent": "Dernières modifications",
+    "allHistory": "Tout l’historique"
+  },
+  "statistics": {
+    "title": "Statistiques",
+    "lead": "Ce que disent les fiches enregistrées : quand la famille est née, combien de temps elle a vécu, à quel âge elle s’est mariée, comment elle s’appelait.",
+    "headline": "Chiffres principaux",
+    "caveat": "Ces chiffres décrivent l’arbre enregistré, pas une population : un arbre suit souvent une lignée plus que les autres, et les enfants morts jeunes manquent souvent aux registres. Un âge n’est calculé qu’entre deux dates connues à l’année près ; les personnes protégées ne sont pas comptées.",
+    "years": "{count, plural, one {# an} other {# ans}}",
+    "century": "{century}e s.",
+    "basedOn": "{count, plural, =0 {aucune donnée mesurable} one {sur 1 personne} other {sur # personnes}}",
+    "couplesBasedOn": "{count, plural, =0 {aucun couple complet} one {sur 1 couple} other {sur # couples}}",
+    "tiles": {
+      "people": "personnes",
+      "peopleNote": "{female} femmes · {male} hommes",
+      "generations": "générations sur la plus longue lignée",
+      "span": "années couvertes",
+      "dated": "des fiches ont une date",
+      "datedNote": "{births} naissances · {deaths} décès datés"
+    },
+    "series": {
+      "female": "Femmes",
+      "male": "Hommes",
+      "other": "Sexe non renseigné",
+      "count": "Nombre"
+    },
+    "units": {
+      "births": "{count, plural, one {1 naissance} other {# naissances}}",
+      "people": "{count, plural, one {1 personne} other {# personnes}}",
+      "couples": "{count, plural, one {1 couple} other {# couples}}"
+    },
+    "charts": {
+      "births": "Naissances par décennie",
+      "ageAtDeath": "Âge au décès, par tranche de dix ans",
+      "familySize": "Enfants par couple",
+      "lifespanByCentury": "Durée de vie médiane, par siècle de naissance",
+      "namesFemale": "Prénoms de femmes",
+      "namesMale": "Prénoms d’hommes",
+      "occupations": "Métiers",
+      "birthPlaces": "Lieux de naissance"
+    },
+    "chart": {
+      "empty": "Pas encore assez de données.",
+      "showData": "Voir les données",
+      "label": "Valeur"
+    },
+    "figures": {
+      "title": "Âges",
+      "lead": "Médianes : la valeur du milieu, qu’un centenaire isolé ne déplace pas.",
+      "lifespan": "durée de vie médiane",
+      "marriageFemale": "âge médian des femmes au premier mariage",
+      "marriageMale": "âge médian des hommes au premier mariage",
+      "children": "enfants par couple (médiane)",
+      "migration": "Entre le lieu de naissance et celui du décès, la distance médiane est de {median} km ({count, plural, one {1 personne} other {# personnes}}). Le plus long trajet : {from} → {to}, {km} km."
+    },
+    "atAge": {
+      "title": "Au même âge",
+      "lead": "Le même anniversaire, une génération plus haut à chaque ligne : l’année, s’ils étaient en vie, mariés, et combien d’enfants ils avaient déjà.",
+      "nobody": "Il faut au moins une personne dont un parent est enregistré.",
+      "person": "À partir de",
+      "age": "À l’âge de",
+      "line": "En remontant par",
+      "father": "le père",
+      "mother": "la mère",
+      "compare": "Comparer",
+      "caption": "Comparaison à {age} ans",
+      "who": "Qui",
+      "year": "Année de ses {age} ans",
+      "alive": "En vie",
+      "married": "Marié·e",
+      "children": "Enfants déjà nés",
+      "yes": "oui",
+      "no": "non",
+      "generation": {
+        "0": "soi",
+        "1": "parent",
+        "2": "grand-parent",
+        "3": "arrière-grand-parent",
+        "4": "ancêtre"
       }
     }
   }

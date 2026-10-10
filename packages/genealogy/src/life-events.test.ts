@@ -155,11 +155,13 @@ describe('the other events of a life', () => {
     expect(codes(findings)).toEqual([]);
   });
 
-  it('does not repeat a death before birth for each burial', () => {
+  it('does not repeat a death before birth for each burial, nor for the birth itself', () => {
+    // Found end to end: the birth event, dated after the death, came out a
+    // second time as "an event after the death".
     const findings = audit({
       birth: date('1850'),
       death: date('1840'),
-      events: [event('BURIAL', '1840')],
+      events: [event('BIRTH', '1850'), event('DEATH', '1840'), event('BURIAL', '1840')],
     });
     expect(codes(findings)).toEqual(['DEATH_BEFORE_BIRTH']);
   });

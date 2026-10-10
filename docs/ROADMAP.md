@@ -58,19 +58,14 @@ vignettes (sharp) dans le worker, lecture plein écran avec zoom, identification
 manuelle de personnes sur une photographie (régions normalisées, **jamais de
 reconnaissance faciale**), et la surcouche des extractions d'IA sur la page.
 
-### Statistiques et comparaisons
+### Statistiques et tableau de bord : ce qui reste
 
-Aucune surface d'analyse : personnes par génération, durées de vie, âge au
-mariage, taille des familles, prénoms, métiers, lieux, distances de migration,
-part de personnes documentées. Et la comparaison « à l'âge X » du cahier des
-charges (le père à 30 ans, le grand-père à 30 ans…). Tout doit dire qu'il
-s'agit de l'arbre enregistré, pas d'une population.
-
-### Tableau de bord d'un arbre
-
-`/app` liste les arbres (nom, nombre de personnes, rôle). Il manque le résumé
-par arbre : étendue temporelle, générations, propositions en attente,
-anomalies, dernières modifications.
+Faits : la vue d'ensemble de chaque arbre (étendue, générations, ce qui attend
+chaque rôle, dernières modifications) et l'écran Statistiques (naissances par
+décennie, âge au décès, enfants par couple, durée de vie par siècle, âge au
+premier mariage, prénoms, métiers, lieux, distance de migration, comparaison
+« au même âge »). Restent : les comparaisons entre deux arbres et l'export des
+chiffres.
 
 ## 3. IA
 

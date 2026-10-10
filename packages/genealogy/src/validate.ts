@@ -550,7 +550,9 @@ function checkEventsInLife(
       }
     }
 
-    if (!AFTER_DEATH_EVENTS.has(event.type)) {
+    // A birth after the death is, again, DEATH_BEFORE_BIRTH seen from the
+    // other end: reported once, there.
+    if (event.type !== 'BIRTH' && !AFTER_DEATH_EVENTS.has(event.type)) {
       if (before(death, when)) {
         findings.push(
           finding(

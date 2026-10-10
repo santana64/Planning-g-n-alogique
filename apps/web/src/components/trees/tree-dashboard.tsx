@@ -48,7 +48,7 @@ export function TreeDashboard({ trees }: { trees: readonly TreeCard[] }) {
             {trees.map((tree) => (
               <li key={tree.treeId}>
                 <Link
-                  href={`/app/${tree.slug}/personnes`}
+                  href={`/app/${tree.slug}`}
                   className="border-border-subtle hover:bg-surface-1 flex items-baseline justify-between gap-4 border-b px-2 py-3 transition-colors duration-[var(--duration-fast)]"
                 >
                   <span className="font-editorial text-text-primary text-base">{tree.name}</span>

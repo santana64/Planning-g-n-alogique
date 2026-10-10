@@ -65,8 +65,8 @@ function readTheme(element: HTMLElement): TimelineTheme {
     bandColor: token('--accent-history', '#6d8bd0'),
     fontSans: token('--font-sans', 'system-ui, sans-serif'),
     fontSerif: token('--font-serif', 'Georgia, serif'),
-    sexFemale: token('--sex-female', 'oklch(0.74 0.13 350)'),
-    sexMale: token('--sex-male', 'oklch(0.72 0.12 240)'),
+    sexFemale: token('--sex-female', 'oklch(0.665 0.14 350)'),
+    sexMale: token('--sex-male', 'oklch(0.65 0.13 240)'),
     sexOther: token('--sex-other', 'oklch(0.72 0.11 300)'),
     sexUnknown: token('--sex-unknown', 'oklch(0.62 0.015 258)'),
   };

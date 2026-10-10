@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { signUp } from './helpers';
+import { settled, signUp } from './helpers';
 
 /**
  * The flows that must never break.
@@ -101,6 +101,45 @@ test.describe('the demonstration timeline', () => {
       'true',
     );
     await expect(page.getByText('Femme', { exact: true })).toHaveCount(0);
+  });
+
+  test('opens on an overview, and its statistics say what they rest on', async ({ page }) => {
+    await page.goto('/app/famille-chassagne-demo');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Famille Chassagne (démonstration)',
+    );
+    await expect(page.getByText('générations', { exact: true })).toBeVisible();
+    // A visitor sees the ways in, never the work waiting for the family.
+    await expect(page.getByRole('heading', { name: 'Explorer' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'En attente' })).toHaveCount(0);
+
+    await page
+      .getByRole('link', { name: /^Statistiques/ })
+      .first()
+      .click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Statistiques');
+    await expect(page.getByRole('figure', { name: 'Naissances par décennie' })).toBeVisible();
+    // Each age says how many records it rests on.
+    await expect(page.getByText(/sur \d+ personnes/).first()).toBeVisible();
+    // Protected people are not counted: 40 records, 7 of them living.
+    await expect(page.getByText('33', { exact: true }).first()).toBeVisible();
+
+    // The same age, a generation apart, as a real table.
+    await page.getByLabel('À l’âge de').selectOption('40');
+    await page.getByRole('button', { name: 'Comparer' }).click();
+    await expect(page).toHaveURL(/age=40/);
+    const comparison = page.getByRole('table', { name: 'Comparaison à 40 ans' });
+    await expect(comparison.getByRole('row')).not.toHaveCount(1);
+
+    await settled(page);
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    expect(
+      results.violations.flatMap((v) =>
+        v.nodes.map((n) => `${v.id}: ${n.target.join(' ')} ${n.any[0]?.message ?? ''}`),
+      ),
+    ).toEqual([]);
   });
 
   test('publishes the same data as a real table', async ({ page }) => {

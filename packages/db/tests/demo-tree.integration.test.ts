@@ -5,6 +5,7 @@ import {
   DEFAULT_DUPLICATE_THRESHOLD,
   DUPLICATE_SCORER_VERSION,
   auditTree,
+  treeStatistics,
   type Finding,
   type GenealogyGraph,
 } from '@chronolignee/genealogy';
@@ -349,5 +350,25 @@ describe('geography', () => {
     // An act of 1750 says Touraine; a modern geocoder would say Indre-et-Loire.
     // Overwriting the former would falsify the source.
     expect(place?.historicalName).toBe('Touraine');
+  });
+});
+
+describe('the statistics of the demonstration', () => {
+  it('measure eleven generations and plausible ages, each with what it rests on', () => {
+    const stats = treeStatistics({ graph, include: () => true });
+    expect(stats.people).toBe(graph.people.size);
+    expect(stats.generations).toBe(11);
+    expect(stats.lifespan.count).toBeGreaterThan(10);
+    expect(stats.lifespan.median).toBeGreaterThan(40);
+    expect(stats.lifespan.median).toBeLessThan(90);
+    // Only measurable dates count: no figure may rest on more records than exist.
+    expect(stats.marriageAge.female.count + stats.marriageAge.male.count).toBeLessThanOrEqual(
+      stats.people,
+    );
+    // The continuous axis has no hole.
+    const decades = stats.birthsByDecade.map((row) => row.decade);
+    expect(
+      decades.every((decade, i) => i === 0 || decade - (decades[i - 1] as number) === 10),
+    ).toBe(true);
   });
 });

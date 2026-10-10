@@ -101,3 +101,16 @@ export async function signUp(
   await page.goto(await waitForMailLink(account.email, { subject: /confirmez votre adresse/i }));
   await page.waitForURL(landsOn, { timeout: 30_000 });
 }
+
+/**
+ * Wait until every CSS animation on the page has finished.
+ *
+ * Accessibility checks measure contrast as rendered: run halfway through a
+ * fade-in, they report the text at 30 % opacity as unreadable, which is true
+ * of that frame and of nothing a reader sees.
+ */
+export async function settled(page: Page): Promise<void> {
+  await page.waitForFunction(() =>
+    document.getAnimations().every((animation) => animation.playState !== 'running'),
+  );
+}

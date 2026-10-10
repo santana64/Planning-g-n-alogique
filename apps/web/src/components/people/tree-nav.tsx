@@ -22,6 +22,8 @@ export async function TreeNav({
   /** Null for someone reading a public tree from outside. */
   role: TreeRole | null;
   current:
+    | 'overview'
+    | 'statistics'
     | 'people'
     | 'timeline'
     | 'constellation'
@@ -39,6 +41,7 @@ export async function TreeNav({
   const t = await getTranslations('tree');
   const canEdit = can(role, 'contribute');
   const tabs = [
+    { key: 'overview' as const, href: `/app/${treeSlug}`, label: t('nav.overview') },
     { key: 'people' as const, href: `/app/${treeSlug}/personnes`, label: t('nav.people') },
     { key: 'timeline' as const, href: `/app/${treeSlug}/chronologie`, label: t('nav.timeline') },
     ...(features.constellation
@@ -55,6 +58,11 @@ export async function TreeNav({
       : []),
     { key: 'map' as const, href: `/app/${treeSlug}/carte`, label: t('nav.map') },
     { key: 'archive' as const, href: `/app/${treeSlug}/archives`, label: t('nav.archive') },
+    {
+      key: 'statistics' as const,
+      href: `/app/${treeSlug}/statistiques`,
+      label: t('nav.statistics'),
+    },
     // Members only: it lists what the family does not know yet.
     ...(role !== null
       ? [
@@ -108,7 +116,12 @@ export async function TreeNav({
       {/* Everything wraps: on a phone eleven links in one row pushed the
           whole page sideways, on every screen of a tree. */}
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-2">
-        <span className="font-editorial text-text-primary text-lg tracking-tight">{treeName}</span>
+        <Link
+          href={`/app/${treeSlug}`}
+          className="font-editorial text-text-primary hover:text-accent text-lg tracking-tight transition-colors duration-[var(--duration-fast)]"
+        >
+          {treeName}
+        </Link>
         <nav aria-label={t('sections')} className="flex flex-wrap gap-x-4 gap-y-1">
           {tabs.map((tab) => (
             <Link

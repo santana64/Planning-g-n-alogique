@@ -215,3 +215,19 @@ Une personne est **présumée vivante** si elle est déclarée vivante, ou si au
 décès n'est enregistré et qu'elle a pu vivre jusqu'à aujourd'hui (née il y a
 moins de 123 ans, ou non datée). La règle complète de masquage est dans
 [PRIVACY.md](PRIVACY.md).
+
+## Statistiques
+
+`treeStatistics` et `atAge` (`packages/genealogy/src/statistics.ts`) décrivent
+**l'arbre enregistré, pas une population**, et l'écran le dit. Règles :
+
+- un âge n'est mesuré qu'entre deux dates connues à environ un an près
+  (fenêtre ≤ 400 jours), de milieu à milieu ; « vers 1708 » ne compte pas ;
+- médianes plutôt que moyennes seules, et chaque chiffre dit sur combien de
+  fiches il repose ;
+- un mariage non enregistré n'est pas « célibataire » : la comparaison « au
+  même âge » affiche « — » ;
+- les axes sont continus : une décennie sans naissance est un zéro, pas un
+  trou ;
+- seules les personnes visibles par le lecteur sont comptées : un décompte
+  incluant les vivants protégés permettrait de les retrouver par différence.

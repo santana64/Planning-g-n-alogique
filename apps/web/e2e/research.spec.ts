@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { EDITING_STATE_PATH } from './global-setup';
-import { addPerson, createTree, fillStable } from './helpers';
+import { addPerson, createTree, fillStable, settled } from './helpers';
 
 /**
  * The research desk, end to end.
@@ -23,7 +23,10 @@ test('a contradiction and a missing source become a question, and its answer is 
   // register says, and the research page is where the contradiction surfaces.
   await addPerson(page, { given: 'Hippolyte', surname: 'Marchand', birth: '1880', death: '1850' });
 
-  await page.getByRole('link', { name: 'Recherche' }).click();
+  await page
+    .getByRole('navigation', { name: 'Sections de l’arbre' })
+    .getByRole('link', { name: 'Recherche' })
+    .click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Recherche');
 
   const anomalies = page.locator('#anomalies');
@@ -67,6 +70,14 @@ test('a contradiction and a missing source become a question, and its answer is 
   await tasks.getByText('1 piste close').click();
   await expect(tasks).toContainText('Rien dans les tables décennales 1843-1852.');
 
+  // The overview counts what is waiting, and leads straight to it.
+  await page.getByRole('link', { name: 'Vue d’ensemble' }).click();
+  const waiting = page.getByRole('heading', { name: 'En attente' });
+  await expect(waiting).toBeVisible();
+  await expect(page.getByRole('link', { name: /^1\s*anomalie à examiner/ })).toBeVisible();
+  await page.goto(page.url().replace(/\/?$/, '/recherche'));
+
+  await settled(page);
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze();
