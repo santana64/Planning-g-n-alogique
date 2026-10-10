@@ -521,6 +521,9 @@ importers:
       '@chronolignee/gedcom':
         specifier: workspace:*
         version: link:../../packages/gedcom
+      '@chronolignee/genealogy':
+        specifier: workspace:*
+        version: link:../../packages/genealogy
       '@chronolignee/jobs':
         specifier: workspace:*
         version: link:../../packages/jobs

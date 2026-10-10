@@ -269,6 +269,15 @@ export function describeRevision(facts: RevisionFacts, t: Translator, locale = '
         sentence: h('claimReject', { predicate: claimName(t, text(before, 'predicate')) }),
         changes,
       };
+    case 'Person:RESTORE':
+      return {
+        sentence: text(after, 'undoOf')
+          ? h('mergeUndone', { name: text(after, 'restoredName') ?? h('somePerson') })
+          : summary
+            ? h('storedSummary', { summary })
+            : h('somethingChanged'),
+        changes: [],
+      };
     case 'Media:CREATE':
       return { sentence: h('mediaCreate', { title: text(after, 'title') ?? '' }), changes: [] };
     case 'Media:UPDATE':

@@ -1,6 +1,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { getLocale, getTranslations } from 'next-intl/server';
+import { can } from '@chronolignee/domain';
 import { loadHistory, type HistoryEntry } from '@chronolignee/db';
 import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
@@ -29,6 +30,10 @@ export interface HistoryLine {
   readonly changes: readonly Change[];
   /** The person whose record this is, when the line is about one visible person. */
   readonly personId: string | null;
+  /** A merge this reader may undo: journaled, not undone yet, and they may delete. */
+  readonly undoableMerge: boolean;
+  /** A merge that was undone since: said on its line, so the record reads true. */
+  readonly mergeUndone: boolean;
 }
 
 export interface TreeHistory {
@@ -90,6 +95,23 @@ async function readable(
   const t = await getTranslations();
   const locale = await getLocale();
 
+  // Merges already undone: an undo records the merge it reversed.
+  const mergeIds = entries
+    .filter((entry) => entry.action === 'MERGE' && entry.entityType === 'Person')
+    .map((entry) => entry.revisionId);
+  const undone = new Set<string>();
+  if (mergeIds.length > 0) {
+    const restores = await db.revision.findMany({
+      where: { treeId: access.treeId, action: 'RESTORE', entityType: 'Person' },
+      select: { after: true },
+    });
+    for (const row of restores) {
+      const of = (row.after as { undoOf?: unknown } | null)?.undoOf;
+      if (typeof of === 'string') undone.add(of);
+    }
+  }
+  const mayUndo = can(access.role, 'delete');
+
   return entries
     .filter((entry) => !entry.personIds.some((id) => hidden.has(id)))
     .map((entry) => {
@@ -107,6 +129,13 @@ async function readable(
         changes: described.changes,
         personId:
           entry.entityType === 'Person' && entry.action !== 'DELETE' ? entry.entityId : null,
+        undoableMerge:
+          mayUndo &&
+          entry.action === 'MERGE' &&
+          entry.entityType === 'Person' &&
+          typeof (entry.after as { journal?: unknown } | null)?.journal === 'object' &&
+          !undone.has(entry.revisionId),
+        mergeUndone: entry.action === 'MERGE' && undone.has(entry.revisionId),
       };
     });
 }

@@ -9,6 +9,8 @@ import {
   openDuplicates,
   scanDuplicates,
   MergeRefused,
+  UndoRefused,
+  undoMerge,
   type Database,
 } from '../src/index';
 
@@ -208,5 +210,95 @@ describe('merging two records', () => {
     });
     expect(rows.every((row) => row.status === 'MERGED')).toBe(true);
     expect(await openDuplicates(db, treeId)).toHaveLength(0);
+  });
+
+  it('keeps a claim about a link both records had, instead of deleting it with the link', async () => {
+    const parent = await person('Louis', 'Vasseur', { birthDate: '1800' });
+    const keep = await person('Adèle', 'Vasseur', { birthDate: '1830', recordedSex: 'FEMALE' });
+    const merge = await person('Adèle', 'Vasseur', { birthDate: '1830', recordedSex: 'FEMALE' });
+    await createRelationship(
+      db,
+      { sourceId: parent, targetId: keep, type: 'PARENT_BIOLOGICAL' },
+      context(),
+    );
+    await createRelationship(
+      db,
+      { sourceId: parent, targetId: merge, type: 'PARENT_BIOLOGICAL' },
+      context(),
+    );
+    const doomed = await db.relationship.findFirstOrThrow({
+      where: { sourceId: parent, targetId: merge },
+      select: { id: true },
+    });
+    const claim = await db.claim.create({
+      data: {
+        treeId,
+        relationshipId: doomed.id,
+        predicate: 'PARENT',
+        value: { text: 'Louis' },
+        valueText: 'Louis',
+        status: 'ACCEPTED',
+      },
+      select: { id: true },
+    });
+
+    await mergePeople(db, { treeId, keepId: keep, mergeId: merge }, { actorId: null });
+    const survivor = await db.relationship.findFirstOrThrow({
+      where: { sourceId: parent, targetId: keep },
+      select: { id: true },
+    });
+    // Before this fix the claim was deleted by the cascade on the link.
+    expect((await db.claim.findUniqueOrThrow({ where: { id: claim.id } })).relationshipId).toBe(
+      survivor.id,
+    );
+  });
+
+  it('undoes a merge exactly, once', async () => {
+    const parent = await person('Pierre', 'Lemaire', { birthDate: '1790' });
+    const keep = await person('Jean', 'Lemaire', { birthDate: '1822', birthPlace: 'Tours' });
+    const merge = await person('Jean', 'Lemaire', { birthDate: '1822', birthPlace: 'Saché' });
+    const child = await person('Paul', 'Lemaire', { birthDate: '1850' });
+    await createRelationship(
+      db,
+      { sourceId: parent, targetId: keep, type: 'PARENT_BIOLOGICAL' },
+      context(),
+    );
+    await createRelationship(
+      db,
+      { sourceId: parent, targetId: merge, type: 'PARENT_BIOLOGICAL' },
+      context(),
+    );
+    await createRelationship(
+      db,
+      { sourceId: merge, targetId: child, type: 'PARENT_BIOLOGICAL' },
+      context(),
+    );
+    const mergedNames = await db.personName.count({ where: { personId: merge } });
+    const mergedRoles = await db.eventParticipant.count({ where: { personId: merge } });
+
+    await mergePeople(db, { treeId, keepId: keep, mergeId: merge }, { actorId: null });
+    const revision = await db.revision.findFirstOrThrow({
+      where: { treeId, action: 'MERGE', entityId: keep },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+
+    const result = await undoMerge(db, { treeId, revisionId: revision.id }, { actorId: null });
+    expect(result).toEqual({ restoredId: merge, keptId: keep });
+
+    // The record is back, with its own names, events and links.
+    expect((await db.person.findUniqueOrThrow({ where: { id: merge } })).deletedAt).toBeNull();
+    expect(await db.personName.count({ where: { personId: merge } })).toBe(mergedNames);
+    expect(await db.eventParticipant.count({ where: { personId: merge } })).toBe(mergedRoles);
+    expect(await db.relationship.count({ where: { sourceId: merge, targetId: child } })).toBe(1);
+    // The link the merge deleted as a duplicate is recreated.
+    expect(await db.relationship.count({ where: { sourceId: parent, targetId: merge } })).toBe(1);
+    // The kept record still has its own, and only its own.
+    expect(await db.relationship.count({ where: { sourceId: parent, targetId: keep } })).toBe(1);
+    expect(await db.relationship.count({ where: { sourceId: keep, targetId: child } })).toBe(0);
+
+    await expect(
+      undoMerge(db, { treeId, revisionId: revision.id }, { actorId: null }),
+    ).rejects.toBeInstanceOf(UndoRefused);
   });
 });

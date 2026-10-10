@@ -592,7 +592,13 @@
     "mediaUpdate": "completed the photograph “{title}”",
     "mediaTag": "identified {name} in a photograph",
     "mediaUntag": "removed {name} from a photograph",
-    "documentTranscribed": "transcribed “{title}”"
+    "documentTranscribed": "transcribed “{title}”",
+    "mergeUndone": "undid a merge and restored {name}",
+    "undoMerge": "Undo this merge",
+    "undoMergeConfirm": "Restore both records",
+    "undoMergeCancel": "Keep the merge",
+    "undoMergeHint": "Every name, event and link returns to the record it came from.",
+    "mergeUndoneLabel": "Merge undone: both records are restored."
   },
   "timeline": {
     "counts": "{people} people · {events} events",
@@ -1295,7 +1301,14 @@
       "dismissed": "Match dismissed: it will not be proposed again.",
       "recordsNotFound": "These records cannot be found in this tree.",
       "merged": "Records merged.",
-      "mergeRefused": "These records cannot be merged."
+      "mergeRefused": "These records cannot be merged.",
+      "undone": "Merge undone: both records are restored.",
+      "undoRefused": {
+        "NOT_FOUND": "This merge cannot be found in this tree.",
+        "ALREADY_UNDONE": "This merge has already been undone.",
+        "NO_JOURNAL": "This merge predates the journal that allows undoing it.",
+        "RECORD_GONE": "The retired record no longer exists: the merge can no longer be undone."
+      }
     },
     "ai": {
       "citationNotFound": "Citation not found in this tree.",

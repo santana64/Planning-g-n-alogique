@@ -592,7 +592,13 @@
     "mediaUpdate": "a complété la photographie « {title} »",
     "mediaTag": "a identifié {name} sur une photographie",
     "mediaUntag": "a retiré {name} d’une photographie",
-    "documentTranscribed": "a transcrit « {title} »"
+    "documentTranscribed": "a transcrit « {title} »",
+    "mergeUndone": "a annulé une fusion et rétabli {name}",
+    "undoMerge": "Annuler cette fusion",
+    "undoMergeConfirm": "Rétablir les deux fiches",
+    "undoMergeCancel": "Garder la fusion",
+    "undoMergeHint": "Chaque nom, événement et lien retourne à sa fiche d’origine.",
+    "mergeUndoneLabel": "Fusion annulée : les deux fiches sont rétablies."
   },
   "timeline": {
     "counts": "{people} personnes · {events} événements",
@@ -1295,7 +1301,14 @@
       "dismissed": "Rapprochement écarté : il ne sera plus proposé.",
       "recordsNotFound": "Ces fiches sont introuvables dans cet arbre.",
       "merged": "Fiches fusionnées.",
-      "mergeRefused": "Ces fiches ne peuvent pas être fusionnées."
+      "mergeRefused": "Ces fiches ne peuvent pas être fusionnées.",
+      "undone": "Fusion annulée : les deux fiches sont rétablies.",
+      "undoRefused": {
+        "NOT_FOUND": "Cette fusion est introuvable dans cet arbre.",
+        "ALREADY_UNDONE": "Cette fusion a déjà été annulée.",
+        "NO_JOURNAL": "Cette fusion est antérieure au journal qui permet de l’annuler.",
+        "RECORD_GONE": "La fiche retirée n’existe plus : la fusion ne peut plus être annulée."
+      }
     },
     "ai": {
       "citationNotFound": "Citation introuvable dans cet arbre.",

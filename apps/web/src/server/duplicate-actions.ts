@@ -2,7 +2,13 @@
 
 import { getTranslations } from 'next-intl/server';
 import { DUPLICATE_SCORER_VERSION } from '@chronolignee/genealogy';
-import { MergeRefused, dismissDuplicate, mergePeople } from '@chronolignee/db';
+import {
+  MergeRefused,
+  UndoRefused,
+  dismissDuplicate,
+  mergePeople,
+  undoMerge,
+} from '@chronolignee/db';
 import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
 import { logger } from '@/lib/logger';
@@ -147,4 +153,45 @@ export async function mergeDuplicateAction(
     }
     throw error;
   }
+}
+
+/**
+ * Put a merge back. The same right as the merge itself: it brings a retired
+ * record back to life and moves rows between two people.
+ */
+export async function undoMergeAction(
+  _previous: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  const t = await getTranslations('actions');
+  const treeSlug = text(form, 'treeSlug');
+  const authorised = await authoriseWrite(treeSlug, 'delete');
+  if ('error' in authorised) return authorised.error;
+
+  const revisionId = text(form, 'revisionId');
+  if (!isUuid(revisionId))
+    return { status: 'error', message: t('duplicates.undoRefused.NOT_FOUND') };
+
+  try {
+    const result = await undoMerge(
+      db,
+      { treeId: authorised.access.treeId, revisionId },
+      { actorId: authorised.userId },
+    );
+    logger.info(
+      {
+        event: 'people.merge_undone',
+        treeId: authorised.access.treeId,
+        restored: result.restoredId,
+      },
+      'merge undone',
+    );
+  } catch (error) {
+    if (error instanceof UndoRefused) {
+      return { status: 'error', message: t(`duplicates.undoRefused.${error.reason}`) };
+    }
+    throw error;
+  }
+  revalidateTree(treeSlug);
+  return { status: 'success', message: t('duplicates.undone') };
 }

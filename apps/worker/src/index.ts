@@ -16,9 +16,12 @@ import {
   QUEUE_NAMES,
   WORKER_RETENTION,
   assertPayload,
+  createQueue,
+  duplicateScanJobId,
   redisConnection,
   reportConnectionErrors,
 } from '@chronolignee/jobs';
+import { DUPLICATE_SCORER_VERSION } from '@chronolignee/genealogy';
 import { runGedcomImport } from './gedcom-import';
 import { runMediaDerivatives } from './media-derivatives';
 
@@ -99,6 +102,30 @@ const objectStore = getObjectStore({
 const connection = redisConnection(env.REDIS_URL);
 
 /**
+ * A tree just imported is the tree most likely to hold the same person
+ * twice — two branches typed by two cousins, one GEDCOM merged into another.
+ * So an import ends by queueing a duplicate scan, the one the review screen
+ * otherwise waits for someone to ask for. Same job id as the button's, so a
+ * scan already queued is not doubled; a finished one is cleared first.
+ */
+const duplicateQueue = createQueue(QUEUE_NAMES.duplicateScan, env.REDIS_URL);
+async function queueDuplicateScan(treeId: string): Promise<boolean> {
+  const jobId = duplicateScanJobId(treeId);
+  const existing = await duplicateQueue.getJob(jobId);
+  if (existing) {
+    const state = await existing.getState();
+    if (state === 'waiting' || state === 'active' || state === 'delayed') return false;
+    await existing.remove();
+  }
+  const data = assertPayload(QUEUE_NAMES.duplicateScan, {
+    treeId,
+    scorerVersion: DUPLICATE_SCORER_VERSION,
+  });
+  await duplicateQueue.add('scan', data, { attempts: 1, jobId });
+  return true;
+}
+
+/**
  * GEDCOM import.
  *
  * The web app analyses a file, shows the person what it holds, and on their
@@ -122,6 +149,16 @@ const gedcomWorker = new Worker(
       return null;
     }
     log.info({ people: result.people, rejected: result.rejected.length }, 'import finished');
+    if (result.people > 1) {
+      // A failure here must not fail the import, which is written: the scan
+      // is still one click away on the review screen.
+      await queueDuplicateScan(payload.treeId).catch((error: unknown) => {
+        log.error(
+          { error: error instanceof Error ? error.name : typeof error },
+          'duplicate scan after import not queued',
+        );
+      });
+    }
     // Counts only: BullMQ keeps a job's return value in Redis, and the links
     // the database refused are described with the people they concern.
     return { people: result.people, relationships: result.relationships, events: result.events };
@@ -314,6 +351,7 @@ async function shutdown(signal: string): Promise<void> {
   clearInterval(sweeper);
   health?.close();
   await Promise.all(workers.map((worker) => worker.close()));
+  await duplicateQueue.close();
   await db.$disconnect();
   logger.info('stopped');
   process.exit(0);

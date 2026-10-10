@@ -13,6 +13,7 @@
     "@chronolignee/config": "workspace:*",
     "@chronolignee/db": "workspace:*",
     "@chronolignee/gedcom": "workspace:*",
+    "@chronolignee/genealogy": "workspace:*",
     "@chronolignee/jobs": "workspace:*",
     "@chronolignee/storage": "workspace:*",
     "@sentry/node": "catalog:",

@@ -1,6 +1,7 @@
 import { getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import type { HistoryLine } from '@/server/history';
+import { UndoMerge } from './undo-merge';
 
 /** The reader's own calendar, not the product's. */
 const formatters = (locale: string) => ({
@@ -75,6 +76,14 @@ export async function HistoryList({
                     </>
                   ) : null}
                 </p>
+                {line.mergeUndone ? (
+                  <p className="text-success pl-12 text-xs">{t('mergeUndoneLabel')}</p>
+                ) : null}
+                {line.undoableMerge ? (
+                  <div className="pl-12">
+                    <UndoMerge treeSlug={treeSlug} revisionId={line.id} />
+                  </div>
+                ) : null}
                 {line.changes.length > 0 ? (
                   <ul className="text-text-muted flex flex-col gap-0.5 pl-12 text-xs">
                     {line.changes.map((change) => (

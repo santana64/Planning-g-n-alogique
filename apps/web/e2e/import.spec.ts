@@ -111,3 +111,75 @@ test('says which file it cannot read rather than garbling it', async ({ page }) 
   await page.goto(`/app/${slug}/personnes`);
   await expect(page.getByText('Cet arbre est vide.')).toBeVisible();
 });
+
+test('an import looks for the same person twice by itself, and a merge can be undone', async ({
+  page,
+}) => {
+  const stamp = Date.now();
+  await page.goto('/app');
+  await createTree(page, `Import doublons ${stamp}`);
+  const slug = /\/app\/([^/]+)\/personnes/.exec(page.url())?.[1] ?? '';
+
+  // Two cousins typed the same great-grandmother.
+  const twice = [
+    '0 HEAD',
+    '1 GEDC',
+    '2 VERS 7.0',
+    '1 CHAR UTF-8',
+    '0 @I1@ INDI',
+    '1 NAME Victoire /CHASSAGNE/',
+    '1 SEX F',
+    '1 BIRT',
+    '2 DATE 14 MAR 1798',
+    '2 PLAC Tours',
+    '0 @I2@ INDI',
+    '1 NAME Victoire /CHASSAGNE/',
+    '1 SEX F',
+    '1 BIRT',
+    '2 DATE 14 MAR 1798',
+    '2 PLAC Tours',
+    '0 TRLR',
+    '',
+  ].join('\n');
+  await page.goto(`/app/${slug}/import`);
+  await page.getByLabel('Fichier GEDCOM').setInputFiles({
+    name: 'cousins.ged',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(twice, 'utf8'),
+  });
+  await page.getByRole('button', { name: 'Importer 2 personnes' }).click();
+  await expect(page.getByText('2 personnes ajoutées.')).toBeVisible();
+
+  // No click on "Chercher les doublons": the import queued the scan.
+  await expect(async () => {
+    await page.goto(`/app/${slug}/doublons`);
+    await expect(page.getByRole('link', { name: 'Comparer' }).first()).toBeVisible({
+      timeout: 1_000,
+    });
+  }).toPass({ timeout: 30_000 });
+
+  // Merge them, then take it back from the history.
+  await page.getByRole('link', { name: 'Comparer' }).first().click();
+  await page
+    .getByRole('button', { name: /Garder « Victoire CHASSAGNE »/ })
+    .first()
+    .click();
+  await page.getByRole('button', { name: 'Fusionner les deux fiches' }).click();
+  await page.waitForURL(/\/personnes\/[0-9a-f]{8}-/, { timeout: 30_000 });
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Victoire CHASSAGNE');
+
+  await page.goto(`/app/${slug}/historique`);
+  await page.getByRole('button', { name: 'Annuler cette fusion' }).click();
+  await page.getByRole('button', { name: 'Rétablir les deux fiches' }).click();
+  await expect(
+    page.getByText('Fusion annulée : les deux fiches sont rétablies.').first(),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.locator('main')).toContainText(
+    'a annulé une fusion et rétabli Victoire CHASSAGNE',
+  );
+  await expect(page.getByRole('button', { name: 'Annuler cette fusion' })).toHaveCount(0);
+
+  await page.goto(`/app/${slug}/personnes`);
+  await expect(page.getByText('2 personnes', { exact: true })).toBeVisible();
+});
