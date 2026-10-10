@@ -8,11 +8,11 @@ import {
   Map as MapLibreMap,
   Marker,
   NavigationControl,
-  type StyleSpecification,
+  setWorkerUrl,
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { AtlasArc, AtlasPoint } from '@/server/atlas';
-import { BASEMAP_URL, arcsToGeoJson, pointsToGeoJson } from './atlas-style';
+import { FLOW_DASHES, arcsToGeoJson, buildStyle, pointsToGeoJson } from './atlas-style';
 
 /**
  * The map.
@@ -37,48 +37,15 @@ interface AtlasMapProps {
   readonly selectedPlaceId: string | null;
 }
 
-function buildStyle(): StyleSpecification {
-  return {
-    version: 8,
-    sources: {
-      countries: { type: 'geojson', data: BASEMAP_URL },
-      places: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
-      arcs: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
-    },
-    layers: [
-      {
-        id: 'ocean',
-        type: 'background',
-        paint: { 'background-color': 'oklch(0.135 0.016 258)' },
-      },
-      {
-        id: 'land',
-        type: 'fill',
-        source: 'countries',
-        paint: { 'fill-color': 'oklch(0.205 0.02 258)' },
-      },
-      {
-        id: 'borders',
-        type: 'line',
-        source: 'countries',
-        paint: { 'line-color': 'oklch(0.3 0.018 258)', 'line-width': 0.6 },
-      },
-      {
-        id: 'arcs',
-        type: 'line',
-        source: 'arcs',
-        paint: {
-          'line-color': 'oklch(0.76 0.115 76)',
-          // Thicker for a route more people took. Capped, because a route
-          // taken by two hundred people is not a hundred times more important
-          // than one taken by two.
-          'line-width': ['min', ['+', 0.8, ['*', 0.5, ['get', 'weight']]], 5],
-          'line-opacity': 0.55,
-        },
-      },
-    ],
-  };
-}
+const FLOW_STEP_MS = 90;
+
+// The worker that parses the GeoJSON layers, served from this origin: left to
+// itself, MapLibre would ask the page for it once bundled, and draw nothing.
+// Copied there at build time by scripts/copy-maplibre-worker.mjs.
+setWorkerUrl('/maplibre/maplibre-gl-worker.mjs');
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function AtlasMap({ points, arcs, cursorJdn, onSelect, selectedPlaceId }: AtlasMapProps) {
   const t = useTranslations('atlas');
@@ -115,9 +82,19 @@ export function AtlasMap({ points, arcs, cursorJdn, onSelect, selectedPlaceId }:
       'bottom-right',
     );
 
+    let flow = 0;
+    let flowTimer: ReturnType<typeof setInterval> | null = null;
     map.on('load', () => {
       readyRef.current = true;
       map.resize();
+      if (prefersReducedMotion()) return;
+      flowTimer = setInterval(() => {
+        // A hidden tab keeps its timers, at a crawl; skipping the frame costs
+        // nothing and keeps the GPU idle.
+        if (document.hidden) return;
+        flow = (flow + 1) % FLOW_DASHES.length;
+        map.setPaintProperty('arcs-flow', 'line-dasharray', FLOW_DASHES[flow]);
+      }, FLOW_STEP_MS);
     });
 
     mapRef.current = map;
@@ -128,6 +105,7 @@ export function AtlasMap({ points, arcs, cursorJdn, onSelect, selectedPlaceId }:
     const markers = markersRef.current;
 
     return () => {
+      if (flowTimer) clearInterval(flowTimer);
       readyRef.current = false;
       for (const marker of markers.values()) marker.remove();
       markers.clear();
@@ -153,6 +131,20 @@ export function AtlasMap({ points, arcs, cursorJdn, onSelect, selectedPlaceId }:
     if (readyRef.current) apply();
     else map.once('load', apply);
   }, [arcs, cursorJdn]);
+
+  // A place chosen — on the map or in the list below — is travelled to, so
+  // the reader keeps their bearings; under reduced motion it is jumped to.
+  useEffect(() => {
+    const map = mapRef.current;
+    const place = points.find((point) => point.placeId === selectedPlaceId);
+    if (!map || !place) return;
+    const target = {
+      center: [place.longitude, place.latitude] as [number, number],
+      zoom: Math.max(map.getZoom(), 4.2),
+    };
+    if (prefersReducedMotion()) map.jumpTo(target);
+    else map.flyTo({ ...target, speed: 0.9, curve: 1.5, essential: false });
+  }, [points, selectedPlaceId]);
 
   // Places are markers, reconciled rather than rebuilt: recreating every
   // marker on each cursor tick makes dragging the slider flicker.

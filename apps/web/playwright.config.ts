@@ -101,6 +101,7 @@ export default defineConfig({
         // Experimental surfaces are off by default and on here: a flag that is
         // never switched on in a test is a feature nobody has run.
         FEATURE_STORY_DIRECTOR: 'true',
+        FEATURE_RIVER: 'true',
       },
       reuseExistingServer: !process.env['CI'],
       timeout: 120_000,

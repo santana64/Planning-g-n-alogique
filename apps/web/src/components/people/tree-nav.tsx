@@ -2,6 +2,7 @@ import { can, type TreeRole } from '@chronolignee/domain';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { features } from '@/lib/env';
+import { SoundToggle } from '@/components/sound-toggle';
 
 /**
  * The header shared by every screen of one tree.
@@ -27,6 +28,7 @@ export async function TreeNav({
     | 'people'
     | 'timeline'
     | 'constellation'
+    | 'river'
     | 'stories'
     | 'map'
     | 'archive'
@@ -53,6 +55,9 @@ export async function TreeNav({
             label: t('nav.constellation'),
           },
         ]
+      : []),
+    ...(features.river
+      ? [{ key: 'river' as const, href: `/app/${treeSlug}/riviere`, label: t('nav.river') }]
       : []),
     ...(features.storyDirector
       ? [{ key: 'stories' as const, href: `/app/${treeSlug}/recits`, label: t('nav.stories') }]
@@ -145,6 +150,7 @@ export async function TreeNav({
       </div>
 
       <div className="flex flex-wrap items-baseline gap-4">
+        <SoundToggle />
         {stewardship.length > 0 ? (
           <nav aria-label={t('stewardship')} className="flex flex-wrap gap-x-4 gap-y-1">
             {stewardship.map((tab) => (

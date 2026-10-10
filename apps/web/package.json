@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --turbopack --port 3000",
-    "build": "next build",
+    "dev": "node scripts/copy-maplibre-worker.mjs && next dev --turbopack --port 3000",
+    "build": "node scripts/copy-maplibre-worker.mjs && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0",

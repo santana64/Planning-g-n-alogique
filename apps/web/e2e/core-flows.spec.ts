@@ -851,3 +851,37 @@ test.describe('sign up and sign in', () => {
     await expect(page.locator('form').getByRole('alert')).toContainText(/12 caractères/);
   });
 });
+
+test.describe('the river', () => {
+  test('draws each branch as a stream, names it, and links to its founder', async ({ page }) => {
+    await page.goto('/app/famille-chassagne-demo/riviere');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Rivière');
+    await expect(
+      page.getByRole('img', { name: /Rivière de la famille .+ courants/ }),
+    ).toBeVisible();
+    const streams = page.getByRole('region', { name: /courants?$/ });
+    await expect(streams.getByRole('link', { name: /^Branche d/ }).first()).toBeVisible();
+    // Protected relatives widen a stream; they are never named in it.
+    const body = await page.content();
+    for (const name of ['Claire', 'Sylvie', 'Thomas', 'Valentina', 'Camille', 'Léa', 'Mateo']) {
+      expect(body, `${name} must not be named in the river`).not.toContain(name);
+    }
+    await streams
+      .getByRole('link', { name: /^Branche d/ })
+      .first()
+      .click();
+    await page.waitForURL(/\/personnes\/[0-9a-f]{8}-/);
+  });
+});
+
+test('is silent until sound is turned on, and remembers the choice', async ({ page }) => {
+  await page.goto('/app/famille-chassagne-demo/personnes');
+  const toggle = page.getByRole('button', { name: 'Muet' });
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await toggle.click();
+  await expect(page.getByRole('button', { name: 'Son' })).toHaveAttribute('aria-pressed', 'true');
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Son' })).toBeVisible();
+  await page.getByRole('button', { name: 'Son' }).click();
+  await expect(page.getByRole('button', { name: 'Muet' })).toBeVisible();
+});

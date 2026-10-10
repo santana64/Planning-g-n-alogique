@@ -54,3 +54,6 @@ next-env.d.ts
 
 # Database dumps from infra/scripts/backup-db.sh: never committed.
 backups/
+
+# Copied from maplibre-gl at build time (scripts/copy-maplibre-worker.mjs).
+apps/web/public/maplibre/

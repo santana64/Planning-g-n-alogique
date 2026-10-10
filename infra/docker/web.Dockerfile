@@ -88,7 +88,9 @@ ENV S3_REGION=us-east-1
 ENV S3_BUCKET=placeholder
 ENV S3_ACCESS_KEY_ID=placeholder
 ENV S3_SECRET_ACCESS_KEY=placeholder
-RUN pnpm --filter @chronolignee/web exec next build
+# The package's own build: it copies MapLibre's worker into public/ before
+# `next build`, without which the map draws no GeoJSON layer at all.
+RUN pnpm --filter @chronolignee/web build
 
 # ---------------------------------------------------------------------------
 # Runtime

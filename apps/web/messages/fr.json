@@ -144,7 +144,8 @@
       "research": "Recherche",
       "overview": "Vue d’ensemble",
       "statistics": "Statistiques",
-      "photos": "Photos"
+      "photos": "Photos",
+      "river": "Rivière"
     },
     "roles": {
       "OWNER": "Propriétaire",
@@ -705,7 +706,9 @@
       "age": "{age} ans",
       "bornDuring": "née pendant",
       "more": "et {count} autres"
-    }
+    },
+    "generationLane": "Génération {generation} · {people, plural, one {# personne} other {# personnes}}",
+    "generationsToggle": "Générations"
   },
   "atlas": {
     "placeCounts": "{events, plural, one {1 événement} other {# événements}}, {people, plural, one {1 personne} other {# personnes}}",
@@ -1729,5 +1732,22 @@
     "retry": "Réessayer",
     "backToTrees": "Revenir aux arbres",
     "reference": "Référence : {digest}"
+  },
+  "river": {
+    "title": "Rivière",
+    "lead": "La famille comme des courants : chaque branche est un cours d’eau aussi large que le nombre de ses membres en vie à chaque date. Là où une famille se divise, le courant se sépare ; là où une lignée s’éteint, il s’amincit et disparaît.",
+    "figure": "Rivière de la famille {tree} : {branches, plural, one {# courant} other {# courants}}",
+    "branchOf": "Branche {of}",
+    "protectedBranch": "Branche d’une personne protégée",
+    "summary": "{people, plural, one {# personne} other {# personnes}} · {from} – {to}",
+    "streams": "{count, plural, one {Un courant} other {# courants}}",
+    "empty": "Aucune vie datée pour l’instant : la rivière n’a pas encore de cours.",
+    "caveat": "Une lecture exploratoire, pas une fiche : les largeurs comptent les vies datées que vous pouvez voir, et les personnes protégées élargissent leur branche sans être nommées. Les liens se corrigent sur les fiches."
+  },
+  "sound": {
+    "on": "Son",
+    "off": "Muet",
+    "turnOn": "Activer les sons discrets de l’interface",
+    "turnOff": "Couper le son"
   }
 }

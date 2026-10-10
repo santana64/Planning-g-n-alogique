@@ -19,3 +19,4 @@ apps/web/e2e/.auth/
 # Written by apps/web/scripts/build-basemap.mjs from Natural Earth; regenerate
 # rather than reformat.
 apps/web/public/basemap/
+apps/web/public/maplibre/

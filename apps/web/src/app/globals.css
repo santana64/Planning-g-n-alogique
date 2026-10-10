@@ -426,3 +426,35 @@
     opacity: 0.55;
   }
 }
+
+/* --- River ----------------------------------------------------------------
+ * The river pours in from its oldest year, and its currents drift along each
+ * stream. Neither carries information of its own, so both stop under
+ * reduced motion. */
+.river-pour {
+  transition: width 1.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.river-stream {
+  transition: opacity var(--duration-fast, 160ms) ease;
+}
+
+.river-flow {
+  animation: river-flow 2.4s linear infinite;
+}
+
+@keyframes river-flow {
+  to {
+    stroke-dashoffset: -32;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .river-pour {
+    transition: none;
+  }
+
+  .river-flow {
+    animation: none;
+  }
+}

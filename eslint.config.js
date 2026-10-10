@@ -14,6 +14,8 @@ export default tseslint.config(
       '**/playwright-report/**',
       '**/test-results/**',
       '**/*.d.ts',
+      // Copied from maplibre-gl at build time (apps/web/scripts/copy-maplibre-worker.mjs).
+      'apps/web/public/maplibre/**',
     ],
   },
 

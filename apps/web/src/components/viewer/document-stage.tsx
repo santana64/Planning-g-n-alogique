@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { play } from '@/lib/sound';
 import { ToolButton, ZoomViewer, useViewer } from './zoom-viewer';
 
 /**
@@ -36,6 +37,10 @@ export function DocumentStage({
   mimeType: string;
   title: string;
 }) {
+  // A breath of paper as the document comes forward, when sound is on.
+  useEffect(() => {
+    play('open');
+  }, [src]);
   return mimeType === 'application/pdf' ? (
     <PdfStage src={src} title={title} />
   ) : (

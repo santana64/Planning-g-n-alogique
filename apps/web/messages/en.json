@@ -144,7 +144,8 @@
       "research": "Research",
       "overview": "Overview",
       "statistics": "Statistics",
-      "photos": "Photos"
+      "photos": "Photos",
+      "river": "River"
     },
     "roles": {
       "OWNER": "Owner",
@@ -705,7 +706,9 @@
       "age": "aged {age}",
       "bornDuring": "born during it",
       "more": "and {count} more"
-    }
+    },
+    "generationLane": "Generation {generation} · {people, plural, one {# person} other {# people}}",
+    "generationsToggle": "Generations"
   },
   "atlas": {
     "placeCounts": "{events, plural, one {1 event} other {# events}}, {people, plural, one {1 person} other {# people}}",
@@ -1729,5 +1732,22 @@
     "retry": "Try again",
     "backToTrees": "Back to the trees",
     "reference": "Reference: {digest}"
+  },
+  "river": {
+    "title": "River",
+    "lead": "The family as currents: each branch is a stream as wide as the number of its members alive at each date. Where a family divides, the stream splits; where a line dies out, it narrows and disappears.",
+    "figure": "River of the {tree} family: {branches, plural, one {# stream} other {# streams}}",
+    "branchOf": "Branch of {of}",
+    "protectedBranch": "Branch of a protected person",
+    "summary": "{people, plural, one {# person} other {# people}} · {from} – {to}",
+    "streams": "{count, plural, one {One stream} other {# streams}}",
+    "empty": "No dated lives yet: the river has no course so far.",
+    "caveat": "An exploratory reading, not a record: widths count the dated lives you may see, and protected people widen their branch without being named. Relationships are corrected on the records."
+  },
+  "sound": {
+    "on": "Sound",
+    "off": "Muted",
+    "turnOn": "Turn on the interface’s quiet sounds",
+    "turnOff": "Mute"
   }
 }

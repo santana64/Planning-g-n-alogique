@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { play } from '@/lib/sound';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { familyOf } from './family';
@@ -15,11 +16,24 @@ import type { TimelineSnapshot } from '@/server/timeline';
 export function TimelineView({ snapshot }: { snapshot: TimelineSnapshot }) {
   const t = useTranslations('timeline');
   const certainty = useTranslations('certainty');
-  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const [selectedPersonId, setSelected] = useState<string | null>(null);
+  const setSelectedPersonId = useCallback((personId: string | null) => {
+    if (personId) play('select');
+    setSelected(personId);
+  }, []);
   const [showTable, setShowTable] = useState(false);
-  const [cursorJdn, setCursorJdn] = useState<number | null>(null);
+  const [cursorJdn, setCursor] = useState<number | null>(null);
+  // A tick each time the cursor crosses into another year.
+  const tickedRef = useRef<number | null>(null);
+  const setCursorJdn = useCallback((jdn: number | null) => {
+    const year = jdn === null ? null : Math.floor(jdn / 365.2425);
+    if (year !== null && year !== tickedRef.current) play('tick');
+    tickedRef.current = year;
+    setCursor(jdn);
+  }, []);
   const [colorMode, setColorMode] = useColorMode();
   const [selectedBandId, setSelectedBandId] = useState<string | null>(null);
+  const [generations, setGenerations] = useState(false);
   const selectedBand = snapshot.bands.find((band) => band.id === selectedBandId) ?? null;
 
   const selected = snapshot.rows.find((row) => row.personId === selectedPersonId);
@@ -78,6 +92,15 @@ export function TimelineView({ snapshot }: { snapshot: TimelineSnapshot }) {
           </div>
           <button
             type="button"
+            onClick={() => setGenerations((value) => !value)}
+            aria-pressed={generations}
+            disabled={showTable}
+            className="border-border-default text-text-secondary hover:border-border-strong hover:text-text-primary aria-pressed:bg-surface-3 aria-pressed:text-text-primary rounded-[var(--radius-md)] border px-3 py-1.5 text-sm transition-colors duration-[var(--duration-fast)] disabled:opacity-40"
+          >
+            {t('generationsToggle')}
+          </button>
+          <button
+            type="button"
             onClick={() => setShowTable((value) => !value)}
             aria-pressed={showTable}
             className="border-border-default text-text-secondary hover:border-border-strong hover:text-text-primary rounded-[var(--radius-md)] border px-3 py-1.5 text-sm transition-colors duration-[var(--duration-fast)]"
@@ -99,6 +122,7 @@ export function TimelineView({ snapshot }: { snapshot: TimelineSnapshot }) {
             colorMode={colorMode}
             selectedBandId={selectedBandId}
             onSelectBand={setSelectedBandId}
+            generations={generations}
           />
         )}
       </div>

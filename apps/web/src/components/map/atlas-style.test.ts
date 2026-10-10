@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { arcsToGeoJson, greatCircle, pointsToGeoJson } from './atlas-style';
+import {
+  arcsToGeoJson,
+  greatCircle,
+  pointsToGeoJson,
+  FLOW_DASHES,
+  buildStyle,
+} from './atlas-style';
 import type { AtlasArc, AtlasPoint } from '@/server/atlas';
 
 /**
@@ -107,5 +113,25 @@ describe('the time cursor', () => {
   it('carries the weight through, so a repeated route reads as heavier', () => {
     const features = arcsToGeoJson([arc({ weight: 8 })], null).features;
     expect(features[0]?.properties['weight']).toBe(8);
+  });
+});
+
+describe('the map style', () => {
+  it('writes every colour in a form MapLibre accepts', () => {
+    // MapLibre's validator rejects oklch() and drops the whole layer: the land
+    // and every route once went undrawn that way, without a visible error.
+    const colours = buildStyle().layers.flatMap((layer) =>
+      Object.entries(('paint' in layer ? layer.paint : undefined) ?? {})
+        .filter(([key]) => key.endsWith('-color'))
+        .map(([, value]) => value),
+    );
+    expect(colours.length).toBeGreaterThan(4);
+    for (const colour of colours) expect(colour).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
+  it('draws the routes three times: halo, line and travelling dashes', () => {
+    const ids = buildStyle().layers.map((layer) => layer.id);
+    expect(ids).toEqual(expect.arrayContaining(['arcs-glow', 'arcs', 'arcs-flow']));
+    expect(FLOW_DASHES.every((dash) => dash.length === 3)).toBe(true);
   });
 });

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { play } from '@/lib/sound';
 import { collectNotes, sourceText, type RenderedChapter, type StorySentence } from './sentences';
 
 /**
@@ -86,6 +87,13 @@ export function StoryPlayer({
   function go(next: number) {
     setIndex(Math.max(0, Math.min(chapters.length - 1, next)));
   }
+
+  // A low swell as one scene gives way to the next.
+  const playedRef = useRef(index);
+  useEffect(() => {
+    if (playedRef.current !== index) play('transition');
+    playedRef.current = index;
+  }, [index]);
 
   // The clock: from the year on screen to the year of the new chapter.
   useEffect(() => {

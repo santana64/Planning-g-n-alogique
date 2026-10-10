@@ -1,3 +1,4 @@
+import type { StyleSpecification } from 'maplibre-gl';
 import type { AtlasArc, AtlasPoint } from '@/server/atlas';
 
 /**
@@ -137,5 +138,103 @@ export function arcsToGeoJson(
           ),
         },
       })),
+  };
+}
+
+/**
+ * One cycle of a dash sliding along a line, in MapLibre's dash units. Swapped
+ * one step at a time; animating the array itself is not something the
+ * renderer interpolates.
+ */
+export const FLOW_DASHES: readonly [number, number, number][] = [
+  [0, 4, 3],
+  [0.5, 4, 2.5],
+  [1, 4, 2],
+  [1.5, 4, 1.5],
+  [2, 4, 1],
+  [2.5, 4, 0.5],
+  [3, 4, 0],
+];
+/**
+ * Colours are sRGB hex, the design tokens' oklch values converted: the
+ * MapLibre style validator rejects `oklch()`, and a rejected paint property
+ * drops its whole layer — the land, the borders and the routes were not
+ * drawn at all while they were written in oklch.
+ */
+export function buildStyle(): StyleSpecification {
+  return {
+    version: 8,
+    sources: {
+      // Absolute: MapLibre fetches GeoJSON from a worker started from a blob,
+      // where a root-relative path has no origin to resolve against.
+      countries: {
+        type: 'geojson',
+        data:
+          typeof window === 'undefined'
+            ? BASEMAP_URL
+            : new URL(BASEMAP_URL, window.location.origin).href,
+      },
+      places: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+      arcs: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+    },
+    layers: [
+      {
+        id: 'ocean',
+        type: 'background',
+        paint: { 'background-color': '#05080f' },
+      },
+      {
+        id: 'land',
+        type: 'fill',
+        source: 'countries',
+        paint: { 'fill-color': '#111720' },
+      },
+      {
+        id: 'borders',
+        type: 'line',
+        source: 'countries',
+        paint: { 'line-color': '#282e37', 'line-width': 0.6 },
+      },
+      {
+        // A soft halo under each route, so a crossing reads on the dark sea.
+        id: 'arcs-glow',
+        type: 'line',
+        source: 'arcs',
+        layout: { 'line-cap': 'round' },
+        paint: {
+          'line-color': '#dba757',
+          'line-width': ['min', ['+', 4, ['*', 1.5, ['get', 'weight']]], 14],
+          'line-opacity': 0.12,
+          'line-blur': 6,
+        },
+      },
+      {
+        id: 'arcs',
+        type: 'line',
+        source: 'arcs',
+        paint: {
+          'line-color': '#dba757',
+          // Thicker for a route more people took. Capped, because a route
+          // taken by two hundred people is not a hundred times more important
+          // than one taken by two.
+          'line-width': ['min', ['+', 0.8, ['*', 0.5, ['get', 'weight']]], 5],
+          'line-opacity': 0.55,
+        },
+      },
+      {
+        // Dashes travelling from the place left to the place reached: the
+        // direction of a migration, which a still line cannot say. Still
+        // under reduced motion.
+        id: 'arcs-flow',
+        type: 'line',
+        source: 'arcs',
+        paint: {
+          'line-color': '#fad9a2',
+          'line-width': ['min', ['+', 0.8, ['*', 0.4, ['get', 'weight']]], 3.5],
+          'line-opacity': 0.85,
+          'line-dasharray': FLOW_DASHES[0] ?? [0, 4, 3],
+        },
+      },
+    ],
   };
 }

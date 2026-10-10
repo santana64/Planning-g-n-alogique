@@ -67,6 +67,8 @@ export interface TimelineAnimation {
   readonly focus: number;
   /** Phase of the ring that pulses at the selected birth; 0 when still. */
   readonly pulse: number;
+  /** How far the lives have gathered into generations, when asked for; 0 to 1. */
+  readonly generations?: number;
 }
 
 export const STILL: TimelineAnimation = { entrance: 1, focus: 1, pulse: 0 };
@@ -100,6 +102,10 @@ export interface RenderOptions {
   readonly interaction: TimelineInteraction;
   readonly colorMode?: TimelineColorMode;
   readonly animation?: TimelineAnimation;
+  /** Words drawn on the canvas, in the reader's language. */
+  readonly labels?: {
+    readonly generation: (generation: number, people: number) => string;
+  };
 }
 
 type TimelineRowData = RenderOptions['snapshot']['rows'][number];
@@ -213,12 +219,163 @@ export function renderTimeline(
   // where the life it marks begins.
   if (lod.showRelationshipLinks) drawLinks(ctx, options, rowY, firstRow, lastRow, 'NODES');
   if (lod.showPersonLabels) drawLabels(ctx, options, rowY, firstRow, lastRow);
+  const generations = Math.max(generationBlend(viewport), options.animation?.generations ?? 0);
+  if (generations > 0) drawGenerations(ctx, options, generations);
   drawTodayLine(ctx, options);
   drawTemporalCursor(ctx, options);
   drawAxis(ctx, options);
   drawHistoryLane(ctx, options);
 
   return { visibleRows: Math.max(lastRow - firstRow + 1, 0), detailLevel: lod.level };
+}
+
+// --- Generation view ----------------------------------------------------------
+
+/** Below this many pixels per year, lives start to merge into generations… */
+const GENERATIONS_FROM_PX_PER_YEAR = 2.4;
+/** …and below this, only generations are drawn. */
+const GENERATIONS_FULL_PX_PER_YEAR = 1.6;
+const GENERATION_LANE_PX = 38;
+const GENERATION_BIN_PX = 3;
+
+/**
+ * How much of the generation view shows, from 0 to 1, by zoom.
+ *
+ * A crossfade over a band of zoom rather than a switch, so zooming out reads
+ * as lives gathering into their generations instead of a screen being
+ * swapped for another.
+ */
+export function generationBlend(viewport: TemporalViewport): number {
+  const perYear = (viewport.widthPx / (viewport.endJdn - viewport.startJdn)) * 365.2425;
+  return clamp01(
+    (GENERATIONS_FROM_PX_PER_YEAR - perYear) /
+      (GENERATIONS_FROM_PX_PER_YEAR - GENERATIONS_FULL_PX_PER_YEAR),
+  );
+}
+
+export interface GenerationLane {
+  readonly generation: number;
+  readonly people: number;
+  readonly startJdn: number;
+  readonly endJdn: number;
+}
+
+/** Each generation, with how many people and the years its lives cover. */
+export function generationLanes(rows: readonly TimelineRowData[]): GenerationLane[] {
+  const lanes = new Map<number, { people: number; startJdn: number; endJdn: number }>();
+  for (const row of rows) {
+    if (row.earliestJdn === null || row.latestJdn === null) continue;
+    const lane = lanes.get(row.depth);
+    if (lane) {
+      lane.people += 1;
+      lane.startJdn = Math.min(lane.startJdn, row.earliestJdn);
+      lane.endJdn = Math.max(lane.endJdn, row.latestJdn);
+    } else {
+      lanes.set(row.depth, { people: 1, startJdn: row.earliestJdn, endJdn: row.latestJdn });
+    }
+  }
+  return [...lanes.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([depth, lane]) => ({ generation: depth + 1, ...lane }));
+}
+
+/**
+ * Lives compressed into generations, for a view too wide to read a life in.
+ *
+ * One lane per generation; in it, a ribbon as thick as the number of that
+ * generation's members alive at each moment — so a generation's rise, its
+ * peak and its passing are what the eye reads, not a smear of hairlines.
+ * Counted from the lives the chart was given: a protected relative adds to a
+ * count and is never named.
+ */
+function drawGenerations(ctx: CanvasRenderingContext2D, options: RenderOptions, alpha: number) {
+  const { snapshot, viewport, heightPx, theme } = options;
+  const width = viewport.widthPx;
+  const lanes = generationLanes(snapshot.rows);
+  if (lanes.length === 0) return;
+
+  ctx.save();
+  // The lives fade back as their generations come forward.
+  ctx.globalAlpha = alpha * 0.92;
+  ctx.fillStyle = theme.surface;
+  ctx.fillRect(0, HEADER_HEIGHT, width, heightPx - HEADER_HEIGHT);
+
+  const toX = (jdn: number) =>
+    ((jdn - viewport.startJdn) / (viewport.endJdn - viewport.startJdn)) * width;
+  const bins = Math.ceil(width / GENERATION_BIN_PX) + 1;
+  const daysPerBin = ((viewport.endJdn - viewport.startJdn) / width) * GENERATION_BIN_PX;
+
+  // Alive counts per generation per bin, by a difference array: O(rows + bins).
+  const counts = new Map<number, Float32Array>();
+  for (const row of snapshot.rows) {
+    if (row.earliestJdn === null || row.latestJdn === null) continue;
+    let delta = counts.get(row.depth);
+    if (!delta) {
+      delta = new Float32Array(bins + 1);
+      counts.set(row.depth, delta);
+    }
+    const from = Math.floor((row.earliestJdn - viewport.startJdn) / daysPerBin);
+    const to = Math.ceil((row.latestJdn - viewport.startJdn) / daysPerBin);
+    if (to < 0 || from > bins) continue;
+    delta[Math.max(from, 0)] = (delta[Math.max(from, 0)] ?? 0) + 1;
+    delta[Math.min(to, bins)] = (delta[Math.min(to, bins)] ?? 0) - 1;
+  }
+  let peak = 1;
+  for (const delta of counts.values()) {
+    let running = 0;
+    for (let i = 0; i < delta.length; i += 1) {
+      running += delta[i] ?? 0;
+      delta[i] = running;
+      if (running > peak) peak = running;
+    }
+  }
+
+  const half = GENERATION_LANE_PX / 2 - 6;
+  lanes.forEach((lane, index) => {
+    const centre = HEADER_HEIGHT + 18 + index * GENERATION_LANE_PX + GENERATION_LANE_PX / 2;
+    if (centre - GENERATION_LANE_PX > heightPx) return;
+    const alive = counts.get(lane.generation - 1);
+    if (!alive) return;
+
+    ctx.globalAlpha = alpha;
+    const gradient = ctx.createLinearGradient(0, centre - half, 0, centre + half);
+    gradient.addColorStop(0, theme.accent);
+    gradient.addColorStop(0.5, theme.textPrimary);
+    gradient.addColorStop(1, theme.accent);
+    ctx.fillStyle = gradient;
+    ctx.globalAlpha = alpha * 0.55;
+    ctx.beginPath();
+    ctx.moveTo(0, centre);
+    for (let i = 0; i < bins; i += 1) {
+      const thickness = Math.sqrt((alive[i] ?? 0) / peak) * half;
+      ctx.lineTo(i * GENERATION_BIN_PX, centre - thickness);
+    }
+    for (let i = bins - 1; i >= 0; i -= 1) {
+      const thickness = Math.sqrt((alive[i] ?? 0) / peak) * half;
+      ctx.lineTo(i * GENERATION_BIN_PX, centre + thickness);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // The thread of the lane, so an empty stretch still reads as a lane.
+    ctx.globalAlpha = alpha * 0.35;
+    ctx.strokeStyle = theme.gridLineMajor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(Math.max(toX(lane.startJdn), 0), centre);
+    ctx.lineTo(Math.min(toX(lane.endJdn), width), centre);
+    ctx.stroke();
+
+    const label = options.labels?.generation(lane.generation, lane.people);
+    if (label) {
+      ctx.globalAlpha = alpha;
+      ctx.font = `11px ${theme.fontSans}`;
+      ctx.fillStyle = theme.textMuted;
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(label, Math.max(toX(lane.startJdn), 8) + 2, centre - half - 1);
+    }
+  });
+  ctx.restore();
 }
 
 /**

@@ -21,7 +21,7 @@ export type NodeEnv = z.infer<typeof nodeEnvSchema>;
 export const featureFlagSchema = z.object({
   constellation: booleanFromString.default(true),
   temporalDepth: booleanFromString.default(true),
-  river: booleanFromString.default(false),
+  river: booleanFromString.default(true),
   storyDirector: booleanFromString.default(false),
   webxr: booleanFromString.default(false),
   reconstruction: booleanFromString.default(false),

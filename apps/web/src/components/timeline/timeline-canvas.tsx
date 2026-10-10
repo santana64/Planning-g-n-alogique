@@ -2,11 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFormatter, useLocale, useTranslations } from 'next-intl';
+import { jdnToGregorian } from '@chronolignee/domain';
 import { ofNameIn } from '@/lib/french';
-import { TemporalCamera, type CameraState, type DetailLevel } from '@chronolignee/engine';
+import {
+  TemporalCamera,
+  interpolateCamera,
+  type CameraState,
+  type DetailLevel,
+} from '@chronolignee/engine';
 import {
   AXIS_HEIGHT,
   HEADER_HEIGHT,
+  generationBlend,
   renderTimeline,
   type TimelineColorMode,
   type TimelineTheme,
@@ -46,6 +53,8 @@ export interface TimelineCanvasProps {
   /** The historical event chosen in the lane, owned by the view for its panel. */
   readonly selectedBandId: string | null;
   readonly onSelectBand: (bandId: string | null) => void;
+  /** Lives gathered into generations, whatever the zoom. */
+  readonly generations?: boolean;
 }
 
 /** Durations, in milliseconds. Short enough never to make anyone wait. */
@@ -54,6 +63,17 @@ const FOCUS_MS = 650;
 const PULSE_MS = 1600;
 /** The birth ring pulses twice and stops: a pointer, not a screensaver. */
 const PULSE_CYCLES = 2;
+/** A camera flight: long enough to follow, short enough not to wait for. */
+const FLIGHT_MS = 720;
+const GENERATIONS_MS = 520;
+
+/**
+ * The development inspector: frame rate, draw cost, level of detail, camera
+ * and cursor, over the chart. Compiled in only outside production, and
+ * toggled with the backquote key — a tool for whoever is tuning the renderer,
+ * never something a reader stumbles on.
+ */
+const INSPECTOR = process.env.NODE_ENV !== 'production';
 
 function readTheme(element: HTMLElement): TimelineTheme {
   const styles = getComputedStyle(element);
@@ -104,6 +124,7 @@ export function TimelineCanvas({
   colorMode,
   selectedBandId,
   onSelectBand,
+  generations = false,
 }: TimelineCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -117,13 +138,22 @@ export function TimelineCanvas({
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
   const [hoveredBandId, setHoveredBandId] = useState<string | null>(null);
   const tracks = useMemo(() => laneTracks(snapshot.bands), [snapshot.bands]);
-  const animationRef = useRef({ entrance: 0, focus: 1, pulse: 0, pulseElapsed: 0 });
+  const animationRef = useRef({
+    entrance: 0,
+    focus: 1,
+    pulse: 0,
+    pulseElapsed: 0,
+    generations: generations ? 1 : 0,
+  });
   const reducedMotion = usePrefersReducedMotion();
   const format = useFormatter();
   const locale = useLocale();
   const t = useTranslations('timeline');
   const certainty = useTranslations('certainty');
   const [detailLevel, setDetailLevel] = useState<DetailLevel>('PERSON');
+  const [inspecting, setInspecting] = useState(false);
+  const statsRef = useRef({ frames: [] as number[], drawMs: 0, visibleRows: 0 });
+  const [stats, setStats] = useState<string[]>([]);
 
   const contentHeight = snapshot.rows.length * ROW_HEIGHT + HEADER_HEIGHT;
 
@@ -194,6 +224,7 @@ export function TimelineCanvas({
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+    const drawStarted = performance.now();
     const result = renderTimeline(ctx, {
       snapshot,
       viewport: camera.viewport(),
@@ -211,8 +242,19 @@ export function TimelineCanvas({
       },
       colorMode,
       animation: animationRef.current,
+      labels: {
+        generation: (generation, people) => t('generationLane', { generation, people }),
+      },
     });
 
+    if (INSPECTOR) {
+      const now = performance.now();
+      const frames = statsRef.current.frames;
+      frames.push(now);
+      while (frames.length > 0 && (frames[0] ?? now) < now - 1000) frames.shift();
+      statsRef.current.drawMs = now - drawStarted;
+      statsRef.current.visibleRows = result.visibleRows;
+    }
     setDetailLevel(result.detailLevel);
   }, [
     snapshot,
@@ -225,6 +267,7 @@ export function TimelineCanvas({
     colorMode,
     hoveredBandId,
     selectedBandId,
+    t,
   ]);
 
   /** The historical event under a point, when the point is in the lane. */
@@ -252,6 +295,150 @@ export function TimelineCanvas({
     return () => cancelAnimationFrame(frameRef.current);
   }, [requestDraw]);
 
+  // The inspector reads the numbers twice a second rather than on every
+  // frame, so measuring the renderer does not slow it down.
+  useEffect(() => {
+    if (!INSPECTOR || !inspecting) return;
+    const read = () => {
+      const camera = cameraRef.current;
+      if (!camera) return;
+      const view = camera.viewport();
+      const years = (view.endJdn - view.startJdn) / 365.2425;
+      const from = jdnToGregorian(Math.round(view.startJdn)).year;
+      const to = jdnToGregorian(Math.round(view.endJdn)).year;
+      const current = statsRef.current;
+      setStats([
+        `frames ${current.frames.length}/s (none when still) · draw ${current.drawMs.toFixed(1)} ms`,
+        `lod ${detailLevel} · ${(view.widthPx / years).toFixed(2)} px/yr`,
+        `generations ${Math.max(generationBlend(view), animationRef.current.generations).toFixed(2)}`,
+        `camera ${from} – ${to} (${years.toFixed(0)} yr, ${view.widthPx}px)`,
+        `rows ${current.visibleRows}/${snapshot.rows.length} · scroll ${Math.round(scrollTop)}`,
+        `cursor ${cursor ? jdnToGregorian(cursor.jdn).year : '—'} · selected ${selectedPersonId?.slice(0, 8) ?? '—'}`,
+        `band ${selectedBandId?.slice(0, 8) ?? '—'} · colour ${colorMode}`,
+        `renderer canvas2d · dpr ${Math.min(window.devicePixelRatio || 1, 2)}`,
+      ]);
+    };
+    read();
+    const timer = setInterval(read, 500);
+    return () => clearInterval(timer);
+  }, [
+    inspecting,
+    detailLevel,
+    snapshot.rows.length,
+    scrollTop,
+    cursor,
+    selectedPersonId,
+    selectedBandId,
+    colorMode,
+  ]);
+
+  // --- Camera flights -------------------------------------------------------
+  //
+  // A life or a period chosen elsewhere — a name in the history panel, a
+  // search — that is off screen is travelled to rather than cut to, so the
+  // reader sees where it sits relative to where they were. Geometric
+  // interpolation of the span (see interpolateCamera) keeps a long zoom even.
+  // Any gesture takes the camera back; reduced motion jumps.
+
+  const flightRef = useRef(0);
+  const cancelFlight = useCallback(() => {
+    cancelAnimationFrame(flightRef.current);
+    flightRef.current = 0;
+  }, []);
+
+  const flyTo = useCallback(
+    (range: { startJdn: number; endJdn: number } | null, row: number | null) => {
+      const camera = cameraRef.current;
+      if (!camera || size.width === 0) return;
+      cancelFlight();
+
+      const from = camera.snapshot();
+      if (range) camera.fitRange(range.startJdn, range.endJdn, 0.3);
+      const to = camera.snapshot();
+      camera.restore(from);
+
+      const visibleRows = Math.max(size.height - HEADER_HEIGHT, ROW_HEIGHT);
+      const maxScroll = Math.max(contentHeight - size.height, 0);
+      const scrollFrom = scrollTop;
+      const rowTop = row === null ? null : row * ROW_HEIGHT;
+      const rowShown =
+        rowTop === null || (rowTop >= scrollTop && rowTop + ROW_HEIGHT <= scrollTop + visibleRows);
+      const scrollTo =
+        rowTop === null || rowShown
+          ? scrollFrom
+          : Math.min(Math.max(rowTop - visibleRows / 2 + ROW_HEIGHT / 2, 0), maxScroll);
+      // Nothing to travel: the life is on screen already.
+      if (!range && scrollTo === scrollFrom) return;
+
+      if (reducedMotion) {
+        camera.restore(to);
+        setScrollTop(scrollTo);
+        onViewportChange?.(camera.snapshot());
+        requestDraw();
+        return;
+      }
+
+      const started = performance.now();
+      const step = (now: number) => {
+        const t = Math.min((now - started) / FLIGHT_MS, 1);
+        // Ease in and out: a camera that starts or stops at full speed reads
+        // as a cut, not as travel.
+        const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        camera.restore(interpolateCamera(from, to, eased));
+        setScrollTop(scrollFrom + (scrollTo - scrollFrom) * eased);
+        requestDraw();
+        if (t < 1) {
+          flightRef.current = requestAnimationFrame(step);
+        } else {
+          flightRef.current = 0;
+          onViewportChange?.(camera.snapshot());
+        }
+      };
+      flightRef.current = requestAnimationFrame(step);
+    },
+    [
+      cancelFlight,
+      contentHeight,
+      onViewportChange,
+      reducedMotion,
+      requestDraw,
+      scrollTop,
+      size.height,
+      size.width,
+    ],
+  );
+
+  useEffect(() => cancelFlight, [cancelFlight]);
+
+  // Fly to a life selected from outside the chart, when it is out of view.
+  // Kept current in an effect declared before the ones that read it, so they
+  // see this render's flight without re-running on its every dependency.
+  const flyToRef = useRef(flyTo);
+  useEffect(() => {
+    flyToRef.current = flyTo;
+  }, [flyTo]);
+  useEffect(() => {
+    const camera = cameraRef.current;
+    if (!camera || !selectedPersonId) return;
+    const row = snapshot.rows.find((candidate) => candidate.personId === selectedPersonId);
+    if (!row || row.earliestJdn === null || row.latestJdn === null) return;
+    const view = camera.viewport();
+    const inView = row.earliestJdn >= view.startJdn && row.latestJdn <= view.endJdn;
+    flyToRef.current(inView ? null : { startJdn: row.earliestJdn, endJdn: row.latestJdn }, row.row);
+  }, [selectedPersonId, snapshot.rows]);
+
+  // And to a period chosen in the history lane or panel, when it is not.
+  useEffect(() => {
+    const camera = cameraRef.current;
+    if (!camera || !selectedBandId) return;
+    const band = snapshot.bands.find((candidate) => candidate.id === selectedBandId);
+    if (!band) return;
+    const view = camera.viewport();
+    if (band.startJdn < view.startJdn || band.endJdn > view.endJdn) {
+      flyToRef.current({ startJdn: band.startJdn, endJdn: band.endJdn }, null);
+    }
+  }, [selectedBandId, snapshot.bands]);
+
   // --- Animation ------------------------------------------------------------
   //
   // One loop, alive only while something moves. It advances the numbers the
@@ -274,11 +461,19 @@ export function TimelineCanvas({
       const dt = Math.min(now - last, 64);
       last = now;
 
+      const towards = generations ? 1 : 0;
       if (reducedMotion) {
         state.entrance = 1;
         state.focus = 1;
         state.pulse = 0;
+        state.generations = towards;
       } else {
+        // Lives gather into generations, and part again, over half a second.
+        const stepGenerations = dt / GENERATIONS_MS;
+        state.generations =
+          state.generations < towards
+            ? Math.min(state.generations + stepGenerations, towards)
+            : Math.max(state.generations - stepGenerations, towards);
         state.entrance = Math.min(state.entrance + dt / ENTRANCE_MS, 1);
         state.focus = Math.min(state.focus + dt / FOCUS_MS, 1);
         if (selectedPersonId && state.focus >= 1 && state.pulseElapsed < PULSE_MS * PULSE_CYCLES) {
@@ -295,13 +490,14 @@ export function TimelineCanvas({
         !reducedMotion &&
         (state.entrance < 1 ||
           state.focus < 1 ||
+          state.generations !== towards ||
           (selectedPersonId !== null && state.pulseElapsed < PULSE_MS * PULSE_CYCLES));
       if (moving) raf = requestAnimationFrame(tick);
     };
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [draw, reducedMotion, selectedPersonId, size.width]);
+  }, [draw, reducedMotion, selectedPersonId, size.width, generations]);
 
   /** Parents and children by row, for the tooltip. */
   const family = useMemo(() => familyOf(snapshot), [snapshot]);
@@ -327,6 +523,10 @@ export function TimelineCanvas({
 
   // --- Pointer --------------------------------------------------------------
 
+  /** Whether the lives are, for now, gathered into generations. */
+  const gatheredFor = (camera: TemporalCamera) =>
+    Math.max(generationBlend(camera.viewport()), animationRef.current.generations) >= 0.5;
+
   const dragRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
 
   const rowAt = useCallback(
@@ -343,6 +543,7 @@ export function TimelineCanvas({
   );
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    cancelFlight();
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = { x: event.clientX, y: event.clientY, moved: false };
   };
@@ -371,7 +572,8 @@ export function TimelineCanvas({
 
     const band = bandAtPoint(event.clientX, event.clientY);
     if (band !== hoveredBandId) setHoveredBandId(band);
-    const row = band ? null : rowAt(event.clientY);
+    const gathered = camera ? gatheredFor(camera) : false;
+    const row = band || gathered ? null : rowAt(event.clientY);
     if (row !== hoveredRow) setHoveredRow(row);
     const bounds = containerRef.current?.getBoundingClientRect();
     if (bounds) setPointer({ x: event.clientX - bounds.left, y: event.clientY - bounds.top });
@@ -389,6 +591,9 @@ export function TimelineCanvas({
         onSelectBand(band === selectedBandId ? null : band);
         return;
       }
+      // Lives gathered into generations are not there to be clicked.
+      const camera = cameraRef.current;
+      if (camera && gatheredFor(camera)) return;
       const row = rowAt(event.clientY);
       const person = row !== null ? snapshot.rows[row] : undefined;
       onSelect(person && person.personId !== selectedPersonId ? person.personId : null);
@@ -405,6 +610,7 @@ export function TimelineCanvas({
     const onWheel = (event: WheelEvent) => {
       const camera = cameraRef.current;
       if (!camera) return;
+      cancelFlight();
 
       if (event.ctrlKey || event.metaKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
         event.preventDefault();
@@ -427,7 +633,7 @@ export function TimelineCanvas({
 
     container.addEventListener('wheel', onWheel, { passive: false });
     return () => container.removeEventListener('wheel', onWheel);
-  }, [contentHeight, size.height, requestDraw, onViewportChange]);
+  }, [contentHeight, size.height, requestDraw, onViewportChange, cancelFlight]);
 
   // --- Keyboard -------------------------------------------------------------
 
@@ -437,6 +643,7 @@ export function TimelineCanvas({
 
     const step = event.shiftKey ? KEYBOARD_PAN_PX * 4 : KEYBOARD_PAN_PX;
     let handled = true;
+    cancelFlight();
 
     switch (event.key) {
       case 'ArrowLeft':
@@ -462,6 +669,13 @@ export function TimelineCanvas({
       case 'Home':
         camera.fitRange(snapshot.earliestJdn, snapshot.latestJdn);
         setScrollTop(0);
+        break;
+      case '`':
+        if (!INSPECTOR) {
+          handled = false;
+          break;
+        }
+        setInspecting((value) => !value);
         break;
       default:
         handled = false;
@@ -579,6 +793,15 @@ export function TimelineCanvas({
           )}
         </div>
       )}
+
+      {INSPECTOR && inspecting ? (
+        <pre
+          aria-hidden="true"
+          className="border-border-default bg-surface-0/85 text-text-secondary pointer-events-none absolute top-14 right-2 rounded-[var(--radius-sm)] border px-2 py-1.5 font-mono text-[10px] leading-snug"
+        >
+          {stats.join('\n')}
+        </pre>
+      ) : null}
 
       <p className="text-text-faint pointer-events-none absolute right-2 bottom-2 text-xs">
         {t('hint', {
