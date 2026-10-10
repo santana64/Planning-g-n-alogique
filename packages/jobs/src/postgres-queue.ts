@@ -57,8 +57,8 @@ function ensureSchema(databaseUrl: string): Promise<void> {
     promise = poolFor(databaseUrl)
       .query(
         `CREATE SCHEMA IF NOT EXISTS ${SCHEMA};
-         CREATE TABLE IF NOT EXISTS ${SCHEMA}.jobs (
-           id text PRIMARY KEY,
+         CREATE TABLE IF NOT EXISTS ${SCHEMA}.queue_jobs (
+           id text NOT NULL,
            queue text NOT NULL,
            name text NOT NULL,
            data jsonb NOT NULL,
@@ -68,9 +68,12 @@ function ensureSchema(databaseUrl: string): Promise<void> {
            run_at timestamptz NOT NULL DEFAULT now(),
            error text,
            created_at timestamptz NOT NULL DEFAULT now(),
-           finished_at timestamptz
+           finished_at timestamptz,
+           -- An id is unique within its queue, as in BullMQ: the same tree's
+           -- id names its duplicate scan and nothing in any other queue.
+           PRIMARY KEY (queue, id)
          );
-         CREATE INDEX IF NOT EXISTS jobs_ready ON ${SCHEMA}.jobs (queue, state, run_at);`,
+         CREATE INDEX IF NOT EXISTS queue_jobs_ready ON ${SCHEMA}.queue_jobs (queue, state, run_at);`,
       )
       .then(() => undefined);
     ready.set(databaseUrl, promise);
@@ -90,8 +93,8 @@ export class PostgresQueue extends EventEmitter {
     await ensureSchema(this.databaseUrl);
     // A second add with the same id is ignored, as BullMQ does.
     await poolFor(this.databaseUrl).query(
-      `INSERT INTO ${SCHEMA}.jobs (id, queue, name, data, max_attempts)
-       VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`,
+      `INSERT INTO ${SCHEMA}.queue_jobs (id, queue, name, data, max_attempts)
+       VALUES ($1, $2, $3, $4, $5) ON CONFLICT (queue, id) DO NOTHING`,
       [
         options.jobId ?? randomUUID(),
         this.name,
@@ -106,7 +109,7 @@ export class PostgresQueue extends EventEmitter {
     await ensureSchema(this.databaseUrl);
     const pool = poolFor(this.databaseUrl);
     const { rows } = await pool.query<{ state: JobState; run_at: Date }>(
-      `SELECT state, run_at FROM ${SCHEMA}.jobs WHERE id = $1 AND queue = $2`,
+      `SELECT state, run_at FROM ${SCHEMA}.queue_jobs WHERE id = $1 AND queue = $2`,
       [id, this.name],
     );
     const row = rows[0];
@@ -116,7 +119,7 @@ export class PostgresQueue extends EventEmitter {
       getState: async (): Promise<JobState> =>
         row.state === 'waiting' && row.run_at.getTime() > Date.now() ? 'delayed' : row.state,
       remove: async (): Promise<void> => {
-        await pool.query(`DELETE FROM ${SCHEMA}.jobs WHERE id = $1 AND queue = $2`, [
+        await pool.query(`DELETE FROM ${SCHEMA}.queue_jobs WHERE id = $1 AND queue = $2`, [
           id,
           this.name,
         ]);
@@ -150,7 +153,7 @@ export class PostgresWorker extends EventEmitter {
       // A job left active by a process that died is taken up again: one
       // desktop worker per database, so nothing else can be running it.
       await poolFor(this.databaseUrl).query(
-        `UPDATE ${SCHEMA}.jobs SET state = 'waiting' WHERE queue = $1 AND state = 'active'`,
+        `UPDATE ${SCHEMA}.queue_jobs SET state = 'waiting' WHERE queue = $1 AND state = 'active'`,
         [this.name],
       );
     } catch (error) {
@@ -168,9 +171,9 @@ export class PostgresWorker extends EventEmitter {
       attempts: number;
       max_attempts: number;
     }>(
-      `UPDATE ${SCHEMA}.jobs SET state = 'active', attempts = attempts + 1
-       WHERE id = (
-         SELECT id FROM ${SCHEMA}.jobs
+      `UPDATE ${SCHEMA}.queue_jobs SET state = 'active', attempts = attempts + 1
+       WHERE queue = $1 AND id = (
+         SELECT id FROM ${SCHEMA}.queue_jobs
          WHERE queue = $1 AND state = 'waiting' AND run_at <= now()
          ORDER BY run_at, created_at
          FOR UPDATE SKIP LOCKED
@@ -207,8 +210,9 @@ export class PostgresWorker extends EventEmitter {
       try {
         await this.processor(job);
         await pool.query(
-          `UPDATE ${SCHEMA}.jobs SET state = 'completed', finished_at = now(), error = NULL WHERE id = $1`,
-          [job.id],
+          `UPDATE ${SCHEMA}.queue_jobs SET state = 'completed', finished_at = now(), error = NULL
+           WHERE queue = $2 AND id = $1`,
+          [job.id, this.name],
         );
       } catch (error) {
         const failure = error instanceof Error ? error : new Error(String(error));
@@ -218,12 +222,13 @@ export class PostgresWorker extends EventEmitter {
         await pool
           .query(
             retry
-              ? `UPDATE ${SCHEMA}.jobs SET state = 'waiting', error = $2,
-                   run_at = now() + ($3 || ' milliseconds')::interval WHERE id = $1`
-              : `UPDATE ${SCHEMA}.jobs SET state = 'failed', error = $2, finished_at = now() WHERE id = $1`,
+              ? `UPDATE ${SCHEMA}.queue_jobs SET state = 'waiting', error = $2,
+                   run_at = now() + ($3 || ' milliseconds')::interval WHERE queue = $4 AND id = $1`
+              : `UPDATE ${SCHEMA}.queue_jobs SET state = 'failed', error = $2, finished_at = now()
+                 WHERE queue = $3 AND id = $1`,
             retry
-              ? [job.id, failure.name, String(BACKOFF_MS * 2 ** (job.attempts - 1))]
-              : [job.id, failure.name],
+              ? [job.id, failure.name, String(BACKOFF_MS * 2 ** (job.attempts - 1)), this.name]
+              : [job.id, failure.name, this.name],
           )
           .catch(() => undefined);
         if (!retry) this.emit('failed', job, failure);
@@ -234,7 +239,7 @@ export class PostgresWorker extends EventEmitter {
   private async sweep(): Promise<void> {
     await poolFor(this.databaseUrl)
       .query(
-        `DELETE FROM ${SCHEMA}.jobs WHERE queue = $1 AND (
+        `DELETE FROM ${SCHEMA}.queue_jobs WHERE queue = $1 AND (
            (state = 'completed' AND finished_at < now() - ($2 || ' milliseconds')::interval) OR
            (state = 'failed' AND finished_at < now() - ($3 || ' milliseconds')::interval))`,
         [this.name, String(KEEP_COMPLETED_MS), String(KEEP_FAILED_MS)],
