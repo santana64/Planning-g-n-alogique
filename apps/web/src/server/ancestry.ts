@@ -152,6 +152,7 @@ export interface KinshipView {
   /** Names of the shared ancestors, redacted where they must be. */
   readonly throughNames: readonly string[];
   readonly otherName: string;
+  readonly otherSex: 'MALE' | 'FEMALE' | 'INTERSEX' | 'UNKNOWN';
 }
 
 /**
@@ -173,17 +174,23 @@ export async function loadKinship(
   const todayJdn = dateToJdn(new Date());
   const graph = await treeGraph(access.treeId, todayJdn);
   if (!graph.has(subjectId) || !graph.has(otherId)) return null;
+  const hidden = hiddenInGraph(graph, access);
+  // Asked about someone this reader may not see, the answer is no answer:
+  // "your brother", of a protected person, would say exactly who they are.
+  if (hidden(subjectId) || hidden(otherId)) return null;
 
   const result = kinship(graph, subjectId, otherId);
   const nameOf = (id: string): string => {
     const person = graph.people.get(id);
     if (!person) return '';
-    return hiddenInGraph(graph, access)(id) ? REDACTED_LABEL : person.displayName;
+    return hidden(id) ? REDACTED_LABEL : person.displayName;
   };
+  const sex = graph.people.get(otherId)?.recordedSex;
 
   return {
     kinship: result,
     throughNames: result.through.map(nameOf),
     otherName: nameOf(otherId),
+    otherSex: sex === 'MALE' || sex === 'FEMALE' || sex === 'INTERSEX' ? sex : 'UNKNOWN',
   };
 }

@@ -53,8 +53,10 @@ export default defineConfig({
   workers: process.env['CI'] ? 2 : 1,
   forbidOnly: Boolean(process.env['CI']),
 
+  // On CI, `github` too: each failure becomes an annotation on the run,
+  // readable without downloading the report.
   reporter: process.env['CI']
-    ? [['html', { outputFolder: 'playwright-report', open: 'never' }], ['list']]
+    ? [['github'], ['html', { outputFolder: 'playwright-report', open: 'never' }], ['list']]
     : [['list']],
 
   use: {

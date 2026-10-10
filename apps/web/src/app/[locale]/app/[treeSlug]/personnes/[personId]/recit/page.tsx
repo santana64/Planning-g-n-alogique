@@ -73,7 +73,7 @@ export default async function RecitPage({
   const view = await loadLineageStory(treeSlug, personId, chosen.line);
   if (!view) notFound();
 
-  const chapters = view.plan ? renderStory({ ...view, plan: view.plan }) : [];
+  const chapters = view.plan ? renderStory({ ...view, plan: view.plan, locale }) : [];
   const title = view.subjectHidden ? t('headingHidden') : t('heading', { name: view.subjectName });
 
   return (

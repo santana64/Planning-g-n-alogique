@@ -80,6 +80,18 @@ test('a photograph is uploaded, a person is named in it, and it reaches their re
   await expect(page.getByText('1 personne identifiée')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Jeanne VASSEUR' })).toBeVisible();
 
+  // --- The moment it shows: one of her events ------------------------------
+  const shown = page.getByRole('region', { name: 'Événements illustrés' });
+  await expect(shown.getByText('Cette photographie n’est liée à aucun événement.')).toBeVisible();
+  await shown.getByLabel('Événement montré par la photographie').selectOption({
+    label: 'Naissance · Jeanne VASSEUR · 1890',
+  });
+  await shown.getByRole('button', { name: 'Lier' }).click();
+  await expect(shown.getByText('Naissance · Jeanne VASSEUR · 1890')).toBeVisible();
+  await expect(
+    shown.getByRole('button', { name: 'Retirer le lien avec Naissance · Jeanne VASSEUR · 1890' }),
+  ).toBeVisible();
+
   // The stage zooms from its toolbar, and says by how much.
   await page.getByRole('button', { name: 'Agrandir' }).click();
   await settled(page);
@@ -94,6 +106,8 @@ test('a photograph is uploaded, a person is named in it, and it reaches their re
   // --- On her record --------------------------------------------------------
   await page.goto(`/app/${slug}/personnes/${jeanne}`);
   await expect(page.getByRole('heading', { name: '1 photographie' })).toBeVisible();
+  // And beside the event it shows.
+  await expect(page.getByRole('img', { name: 'Photographie : noce-1912.png' })).toBeVisible();
 
   // --- A protected relative in a picture withholds the picture -------------
   await page.goto(`/app/${slug}/photos`);

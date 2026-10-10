@@ -5,6 +5,7 @@ import { emailVerificationMessage, passwordResetMessage } from '@chronolignee/ma
 import { db } from './db';
 import { env } from './env';
 import { mailEnabled, sendMail } from './mail';
+import { localeOfRequest } from './mail-locale';
 
 /**
  * Authentication.
@@ -45,10 +46,15 @@ export const auth = betterAuth({
     requireEmailVerification: mailEnabled,
     autoSignIn: true,
     resetPasswordTokenExpiresIn: RESET_VALID_SECONDS,
-    sendResetPassword: async ({ user, url }) => {
+    sendResetPassword: async ({ user, url }, request) => {
       await sendMail(
         'password-reset',
-        passwordResetMessage({ to: user.email, url, validForHours: RESET_VALID_SECONDS / 3600 }),
+        passwordResetMessage({
+          to: user.email,
+          url,
+          validForHours: RESET_VALID_SECONDS / 3600,
+          locale: localeOfRequest(request),
+        }),
       );
     },
   },
@@ -61,8 +67,11 @@ export const auth = betterAuth({
     sendOnSignIn: true,
     autoSignInAfterVerification: true,
     expiresIn: VERIFICATION_VALID_SECONDS,
-    sendVerificationEmail: async ({ user, url }) => {
-      await sendMail('email-verification', emailVerificationMessage({ to: user.email, url }));
+    sendVerificationEmail: async ({ user, url }, request) => {
+      await sendMail(
+        'email-verification',
+        emailVerificationMessage({ to: user.email, url, locale: localeOfRequest(request) }),
+      );
     },
   },
 

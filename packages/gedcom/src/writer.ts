@@ -35,7 +35,30 @@ export interface WriteOptions {
 const GEDCOM_VERSION = '7.0';
 
 export function writeGedcom(plan: ImportPlan, options: WriteOptions = {}): string {
-  const lines: string[] = [];
+  let file = '';
+  for (const chunk of writeGedcomChunks(plan, options)) file += chunk;
+  return file;
+}
+
+/**
+ * The same file, one record at a time.
+ *
+ * For a response that streams: the file of a large tree is never held as
+ * one string, nor as one buffer of bytes, on its way out. Each chunk is
+ * whole lines, CRLF-terminated, so the chunks concatenate to exactly what
+ * `writeGedcom` returns.
+ */
+export function* writeGedcomChunks(
+  plan: ImportPlan,
+  options: WriteOptions = {},
+): Generator<string, void, undefined> {
+  let lines: string[] = [];
+  // GEDCOM 7 mandates CRLF, after every line including the last.
+  const drain = (): string => {
+    const chunk = `${lines.join('\r\n')}\r\n`;
+    lines = [];
+    return chunk;
+  };
   const write = (level: number, tag: string, value?: string, xref?: string): void => {
     const parts = [String(level)];
     if (xref) parts.push(xref);
@@ -75,6 +98,8 @@ export function writeGedcom(plan: ImportPlan, options: WriteOptions = {}): strin
   if (options.submitterName) {
     write(1, 'SUBM', '@SUBM1@');
   }
+
+  yield drain();
 
   const families = assembleFamilies(plan.relationships, plan.events);
   const eventsByPerson = groupPersonEvents(plan.events);
@@ -118,6 +143,7 @@ export function writeGedcom(plan: ImportPlan, options: WriteOptions = {}): strin
 
     for (const note of person.notes) writeText(1, 'NOTE', note);
     for (const sourceXref of person.sourceXrefs) write(1, 'SOUR', sourceXref);
+    yield drain();
   }
 
   // --- Families ------------------------------------------------------------
@@ -141,6 +167,7 @@ export function writeGedcom(plan: ImportPlan, options: WriteOptions = {}): strin
       write(1, 'MARR', 'Y');
     }
     if (family.union === 'DIVORCED_PARTNER' && !has('DIVORCE')) write(1, 'DIV', 'Y');
+    yield drain();
   }
 
   // --- Sources -------------------------------------------------------------
@@ -154,12 +181,11 @@ export function writeGedcom(plan: ImportPlan, options: WriteOptions = {}): strin
       write(1, 'REPO', source.repository);
       if (source.callNumber) write(2, 'CALN', source.callNumber);
     }
+    yield drain();
   }
 
   write(0, 'TRLR');
-
-  // GEDCOM 7 mandates CRLF and a trailing terminator.
-  return `${lines.join('\r\n')}\r\n`;
+  yield drain();
 }
 
 type WriteFn = (level: number, tag: string, value?: string, xref?: string) => void;

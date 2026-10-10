@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import { IDLE, type ActionState } from '@/server/action-state';
 import { createEventAction, deleteEventAction, updateEventAction } from '@/server/event-actions';
 import type { PersonEventRow } from '@/server/people';
@@ -63,6 +64,7 @@ export function EventEditor({
   treeSlug,
   personId,
   events,
+  photosByEvent = {},
   canEdit,
   canDelete,
   ai,
@@ -70,6 +72,8 @@ export function EventEditor({
   treeSlug: string;
   personId: string;
   events: readonly PersonEventRow[];
+  /** The photographs said to show each event, by event. */
+  photosByEvent?: Readonly<Record<string, readonly { mediaId: string; title: string }[]>>;
   canEdit: boolean;
   canDelete: boolean;
   ai: AIStatus;
@@ -164,6 +168,26 @@ export function EventEditor({
                     ) : null}
                   </span>
                 </span>
+
+                {photosByEvent[event.eventId]?.length ? (
+                  <ul className="flex gap-2 pt-1">
+                    {photosByEvent[event.eventId]?.map((photo) => (
+                      <li key={photo.mediaId} className="research-row">
+                        <Link
+                          href={`/app/${treeSlug}/photos/${photo.mediaId}`}
+                          className="group border-border-subtle bg-surface-sunken block h-16 overflow-hidden rounded-[var(--radius-sm)] border"
+                        >
+                          <img
+                            src={`/api/trees/${treeSlug}/media/${photo.mediaId}?variant=thumbnail`}
+                            alt={t('photoOf', { title: photo.title })}
+                            loading="lazy"
+                            className="h-full w-auto transition-transform duration-[var(--duration-slow)] group-hover:scale-[1.06]"
+                          />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
 
                 <EventCitations
                   treeSlug={treeSlug}

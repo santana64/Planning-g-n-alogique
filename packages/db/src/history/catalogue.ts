@@ -433,7 +433,9 @@ export const HISTORICAL_CATALOGUE: readonly CatalogueEntry[] = [
     significance: 5,
     start: '28 JUL 1914',
     end: '11 NOV 1918',
-    countryCodes: [],
+    // The belligerents, not the world: Argentina stayed neutral, and a life
+    // lived in Buenos Aires did not run through it.
+    countryCodes: ['FR', 'BE', 'GB', 'DE', 'AT', 'IT', 'RU', 'RS', 'US'],
   },
   {
     title: 'Bataille de Verdun',

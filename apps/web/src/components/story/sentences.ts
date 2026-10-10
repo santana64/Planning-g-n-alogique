@@ -10,6 +10,7 @@ import type {
 } from '@chronolignee/engine';
 import { ofName } from '../../lib/french';
 import type { StoryViewPerson } from '@/server/story';
+import { describeCandidateEn, renderSceneEn } from './sentences-en';
 
 /**
  * A story plan, told in French.
@@ -63,6 +64,8 @@ export interface StoryInput {
   readonly plan: StoryPlan;
   readonly people: Readonly<Record<string, StoryViewPerson>>;
   readonly history: Readonly<Record<string, StoryHistoricalEvent>>;
+  /** The reader's language; French unless said otherwise. */
+  readonly locale?: string;
 }
 
 export { ofName };
@@ -326,8 +329,9 @@ function renderScene(scene: StoryScene, index: number, input: StoryInput): Rende
 
 export function renderStory(input: StoryInput): RenderedChapter[] {
   const chapters: RenderedChapter[] = [];
+  const render = input.locale === 'en' ? renderSceneEn : renderScene;
   input.plan.scenes.forEach((scene, index) => {
-    const rendered = renderScene(scene, index, input);
+    const rendered = render(scene, index, input);
     if (!rendered) return;
     if ('chapter' in rendered) {
       chapters.push(rendered.chapter);
@@ -349,7 +353,9 @@ export function describeCandidate(
   facts: StoryCandidateFacts,
   subjectId: string,
   people: ReadonlyMap<string, StoryViewPerson>,
+  locale = 'fr',
 ): { title: string; reason: string } {
+  if (locale === 'en') return describeCandidateEn(facts, subjectId, people);
   const name = (id: string) => people.get(id)?.name ?? '';
   switch (facts.kind) {
     case 'migration': {

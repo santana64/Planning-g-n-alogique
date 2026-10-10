@@ -76,7 +76,8 @@ export async function inviteMemberAction(
       { treeId: authorised.access.treeId, email, role },
       { userId: authorised.userId },
     );
-    const path = getPathname({ href: `/invitation/${created.token}`, locale: await getLocale() });
+    const locale = await getLocale();
+    const path = getPathname({ href: `/invitation/${created.token}`, locale });
     const link = new URL(path, env.APP_URL).toString();
 
     // Sent when the instance can send, and shown either way: the link is what
@@ -92,6 +93,9 @@ export async function inviteMemberAction(
         // The inviter's language: it is the only one this request knows.
         roleLabel: (await getTranslations('tree.roles'))(role),
         validForDays: INVITATION_TTL_DAYS,
+        // The person invited may not have an account yet: the inviter's
+        // language is the only one this request knows, like the link's.
+        locale: locale === 'en' ? 'en' : 'fr',
       }),
     );
 

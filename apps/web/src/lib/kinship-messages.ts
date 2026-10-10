@@ -73,7 +73,12 @@ function removalSuffix(removal: number): string {
  * "X est votre grand-père" rather than "vous et X partagent un ancêtre" —
  * the second is what the graph computed and the first is what was asked.
  */
-export function kinshipLabel(relation: Kinship, otherSex: KinshipSex = 'UNKNOWN'): string {
+export function kinshipLabel(
+  relation: Kinship,
+  otherSex: KinshipSex = 'UNKNOWN',
+  locale = 'fr',
+): string {
+  if (locale === 'en') return kinshipLabelEn(relation, otherSex);
   switch (relation.code) {
     case 'SELF':
       return 'La même personne';
@@ -131,9 +136,81 @@ function capitalise(value: string): string {
 }
 
 /** The sentence naming the shared ancestors, or empty when there are none. */
-export function kinshipThrough(names: readonly string[]): string {
+export function kinshipThrough(names: readonly string[], locale = 'fr'): string {
   const real = names.filter(Boolean);
   if (real.length === 0) return '';
+  if (locale === 'en') {
+    if (real.length === 1) return `through ${real[0]}`;
+    return `through ${real.slice(0, -1).join(', ')} and ${real[real.length - 1]}`;
+  }
   if (real.length === 1) return `par ${real[0]}`;
   return `par ${real.slice(0, -1).join(', ')} et ${real[real.length - 1]}`;
+}
+
+// --- English ----------------------------------------------------------------
+
+/**
+ * Kinship, in English: "great-" once per generation past the grandparent,
+ * cousins by ordinal degree and "removed" for the generations between —
+ * second cousin once removed. Sex is not guessed here either: the neutral
+ * word, or both, when the record does not say.
+ */
+function kinshipLabelEn(relation: Kinship, sex: KinshipSex): string {
+  const gendered = (neutral: string, male: string, female: string): string =>
+    sex === 'MALE' ? male : sex === 'FEMALE' ? female : neutral;
+  const greats = (count: number) => 'great-'.repeat(Math.max(count, 0));
+
+  switch (relation.code) {
+    case 'SELF':
+      return 'The same person';
+    case 'PARTNER':
+      return gendered('Spouse or partner', 'Husband or partner', 'Wife or partner');
+    case 'DESCENDANT': {
+      const up = relation.up;
+      if (up === 1) return gendered('Parent', 'Father', 'Mother');
+      return capitaliseEn(
+        `${greats(up - 2)}${gendered('grandparent', 'grandfather', 'grandmother')}`,
+      );
+    }
+    case 'ANCESTOR': {
+      const down = relation.down;
+      if (down === 1) return gendered('Child', 'Son', 'Daughter');
+      return capitaliseEn(
+        `${greats(down - 2)}${gendered('grandchild', 'grandson', 'granddaughter')}`,
+      );
+    }
+    case 'SIBLING':
+      return gendered('Brother or sister', 'Brother', 'Sister');
+    case 'PIBLING':
+      return capitaliseEn(
+        `${greats(relation.up - 2)}${gendered('uncle or aunt', 'uncle', 'aunt')}`,
+      );
+    case 'NIBLING':
+      return capitaliseEn(
+        `${greats(relation.down - 2)}${gendered('nephew or niece', 'nephew', 'niece')}`,
+      );
+    case 'COUSIN':
+      return capitaliseEn(`${ordinalWord(relation.degree)} cousin${removedEn(relation.removal)}`);
+    case 'UNRELATED':
+      return 'No relationship found in this tree';
+  }
+}
+
+function ordinalWord(degree: number): string {
+  const words = ['', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth'];
+  if (words[degree]) return words[degree];
+  const tens = degree % 100;
+  const suffix = tens >= 11 && tens <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][degree % 10] ?? 'th');
+  return `${degree}${suffix}`;
+}
+
+function removedEn(removal: number): string {
+  if (removal === 0) return '';
+  if (removal === 1) return ' once removed';
+  if (removal === 2) return ' twice removed';
+  return ` ${removal} times removed`;
+}
+
+function capitaliseEn(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }

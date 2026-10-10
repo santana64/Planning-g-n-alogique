@@ -221,6 +221,8 @@ test.describe('the tree’s settings', () => {
     expect(text).toContain('2 VERS 7.0');
     expect(text).toMatch(/NAME Auguste \/Moreau\//i);
     expect(text).toMatch(/NAME Lina \/Moreau\//i);
+    // Streamed record by record, and still whole: it ends on its trailer.
+    expect(text.endsWith('0 TRLR\r\n')).toBe(true);
 
     await page.goto(`/app/${slug}/historique`);
     await expect(page.locator('main')).toContainText(

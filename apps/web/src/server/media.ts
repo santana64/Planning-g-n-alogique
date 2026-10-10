@@ -1,9 +1,12 @@
 import 'server-only';
 import { cache } from 'react';
+import { getTranslations } from 'next-intl/server';
 import { dateToJdn, jdnToGregorian } from '@chronolignee/domain';
+import { decodeDate } from '@chronolignee/db';
 import { db } from '@/lib/db';
 import { hiddenInGraph, resolveTreeAccess, type TreeAccess } from './access';
 import { treeGraph } from './graph-cache';
+import { dateLabelOf } from './people';
 
 /**
  * Photographs, for one reader.
@@ -35,7 +38,19 @@ export interface PhotoCard {
   readonly width: number | null;
   readonly height: number | null;
   readonly tagged: readonly string[];
+  /** The people recognised in it, by identifier. */
+  readonly taggedIds: readonly string[];
+  /** The events it is said to show. */
+  readonly eventIds: readonly string[];
   readonly processed: boolean;
+}
+
+/** An event a photograph shows, or could be said to show. */
+export interface PhotoEvent {
+  readonly eventId: string;
+  readonly label: string;
+  readonly dateLabel: string | null;
+  readonly people: readonly string[];
 }
 
 export interface PhotoDetail extends PhotoCard {
@@ -44,6 +59,9 @@ export interface PhotoDetail extends PhotoCard {
   readonly capturedOriginalText: string | null;
   readonly originalFilename: string;
   readonly tags: readonly PhotoTag[];
+  readonly events: readonly PhotoEvent[];
+  /** Events of the people in it, not yet linked — offered to editors only. */
+  readonly linkableEvents: readonly PhotoEvent[];
 }
 
 function privacyAllows(access: TreeAccess, privacy: string): boolean {
@@ -90,6 +108,7 @@ const MEDIA_SELECT = {
   personTags: {
     select: { personId: true, x: true, y: true, width: true, height: true, note: true },
   },
+  events: { select: { eventId: true } },
 } as const;
 
 type MediaRow = {
@@ -113,6 +132,7 @@ type MediaRow = {
     height: number | null;
     note: string | null;
   }>;
+  events: Array<{ eventId: string }>;
 };
 
 function card(row: MediaRow, nameOf: (id: string) => string): PhotoCard {
@@ -127,6 +147,8 @@ function card(row: MediaRow, nameOf: (id: string) => string): PhotoCard {
     width: row.width,
     height: row.height,
     tagged: row.personTags.map((tag) => nameOf(tag.personId)),
+    taggedIds: row.personTags.map((tag) => tag.personId),
+    eventIds: row.events.map((link) => link.eventId),
     processed: row.thumbnailStorageKey !== null,
   };
 }
@@ -160,6 +182,20 @@ export const loadPhoto = cache(async (treeSlug: string, mediaId: string) => {
   const { visible, nameOf, people } = await visibilityFor(access);
   if (!row.personTags.every((tag) => visible(tag.personId))) return null;
 
+  const linked = row.events.map((link) => link.eventId);
+  const tagged = row.personTags.map((tag) => tag.personId);
+  const [events, linkableEvents] = await Promise.all([
+    photoEvents(access, { id: { in: linked } }, visible, nameOf),
+    access.canEdit && tagged.length > 0
+      ? photoEvents(
+          access,
+          { id: { notIn: linked }, participants: { some: { personId: { in: tagged } } } },
+          visible,
+          nameOf,
+        )
+      : Promise.resolve([]),
+  ]);
+
   const photo: PhotoDetail = {
     ...card(row, nameOf),
     description: row.description,
@@ -175,11 +211,67 @@ export const loadPhoto = cache(async (treeSlug: string, mediaId: string) => {
           ? { x: tag.x, y: tag.y, width: tag.width, height: tag.height }
           : null,
     })),
+    events,
+    linkableEvents,
   };
   return { access, photo, people };
 });
 
-/** The photographs one person has been recognised in, for their record. */
+/**
+ * Events in words, for the photograph page: kind, people, date as written.
+ *
+ * An event with anyone in it this reader may not see is left out — its
+ * existence beside a photograph would say who else was there.
+ */
+async function photoEvents(
+  access: TreeAccess,
+  where: NonNullable<NonNullable<Parameters<typeof db.event.findMany>[0]>['where']>,
+  visible: (personId: string) => boolean,
+  nameOf: (personId: string) => string,
+): Promise<PhotoEvent[]> {
+  const rows = await db.event.findMany({
+    where: { ...where, treeId: access.treeId, deletedAt: null },
+    select: {
+      id: true,
+      type: true,
+      customType: true,
+      dateQualifier: true,
+      dateCalendar: true,
+      datePrecision: true,
+      dateStartYear: true,
+      dateStartMonth: true,
+      dateStartDay: true,
+      dateEndYear: true,
+      dateEndMonth: true,
+      dateEndDay: true,
+      dateOriginalText: true,
+      dateUnparsed: true,
+      participants: { select: { personId: true } },
+    },
+    orderBy: [{ dateSortJdn: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
+    take: 80,
+  });
+  if (rows.length === 0) return [];
+  const kinds = await getTranslations('events');
+  return rows
+    .filter((row) => row.participants.every((participant) => visible(participant.personId)))
+    .map((row) => ({
+      eventId: row.id,
+      label:
+        row.type === 'CUSTOM'
+          ? (row.customType ?? kinds('CUSTOM'))
+          : kinds.has(row.type)
+            ? kinds(row.type)
+            : row.type,
+      dateLabel: row.dateQualifier ? dateLabelOf(decodeDate(row), row.dateOriginalText) : null,
+      people: [...new Set(row.participants.map((participant) => nameOf(participant.personId)))],
+    }));
+}
+
+/**
+ * The photographs of one person's life, for their record: those they have
+ * been recognised in, and those said to show one of their events.
+ */
 export async function loadPersonPhotos(
   access: TreeAccess,
   personId: string,
@@ -191,7 +283,10 @@ export async function loadPersonPhotos(
       treeId: access.treeId,
       deletedAt: null,
       kind: 'IMAGE',
-      personTags: { some: { personId } },
+      OR: [
+        { personTags: { some: { personId } } },
+        { events: { some: { event: { deletedAt: null, participants: { some: { personId } } } } } },
+      ],
     },
     select: MEDIA_SELECT,
     orderBy: [{ capturedEarliestJdn: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],

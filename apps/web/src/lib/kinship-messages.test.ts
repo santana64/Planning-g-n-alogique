@@ -157,3 +157,32 @@ describe('naming the shared ancestors', () => {
     expect(kinshipThrough(['', ''])).toBe('');
   });
 });
+
+describe('in English', () => {
+  const en = (partial: Partial<Kinship> & Pick<Kinship, 'code'>, sex?: KinshipSexArg) =>
+    kinshipLabel(relation(partial), sex, 'en');
+  type KinshipSexArg = 'MALE' | 'FEMALE' | 'UNKNOWN';
+
+  it('adds one great- per generation past the grandparent', () => {
+    expect(en({ code: 'DESCENDANT', up: 1 }, 'FEMALE')).toBe('Mother');
+    expect(en({ code: 'DESCENDANT', up: 2 }, 'MALE')).toBe('Grandfather');
+    expect(en({ code: 'DESCENDANT', up: 4 }, 'FEMALE')).toBe('Great-great-grandmother');
+    expect(en({ code: 'ANCESTOR', down: 3 })).toBe('Great-grandchild');
+  });
+
+  it('names uncles and nephews the English way', () => {
+    expect(en({ code: 'PIBLING', up: 2, down: 1 }, 'FEMALE')).toBe('Aunt');
+    expect(en({ code: 'PIBLING', up: 3, down: 1 }, 'MALE')).toBe('Great-uncle');
+    expect(en({ code: 'NIBLING', up: 1, down: 3 })).toBe('Great-nephew or niece');
+  });
+
+  it('counts cousins by degree, and the generations between as removed', () => {
+    expect(en({ code: 'COUSIN', degree: 1, removal: 0 })).toBe('First cousin');
+    expect(en({ code: 'COUSIN', degree: 2, removal: 1 })).toBe('Second cousin once removed');
+    expect(en({ code: 'COUSIN', degree: 3, removal: 2 })).toBe('Third cousin twice removed');
+  });
+
+  it('names the shared ancestors', () => {
+    expect(kinshipThrough(['Jean', 'Marie'], 'en')).toBe('through Jean and Marie');
+  });
+});

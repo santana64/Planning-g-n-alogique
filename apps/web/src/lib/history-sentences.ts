@@ -295,6 +295,18 @@ export function describeRevision(facts: RevisionFacts, t: Translator, locale = '
         sentence: h('mediaUntag', { name: text(before, 'name') ?? h('somePerson') }),
         changes: [],
       };
+    case 'EventMedia:CREATE':
+    case 'EventMedia:DELETE': {
+      const side = action === 'CREATE' ? after : before;
+      const event = text(side, 'customType') ?? eventName(t, text(side, 'eventType'));
+      return {
+        sentence: h(action === 'CREATE' ? 'mediaEventLink' : 'mediaEventUnlink', {
+          title: text(side, 'title') ?? '',
+          event,
+        }),
+        changes: [],
+      };
+    }
     case 'Document:UPDATE':
       return {
         sentence: h('documentTranscribed', { title: text(after, 'title') ?? h('someRecord') }),

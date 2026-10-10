@@ -4,7 +4,9 @@ import { getTranslations } from 'next-intl/server';
 import { ZodError } from 'zod';
 import {
   MediaNotFound,
+  linkMediaToEvent,
   tagPersonInMedia,
+  unlinkMediaFromEvent,
   untagPersonInMedia,
   updateDocumentTranscription,
   updateMediaDetails,
@@ -12,7 +14,7 @@ import {
 import { db } from '@/lib/db';
 import { isUuid } from '@/lib/ids';
 import type { ActionState } from './action-state';
-import { authoriseWrite, peopleWritable } from './authorise';
+import { authoriseWrite, peopleOfEvent, peopleWritable } from './authorise';
 import { loadDocumentView } from './documents';
 import { loadPhoto } from './media';
 import { revalidateTree } from './revalidate';
@@ -101,6 +103,57 @@ export async function untagPersonAction(
   }
   revalidateTree(treeSlug);
   return { status: 'success', message: t('untagged') };
+}
+
+/**
+ * Say that a photograph shows an event, or no longer does.
+ *
+ * Both the photograph and every person in the event must be visible to the
+ * author: a link to a wedding with a restricted guest would publish the
+ * guest, and a refusal that differed would confirm them.
+ */
+async function eventLink(form: FormData, link: boolean): Promise<ActionState> {
+  const t = await getTranslations('actions.media');
+  const treeSlug = text(form, 'treeSlug');
+  const authorised = await authoriseWrite(treeSlug, 'contribute');
+  if ('error' in authorised) return authorised.error;
+
+  const mediaId = text(form, 'mediaId');
+  const eventId = text(form, 'eventId');
+  if (!isUuid(mediaId) || !(await loadPhoto(treeSlug, mediaId))) {
+    return { status: 'error', message: t('notFound') };
+  }
+  const people = await peopleOfEvent(authorised.access.treeId, eventId);
+  if (!people || !(await peopleWritable(authorised.access, people))) {
+    return { status: 'error', message: t('eventNotFound') };
+  }
+  try {
+    await (link ? linkMediaToEvent : unlinkMediaFromEvent)(
+      db,
+      mediaId,
+      eventId,
+      authorised.context,
+    );
+  } catch (error) {
+    if (error instanceof MediaNotFound) return { status: 'error', message: t('eventNotFound') };
+    throw error;
+  }
+  revalidateTree(treeSlug);
+  return { status: 'success', message: t(link ? 'eventLinked' : 'eventUnlinked') };
+}
+
+export async function linkEventAction(
+  _previous: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  return eventLink(form, true);
+}
+
+export async function unlinkEventAction(
+  _previous: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  return eventLink(form, false);
 }
 
 export async function updateMediaAction(

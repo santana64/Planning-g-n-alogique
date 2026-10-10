@@ -32,7 +32,7 @@
     "db:migrate:deploy": "pnpm --filter @chronolignee/db migrate:deploy",
     "db:drift": "pnpm --filter @chronolignee/db drift",
     "db:reset": "pnpm --filter @chronolignee/db reset",
-    "db:seed": "pnpm --filter @chronolignee/db seed",
+    "db:seed": "pnpm --filter @chronolignee/db seed && pnpm --filter @chronolignee/worker seed:photos",
     "db:studio": "pnpm --filter @chronolignee/db studio",
     "benchmark": "pnpm --filter @chronolignee/engine benchmark",
     "benchmark:db": "pnpm --filter @chronolignee/db benchmark",

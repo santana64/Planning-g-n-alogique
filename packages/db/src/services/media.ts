@@ -247,6 +247,94 @@ export async function untagPersonInMedia(
   });
 }
 
+// --- Events -----------------------------------------------------------------
+
+/**
+ * Say that a photograph shows an event: the wedding, the departure, the
+ * regiment. A link, not a fact — it changes no date and no place, so it
+ * leaves the event's evidence as it was. Linking twice is a no-op.
+ */
+export async function linkMediaToEvent(
+  db: Database,
+  mediaId: string,
+  eventId: string,
+  context: PersonWriteContext,
+): Promise<void> {
+  await db.$transaction(async (tx) => {
+    const [media, event] = await Promise.all([
+      tx.media.findFirst({
+        where: { id: mediaId, treeId: context.treeId, deletedAt: null },
+        select: { id: true, title: true, originalFilename: true },
+      }),
+      tx.event.findFirst({
+        where: { id: eventId, treeId: context.treeId, deletedAt: null },
+        select: { id: true, type: true, customType: true },
+      }),
+    ]);
+    if (!media || !event) throw new MediaNotFound();
+    const existing = await tx.eventMedia.findUnique({
+      where: { eventId_mediaId: { eventId, mediaId } },
+      select: { eventId: true },
+    });
+    if (existing) return;
+    await tx.eventMedia.create({ data: { eventId, mediaId } });
+    await recordRevision(tx, {
+      treeId: context.treeId,
+      entityType: 'EventMedia',
+      entityId: mediaId,
+      action: 'CREATE',
+      actorId: context.actorId,
+      after: {
+        mediaId,
+        eventId,
+        title: media.title ?? media.originalFilename,
+        eventType: event.type,
+        customType: event.customType,
+      },
+      batchId: context.batchId,
+    });
+  });
+}
+
+export async function unlinkMediaFromEvent(
+  db: Database,
+  mediaId: string,
+  eventId: string,
+  context: PersonWriteContext,
+): Promise<void> {
+  await db.$transaction(async (tx) => {
+    const link = await tx.eventMedia.findFirst({
+      where: {
+        mediaId,
+        eventId,
+        media: { treeId: context.treeId },
+        event: { treeId: context.treeId },
+      },
+      select: {
+        media: { select: { title: true, originalFilename: true } },
+        event: { select: { type: true, customType: true } },
+      },
+    });
+    if (!link) throw new MediaNotFound();
+    await tx.eventMedia.delete({ where: { eventId_mediaId: { eventId, mediaId } } });
+    await recordRevision(tx, {
+      treeId: context.treeId,
+      entityType: 'EventMedia',
+      entityId: mediaId,
+      action: 'DELETE',
+      actorId: context.actorId,
+      before: {
+        mediaId,
+        eventId,
+        title: link.media.title ?? link.media.originalFilename,
+        eventType: link.event.type,
+        customType: link.event.customType,
+      },
+      batchId: context.batchId,
+    });
+  });
+}
+
 // --- Document transcription -------------------------------------------------
 
 export const transcriptionInput = z.object({

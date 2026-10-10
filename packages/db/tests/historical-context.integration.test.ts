@@ -56,7 +56,10 @@ describe('loadHistoricalContext', () => {
     expect(titles).toContain('Loi Sáenz Peña');
     // France is no longer assumed: this tree is located, in Argentina.
     expect(titles).not.toContain('Bataille de Verdun');
-    expect(titles).toContain('Première Guerre mondiale');
+    // Argentina stayed neutral: the war is its belligerents' context…
+    expect(titles).not.toContain('Première Guerre mondiale');
+    // …while a pandemic that went round the world is everyone's.
+    expect(titles).toContain('Grippe espagnole');
   });
 
   it('keeps an event a member pinned, whatever its dates', async () => {

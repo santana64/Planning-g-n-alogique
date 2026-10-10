@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { can } from '@chronolignee/domain';
 import { buildGedcomPlan, recordRevision } from '@chronolignee/db';
-import { writeGedcom } from '@chronolignee/gedcom';
+import { writeGedcomChunks } from '@chronolignee/gedcom';
 import { db } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { getSession } from '@/lib/session';
@@ -17,8 +17,16 @@ import { resolveTreeAccess } from '@/server/access';
  *
  * Linked with a plain anchor, never a prefetching one: fetching this is an
  * act, and a prefetch would record exports nobody asked for.
+ *
+ * Streamed: the file goes out record by record, in batches of about 64 KB,
+ * so a large tree's export is never held whole as text or as bytes. The
+ * tree's rows are still read in one pass before the first byte — the plan
+ * resolves families and cross-references across the whole tree.
  */
 export const runtime = 'nodejs';
+
+/** Characters per streamed batch: about 64 KB of mostly ASCII text. */
+const BATCH_CHARS = 64 * 1024;
 
 export async function GET(
   _request: Request,
@@ -38,7 +46,6 @@ export async function GET(
   }
 
   const plan = await buildGedcomPlan(db, access.treeId);
-  const file = writeGedcom(plan, { generator: 'CHRONOLIGNEE' });
 
   await recordRevision(db, {
     treeId: access.treeId,
@@ -55,7 +62,29 @@ export async function GET(
   );
 
   const day = new Date().toISOString().slice(0, 10);
-  return new Response(file, {
+  const chunks = writeGedcomChunks(plan, { generator: 'CHRONOLIGNEE' });
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      let batch = '';
+      while (batch.length < BATCH_CHARS) {
+        const next = chunks.next();
+        if (next.done) {
+          if (batch) controller.enqueue(encoder.encode(batch));
+          controller.close();
+          return;
+        }
+        batch += next.value;
+      }
+      controller.enqueue(encoder.encode(batch));
+    },
+    cancel() {
+      // The download was abandoned: stop writing a file nobody will read.
+      void chunks.return(undefined);
+    },
+  });
+
+  return new Response(body, {
     headers: {
       // The GEDCOM 7 media type. The slug is [a-z0-9-] by construction, so it
       // is safe in the header as it stands.

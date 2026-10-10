@@ -59,3 +59,43 @@ describe('choosing a transport', () => {
     expect(sender?.label).not.toContain('hunter2');
   });
 });
+
+describe('messages in the reader’s language', () => {
+  const url = 'https://example.test/reset?token=abc';
+
+  it('writes French by default, and English when asked', () => {
+    const fr = passwordResetMessage({ to: 'a@example.test', url, validForHours: 1 });
+    expect(fr.subject).toBe('Chronolignée — réinitialiser votre mot de passe');
+    expect(fr.html).toContain('<html lang="fr">');
+
+    const en = passwordResetMessage({ to: 'a@example.test', url, validForHours: 2, locale: 'en' });
+    expect(en.subject).toBe('Chronolignée — reset your password');
+    expect(en.text).toContain('This link is valid for 2 hours and works only once.');
+    expect(en.text).toContain(url);
+    expect(en.html).toContain('<html lang="en">');
+    expect(en.html).toContain('If the link does not work');
+    expect(en.html).not.toMatch(/Si le lien|mot de passe/);
+  });
+
+  it('confirms an address in English', () => {
+    const en = emailVerificationMessage({ to: 'a@example.test', url, locale: 'en' });
+    expect(en.subject).toBe('Chronolignée — confirm your address');
+    expect(en.text.split('\n')).toContain(url);
+  });
+
+  it('escapes what a user typed, in either language', () => {
+    const en = treeInvitationMessage({
+      to: 'a@example.test',
+      url,
+      treeName: '<script>alert(1)</script>',
+      inviterName: 'Ana',
+      roleLabel: 'Editor',
+      validForDays: 7,
+      locale: 'en',
+    });
+    expect(en.subject).toBe('Chronolignée — invitation to “<script>alert(1)</script>”');
+    expect(en.html).not.toContain('<script>');
+    expect(en.html).toContain('&lt;script&gt;');
+    expect(en.text).toContain('as editor.');
+  });
+});

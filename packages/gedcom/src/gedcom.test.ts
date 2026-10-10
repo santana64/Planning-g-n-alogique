@@ -4,7 +4,7 @@ import { formatGenealogicalDate } from '@chronolignee/domain';
 import { lexGedcom } from './lexer';
 import { parseGedcom } from './parser';
 import { mapDocument } from './mapper';
-import { writeGedcom } from './writer';
+import { writeGedcom, writeGedcomChunks } from './writer';
 
 /** A small but complete GEDCOM 7 file, using CRLF as the specification requires. */
 const SAMPLE = [
@@ -484,6 +484,15 @@ describe('round trip', () => {
 
   it('is idempotent: writing twice gives the same bytes', () => {
     expect(writeGedcom(twice)).toBe(written);
+  });
+
+  it('streams the same file one record at a time, each chunk whole lines', () => {
+    const chunks = [...writeGedcomChunks(once)];
+    // The header, every individual, family and source, and the trailer.
+    expect(chunks.length).toBeGreaterThan(once.people.length);
+    expect(chunks.join('')).toBe(written);
+    for (const chunk of chunks) expect(chunk.endsWith(String.fromCharCode(13, 10))).toBe(true);
+    expect(chunks.at(-1)).toBe(`0 TRLR${String.fromCharCode(13, 10)}`);
   });
 
   it('carries an unreadable date through as a date phrase', () => {

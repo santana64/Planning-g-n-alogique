@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { TreeNav } from '@/components/people/tree-nav';
 import { PhotoDetailsForm } from '@/components/photos/photo-details';
+import { PhotoEvents } from '@/components/photos/photo-events';
 import { PhotoTagger } from '@/components/photos/photo-tagger';
 import { Link } from '@/i18n/navigation';
 import { isUuid } from '@/lib/ids';
@@ -60,6 +61,15 @@ export default async function PhotoPage({
           tags={photo.tags}
           people={people}
           canEdit={access.canEdit}
+        />
+
+        <PhotoEvents
+          treeSlug={treeSlug}
+          mediaId={photo.mediaId}
+          events={photo.events}
+          linkable={photo.linkableEvents}
+          canEdit={access.canEdit}
+          hasTags={photo.tags.length > 0}
         />
 
         {access.canEdit ? (

@@ -494,7 +494,10 @@ function toNameRow(name: {
  * "—" there would hide the one piece of evidence a researcher needs in order
  * to fix it.
  */
-function dateLabelOf(date: GenealogicalDate | null, original: string | null | undefined): string {
+export function dateLabelOf(
+  date: GenealogicalDate | null,
+  original: string | null | undefined,
+): string {
   if (date && !date.unparsed) return formatGenealogicalDate(date);
   if (original) return original;
   return '—';

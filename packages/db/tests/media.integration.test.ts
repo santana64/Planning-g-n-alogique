@@ -4,10 +4,13 @@ import { ZodError } from 'zod';
 import {
   MediaNotFound,
   createDatabase,
+  createEvent,
   createPerson,
+  linkMediaToEvent,
   registerDocument,
   registerMedia,
   tagPersonInMedia,
+  unlinkMediaFromEvent,
   untagPersonInMedia,
   updateDocumentTranscription,
   updateMediaDetails,
@@ -168,5 +171,53 @@ describe('describing a photograph and a document', () => {
     });
     expect(JSON.stringify(revision.after)).not.toContain('Pierre');
     expect(revision.after).toMatchObject({ transcriptionLength: text.length });
+  });
+});
+
+describe('a photograph of an event', () => {
+  const wedding = async () => {
+    const bride = await person('Louise');
+    const event = await createEvent(
+      db,
+      {
+        type: 'MARRIAGE',
+        date: '3 juin 1912',
+        participants: [{ personId: bride.personId, role: 'SPOUSE' }],
+      },
+      ctx,
+    );
+    return event.eventId;
+  };
+
+  it('links once, however often it is asked, and leaves a trace', async () => {
+    const { mediaId } = await photo();
+    const eventId = await wedding();
+    await linkMediaToEvent(db, mediaId, eventId, ctx);
+    await linkMediaToEvent(db, mediaId, eventId, ctx);
+    expect(await db.eventMedia.count({ where: { mediaId, eventId } })).toBe(1);
+    expect(
+      await db.revision.count({
+        where: { treeId, entityType: 'EventMedia', entityId: mediaId, action: 'CREATE' },
+      }),
+    ).toBe(1);
+  });
+
+  it('refuses an event from another family, and unlinks only within the tree', async () => {
+    const { mediaId } = await photo();
+    const eventId = await wedding();
+    await expect(
+      linkMediaToEvent(db, mediaId, eventId, { treeId: otherTreeId, actorId: null }),
+    ).rejects.toBeInstanceOf(MediaNotFound);
+
+    await linkMediaToEvent(db, mediaId, eventId, ctx);
+    await expect(
+      unlinkMediaFromEvent(db, mediaId, eventId, { treeId: otherTreeId, actorId: null }),
+    ).rejects.toBeInstanceOf(MediaNotFound);
+    await unlinkMediaFromEvent(db, mediaId, eventId, ctx);
+    expect(await db.eventMedia.count({ where: { mediaId } })).toBe(0);
+    const removal = await db.revision.findFirstOrThrow({
+      where: { treeId, entityType: 'EventMedia', entityId: mediaId, action: 'DELETE' },
+    });
+    expect(removal.before).toMatchObject({ eventId, eventType: 'MARRIAGE' });
   });
 });

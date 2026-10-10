@@ -221,6 +221,14 @@
       "beforeBirth": "already under way at their birth",
       "more": "{count, plural, one {1 more event} other {# more events}}",
       "caveat": "General history, matched by the dates and countries of the tree: nothing here says this person took part in it."
+    },
+    "kinship": {
+      "title": "How are they related?",
+      "with": "The relationship between {name} and…",
+      "find": "Find the relationship",
+      "reads": "What {other} is to {subject}",
+      "choose": "Choose a person.",
+      "notFound": "No answer for this person."
     }
   },
   "events": {
@@ -461,7 +469,8 @@
     "submit": "Add",
     "save": "Save",
     "cancel": "Cancel",
-    "custom": "Other…"
+    "custom": "Other…",
+    "photoOf": "Photograph: {title}"
   },
   "editing": {
     "picker": {
@@ -606,7 +615,9 @@
     "undoMergeConfirm": "Restore both records",
     "undoMergeCancel": "Keep the merge",
     "undoMergeHint": "Every name, event and link returns to the record it came from.",
-    "mergeUndoneLabel": "Merge undone: both records are restored."
+    "mergeUndoneLabel": "Merge undone: both records are restored.",
+    "mediaEventLink": "Photograph “{title}” linked to an event ({event})",
+    "mediaEventUnlink": "Photograph “{title}” unlinked from an event ({event})"
   },
   "timeline": {
     "counts": "{people} people · {events} events",
@@ -1394,7 +1405,10 @@
       "saved": "Saved.",
       "documentNotFound": "This document does not exist in this tree.",
       "transcriptionTooLong": "The transcription is too long.",
-      "transcriptionSaved": "Transcription saved."
+      "transcriptionSaved": "Transcription saved.",
+      "eventNotFound": "This event is not in this tree.",
+      "eventLinked": "The photograph now illustrates this event.",
+      "eventUnlinked": "Link removed."
     }
   },
   "research": {
@@ -1698,6 +1712,15 @@
       "description": "Caption",
       "copyright": "Credit",
       "save": "Save"
+    },
+    "events": {
+      "title": "Events shown",
+      "none": "This photograph is not linked to any event.",
+      "choose": "Event shown in the photograph",
+      "link": "Link",
+      "unlink": "Remove the link with {event}",
+      "nothingToLink": "Every event of the people identified is already linked.",
+      "tagFirst": "Identify someone in the photograph to link it to one of their events."
     }
   },
   "errors": {

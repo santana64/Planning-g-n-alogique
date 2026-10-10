@@ -81,3 +81,41 @@ test('says in either language that nothing matched', async ({ page }) => {
   await page.goto(`/en/app/${DEMO}/personnes?q=zzzz`);
   await expect(main).toContainText('No name matches.');
 });
+
+test('tells a suggested story in English, from the same facts', async ({ page }) => {
+  await page.goto(`/en/app/${DEMO}/recits`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Suggested stories');
+  await expect(page.getByRole('heading', { name: 'From Tours to Buenos Aires' })).toBeVisible();
+  await page.getByRole('button', { name: 'Read “From Tours to Buenos Aires”' }).click();
+  const player = page.getByRole('dialog', { name: 'From Tours to Buenos Aires' });
+  await expect(player).toContainText('Starting point');
+  await expect(player).toContainText(/Born on \d{1,2} [A-Z][a-z]+ \d{4} in Buenos Aires\./);
+  await expect(player).not.toContainText('Naît');
+});
+
+test('names a relationship from a record, in both languages', async ({ page }) => {
+  const main = page.locator('main');
+  for (const [prefix, labels] of [
+    [
+      '',
+      { search: 'Le lien entre Gustave CHASSAGNE et…', find: 'Trouver le lien', answer: 'Père' },
+    ],
+    [
+      '/en',
+      {
+        search: 'The relationship between Gustave CHASSAGNE and…',
+        find: 'Find the relationship',
+        answer: 'Father',
+      },
+    ],
+  ] as const) {
+    await page.goto(`${prefix}/app/${DEMO}/personnes?q=Gustave`);
+    await main.getByRole('link', { name: 'Gustave CHASSAGNE' }).first().click();
+    await page.waitForURL(/\/personnes\/[0-9a-f]{8}-/);
+    await main.getByLabel(labels.search).fill('Jean-Baptiste');
+    await page.getByRole('option', { name: /Jean-Baptiste CHASSAGNE/ }).click();
+    await main.getByRole('button', { name: labels.find }).click();
+    await expect(main.getByRole('status').filter({ hasText: labels.answer })).toBeVisible();
+  }
+  await page.context().clearCookies();
+});

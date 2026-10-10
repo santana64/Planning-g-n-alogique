@@ -6,6 +6,7 @@ import { features } from '@/lib/env';
 import { loadPersonPhotos } from '@/server/media';
 import { loadEpoch } from '@/server/epoch';
 import { Epoch } from '@/components/people/epoch';
+import { KinshipFinder } from '@/components/people/kinship-finder';
 import { findingMessage, severityLabel } from '@/lib/finding-messages';
 import { loadPersonDetail } from '@/server/people';
 import { DeletePerson } from '@/components/people/delete-person';
@@ -56,7 +57,15 @@ export default async function PersonPage({
   const history =
     person.redacted || access.role === null ? [] : await loadPersonHistory(access, person.personId);
   const photos = person.redacted ? [] : await loadPersonPhotos(access, person.personId);
-  const portrait = photos[0] ?? null;
+  // The portrait is a photograph they were recognised in, never one only
+  // said to show one of their events: a wedding picture may hold forty faces.
+  const portrait = photos.find((photo) => photo.taggedIds.includes(person.personId)) ?? null;
+  const photosByEvent: Record<string, { mediaId: string; title: string }[]> = {};
+  for (const photo of photos) {
+    for (const eventId of photo.eventIds) {
+      (photosByEvent[eventId] ??= []).push({ mediaId: photo.mediaId, title: photo.title });
+    }
+  }
   // Never for a protected person: the events of their life would date it.
   const epoch = person.redacted ? [] : await loadEpoch(access, person.personId);
   const ageAtDeath = ageBetween(person.birthLabel, person.deathLabel);
@@ -281,6 +290,7 @@ export default async function PersonPage({
                 treeSlug={treeSlug}
                 personId={person.personId}
                 events={person.events}
+                photosByEvent={photosByEvent}
                 canEdit={canEdit}
                 canDelete={canDelete}
                 ai={ai}
@@ -288,6 +298,14 @@ export default async function PersonPage({
             </section>
 
             <Epoch events={epoch} name={person.displayName} />
+
+            {person.redacted ? null : (
+              <KinshipFinder
+                treeSlug={treeSlug}
+                personId={person.personId}
+                personName={person.displayName}
+              />
+            )}
 
             {history.length > 0 ? (
               <section aria-labelledby="record-history" className="flex flex-col gap-3">

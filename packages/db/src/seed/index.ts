@@ -65,7 +65,22 @@ async function main(): Promise<void> {
 
   try {
     const owner = await resolveOwner(db);
-    await db.tree.deleteMany({ where: { slug: DEMO_SLUG } });
+    // A previous demo tree holding stored files is retired rather than
+    // deleted: the worker's sweep removes its objects from storage, then its
+    // rows. Deleting it here would leave its photographs orphaned in the
+    // bucket, out of reach of anything that cleans up.
+    const previous = await db.tree.findUnique({
+      where: { slug: DEMO_SLUG },
+      select: { id: true, _count: { select: { media: true, documents: true } } },
+    });
+    if (previous && previous._count.media + previous._count.documents > 0) {
+      await db.tree.update({
+        where: { id: previous.id },
+        data: { slug: `${DEMO_SLUG}-retired-${previous.id}`, deletedAt: new Date() },
+      });
+    } else if (previous) {
+      await db.tree.delete({ where: { id: previous.id } });
+    }
 
     const tree = await db.tree.create({
       data: {

@@ -1,4 +1,5 @@
 import 'server-only';
+import { getLocale } from 'next-intl/server';
 import { cache } from 'react';
 import {
   dateToJdn,
@@ -80,10 +81,18 @@ const VITAL_TYPES = [
   'NATURALIZATION',
 ] as const;
 
-function toStoryDate(date: GenealogicalDate | null | undefined): StoryDate | null {
+/** The reader's language, for the words a story is told in. */
+async function readerLocale(): Promise<'fr' | 'en'> {
+  return (await getLocale()) === 'en' ? 'en' : 'fr';
+}
+
+function toStoryDate(
+  date: GenealogicalDate | null | undefined,
+  locale: 'fr' | 'en',
+): StoryDate | null {
   if (!date || date.unparsed || date.qualifier === 'UNKNOWN') return null;
   return {
-    label: formatGenealogicalDate(date),
+    label: formatGenealogicalDate(date, { locale }),
     earliestJdn: date.interval.earliest,
     latestJdn: date.interval.latest,
   };
@@ -100,6 +109,7 @@ async function readStoryRecord(
   graph: GenealogyGraph,
   ids: readonly string[],
   hidden: (personId: string) => boolean,
+  locale: 'fr' | 'en',
 ): Promise<{
   people: Map<string, StoryViewPerson>;
   historical: StoryHistoricalEvent[];
@@ -182,8 +192,8 @@ async function readStoryRecord(
     const burialEvent = own.find((event) => event.type === 'BURIAL');
     const birthSource = birthEvent ?? baptismEvent;
     const deathSource = deathEvent ?? burialEvent;
-    const birthDate = toStoryDate(person.birth);
-    const deathDate = toStoryDate(person.death);
+    const birthDate = toStoryDate(person.birth, locale);
+    const deathDate = toStoryDate(person.death, locale);
 
     const birth: StoryFact | null =
       birthDate || birthSource
@@ -197,14 +207,14 @@ async function readStoryRecord(
       .filter((event) => event.type === 'OCCUPATION' && event.description)
       .map((event) => ({
         label: event.description as string,
-        date: toStoryDate(decodeDate(event)),
+        date: toStoryDate(decodeDate(event), locale),
         sources: sourcesOf(event),
       }));
     const moves: StoryMove[] = own
       .filter((event) => event.type === 'MIGRATION' || event.type === 'NATURALIZATION')
       .map((event) => ({
         kind: event.type === 'MIGRATION' ? 'migration' : 'naturalization',
-        date: toStoryDate(decodeDate(event)),
+        date: toStoryDate(decodeDate(event), locale),
         place: placeOf(event),
         sources: sourcesOf(event),
       }));
@@ -305,7 +315,13 @@ export const loadLineageStory = cache(
         .ancestorsOf(subjectId, { biologicalOnly: true })
         .order.filter((id) => id !== subjectId),
     ];
-    const { people, historical } = await readStoryRecord(access.treeId, graph, ids, hidden);
+    const { people, historical } = await readStoryRecord(
+      access.treeId,
+      graph,
+      ids,
+      hidden,
+      await readerLocale(),
+    );
     const plan = planLineageAscent(subjectId, people, historical, line);
 
     return {
@@ -358,20 +374,21 @@ export const loadStorySuggestions = cache(
     const excluded = (personId: string) =>
       hidden(personId) || isPresumedLiving(graphSubject(graph.people.get(personId)), todayJdn);
     const ids = [...graph.people.keys()];
+    const locale = await readerLocale();
     const [{ people, historical }, coverage] = await Promise.all([
-      readStoryRecord(access.treeId, graph, ids, excluded),
+      readStoryRecord(access.treeId, graph, ids, excluded, locale),
       loadEvidenceCoverage(db, access.treeId),
     ]);
 
     const candidates = findStoryCandidates({ people, coverage, historical }).slice(0, OFFERED);
     const suggestions = candidates.map((candidate) => {
-      const described = describeCandidate(candidate.facts, candidate.subjectId, people);
+      const described = describeCandidate(candidate.facts, candidate.subjectId, people, locale);
       const told = referencedBy(candidate.plan, people, historical);
       return {
         id: candidate.id,
         kind: candidate.facts.kind,
         ...described,
-        chapters: renderStory({ plan: candidate.plan, ...told }),
+        chapters: renderStory({ plan: candidate.plan, ...told, locale }),
       };
     });
 

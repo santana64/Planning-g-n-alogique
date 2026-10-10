@@ -221,6 +221,14 @@
       "beforeBirth": "déjà en cours à sa naissance",
       "more": "{count, plural, one {1 autre événement} other {# autres événements}}",
       "caveat": "Histoire générale, rapprochée par les dates et les pays de l’arbre : rien ici ne dit que cette personne y a pris part."
+    },
+    "kinship": {
+      "title": "Quel lien ?",
+      "with": "Le lien entre {name} et…",
+      "find": "Trouver le lien",
+      "reads": "Ce que {other} est pour {subject}",
+      "choose": "Choisissez une personne.",
+      "notFound": "Aucune réponse pour cette personne."
     }
   },
   "events": {
@@ -461,7 +469,8 @@
     "submit": "Ajouter",
     "save": "Enregistrer",
     "cancel": "Annuler",
-    "custom": "Autre…"
+    "custom": "Autre…",
+    "photoOf": "Photographie : {title}"
   },
   "editing": {
     "picker": {
@@ -606,7 +615,9 @@
     "undoMergeConfirm": "Rétablir les deux fiches",
     "undoMergeCancel": "Garder la fusion",
     "undoMergeHint": "Chaque nom, événement et lien retourne à sa fiche d’origine.",
-    "mergeUndoneLabel": "Fusion annulée : les deux fiches sont rétablies."
+    "mergeUndoneLabel": "Fusion annulée : les deux fiches sont rétablies.",
+    "mediaEventLink": "Photographie « {title} » liée à un événement ({event})",
+    "mediaEventUnlink": "Photographie « {title} » détachée d’un événement ({event})"
   },
   "timeline": {
     "counts": "{people} personnes · {events} événements",
@@ -1394,7 +1405,10 @@
       "saved": "Enregistré.",
       "documentNotFound": "Ce document n’existe pas dans cet arbre.",
       "transcriptionTooLong": "La transcription est trop longue.",
-      "transcriptionSaved": "Transcription enregistrée."
+      "transcriptionSaved": "Transcription enregistrée.",
+      "eventNotFound": "Cet événement n’existe pas dans cet arbre.",
+      "eventLinked": "La photographie illustre désormais cet événement.",
+      "eventUnlinked": "Lien retiré."
     }
   },
   "research": {
@@ -1698,6 +1712,15 @@
       "description": "Légende",
       "copyright": "Crédit",
       "save": "Enregistrer"
+    },
+    "events": {
+      "title": "Événements illustrés",
+      "none": "Cette photographie n’est liée à aucun événement.",
+      "choose": "Événement montré par la photographie",
+      "link": "Lier",
+      "unlink": "Retirer le lien avec {event}",
+      "nothingToLink": "Tous les événements des personnes identifiées sont déjà liés.",
+      "tagFirst": "Identifiez quelqu’un sur la photographie pour la lier à l’un de ses événements."
     }
   },
   "errors": {
