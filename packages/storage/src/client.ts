@@ -41,7 +41,20 @@ export interface PutOptions {
   readonly checksum?: string;
 }
 
-export class ObjectStore {
+/** What the application needs from an object store, whatever holds the bytes. */
+export interface ObjectStoreLike {
+  put(key: string, body: Uint8Array, options: PutOptions): Promise<void>;
+  get(key: string): Promise<Uint8Array>;
+  ready(): Promise<void>;
+  exists(key: string): Promise<boolean>;
+  /** A time-limited link, or null when the store cannot sign one. */
+  presignDownload(key: string, ttlSeconds?: number): Promise<string | null>;
+  delete(key: string): Promise<void>;
+  list(prefix: string): Promise<string[]>;
+  deletePrefix(prefix: string): Promise<number>;
+}
+
+export class ObjectStore implements ObjectStoreLike {
   private readonly client: S3Client;
   private readonly config: StorageConfig;
 
@@ -154,10 +167,10 @@ export class ObjectStore {
   }
 }
 
-let shared: ObjectStore | undefined;
+let shared: ObjectStoreLike | undefined;
 
 /** Memoised store, so hot reload does not open a client per edit. */
-export function getObjectStore(config: StorageConfig): ObjectStore {
+export function getObjectStore(config: StorageConfig): ObjectStoreLike {
   shared ??= new ObjectStore(config);
   return shared;
 }

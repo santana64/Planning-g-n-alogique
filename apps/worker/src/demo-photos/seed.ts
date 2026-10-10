@@ -10,7 +10,12 @@ import {
   updateMediaDetails,
   type Database,
 } from '@chronolignee/db';
-import { buildObjectKey, checksum, getObjectStore, type ObjectStore } from '@chronolignee/storage';
+import {
+  buildObjectKey,
+  checksum,
+  objectStoreFromEnv,
+  type ObjectStoreLike,
+} from '@chronolignee/storage';
 import { runMediaDerivatives } from '../media-derivatives';
 import { demoIllustrations, type Illustration } from './illustrations';
 
@@ -50,7 +55,7 @@ async function personByName(db: Database, treeId: string, name: string) {
 
 async function placeIllustration(
   db: Database,
-  store: ObjectStore,
+  store: ObjectStoreLike,
   treeId: string,
   illustration: Illustration,
 ): Promise<{ created: boolean; tagged: number; linked: number; skipped: string[] }> {
@@ -156,15 +161,7 @@ async function placeIllustration(
 async function main() {
   const env = getServerEnv();
   const db = createDatabase({ url: env.DATABASE_URL });
-  const store = getObjectStore({
-    endpoint: env.S3_ENDPOINT,
-    region: env.S3_REGION,
-    bucket: env.S3_BUCKET,
-    accessKeyId: env.S3_ACCESS_KEY_ID,
-    secretAccessKey: env.S3_SECRET_ACCESS_KEY,
-    forcePathStyle: env.S3_FORCE_PATH_STYLE,
-    presignTtlSeconds: env.S3_PRESIGN_TTL_SECONDS,
-  });
+  const store = objectStoreFromEnv(env);
   try {
     const tree = await db.tree.findUnique({ where: { slug: DEMO_SLUG }, select: { id: true } });
     if (!tree) {

@@ -1,4 +1,5 @@
-import { Queue, type ConnectionOptions, type JobsOptions } from 'bullmq';
+import { Queue, Worker, type ConnectionOptions, type JobsOptions } from 'bullmq';
+import { PostgresQueue, PostgresWorker } from './postgres-queue';
 import { z } from 'zod';
 
 /**
@@ -197,3 +198,73 @@ export function assertPayload<T extends QueueName>(
 ): z.infer<(typeof PAYLOAD_SCHEMAS)[T]> {
   return PAYLOAD_SCHEMAS[name].parse(payload) as z.infer<(typeof PAYLOAD_SCHEMAS)[T]>;
 }
+
+// --- Drivers ----------------------------------------------------------------
+
+export interface QueueConfig {
+  /** `redis` on a server, `postgres` for the desktop edition. */
+  readonly driver: 'redis' | 'postgres';
+  readonly redisUrl: string;
+  readonly databaseUrl: string;
+}
+
+/** The part of a queue the application uses, whichever driver holds it. */
+export interface JobQueue {
+  add(name: string, data: unknown, options?: JobsOptions): Promise<unknown>;
+  getJob(id: string): Promise<
+    | {
+        getState(): Promise<string>;
+        remove(): Promise<void>;
+      }
+    | null
+    | undefined
+  >;
+  close(): Promise<void>;
+  on(event: 'error', listener: (error: Error) => void): unknown;
+}
+
+export interface JobWorker {
+  readonly name: string;
+  isRunning(): boolean;
+  on(
+    event: 'failed',
+    listener: (job: { id?: string; data?: unknown } | undefined, error: Error) => void,
+  ): unknown;
+  on(event: 'error', listener: (error: Error) => void): unknown;
+  close(): Promise<void>;
+}
+
+export function openQueue(name: QueueName, config: QueueConfig): JobQueue {
+  if (config.driver === 'postgres') {
+    const queue = new PostgresQueue(name, config.databaseUrl);
+    return {
+      add: (jobName, data, options) =>
+        queue.add(jobName, data, {
+          ...(options?.jobId ? { jobId: options.jobId } : {}),
+          attempts: options?.attempts ?? DEFAULT_JOB_OPTIONS.attempts ?? 1,
+        }),
+      getJob: (id) => queue.getJob(id),
+      close: () => queue.close(),
+      on: (event, listener) => queue.on(event, listener),
+    };
+  }
+  return createQueue(name, config.redisUrl) as unknown as JobQueue;
+}
+
+export function startWorker(
+  name: QueueName,
+  processor: (job: { id?: string; data: unknown }) => Promise<unknown>,
+  options: { readonly concurrency: number },
+  config: QueueConfig,
+): JobWorker {
+  if (config.driver === 'postgres') {
+    return new PostgresWorker(name, processor, config.databaseUrl, options.concurrency);
+  }
+  return new Worker(name, processor, {
+    connection: redisConnection(config.redisUrl),
+    concurrency: options.concurrency,
+    ...WORKER_RETENTION,
+  }) as unknown as JobWorker;
+}
+
+export { closePostgresQueues, PostgresQueue, PostgresWorker } from './postgres-queue';

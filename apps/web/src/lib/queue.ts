@@ -4,10 +4,11 @@ import {
   IMPORT_JOB_OPTIONS,
   QUEUE_NAMES,
   assertPayload,
-  createQueue,
+  openQueue,
   duplicateScanJobId,
   reportConnectionErrors,
   type GedcomImportPayload,
+  type JobQueue,
   type MediaDerivativesPayload,
   type QueueName,
 } from '@chronolignee/jobs';
@@ -21,12 +22,16 @@ import { logger } from './logger';
  * anything never opens a Redis connection — and a build, which imports every
  * module, never tries to.
  */
-const queues = new Map<QueueName, ReturnType<typeof createQueue>>();
+const queues = new Map<QueueName, JobQueue>();
 
-function queueFor(name: QueueName): ReturnType<typeof createQueue> {
+function queueFor(name: QueueName): JobQueue {
   const existing = queues.get(name);
   if (existing) return existing;
-  const queue = createQueue(name, env.REDIS_URL);
+  const queue = openQueue(name, {
+    driver: env.QUEUE_DRIVER,
+    redisUrl: env.REDIS_URL,
+    databaseUrl: env.DATABASE_URL,
+  });
   reportConnectionErrors(queue, (error, suppressed) =>
     logger.error(
       { event: 'queue.unavailable', queue: name, error: error.name, suppressed },

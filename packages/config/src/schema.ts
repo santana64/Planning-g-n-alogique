@@ -59,6 +59,20 @@ export const serverEnvSchema = z
       .min(32, 'BETTER_AUTH_SECRET must carry at least 32 bytes of entropy'),
     BETTER_AUTH_URL: z.url(),
 
+    /**
+     * Where archives are kept: an S3-compatible bucket on a server, a
+     * directory for the desktop edition. With `filesystem` the S3 settings
+     * are not read; STORAGE_PATH is required.
+     */
+    STORAGE_DRIVER: z.enum(['s3', 'filesystem']).default('s3'),
+    STORAGE_PATH: z.string().min(1).optional(),
+    /**
+     * Where the work queue lives: Redis on a server, PostgreSQL itself for
+     * the desktop edition, which has no Redis. With `postgres` REDIS_URL is
+     * not read.
+     */
+    QUEUE_DRIVER: z.enum(['redis', 'postgres']).default('redis'),
+
     S3_ENDPOINT: z.url(),
     S3_REGION: z.string().min(1),
     S3_BUCKET: z.string().min(1),
@@ -126,6 +140,14 @@ export const serverEnvSchema = z
         code: 'custom',
         path: ['SMTP_URL'],
         message: 'MAIL_TRANSPORT=smtp requires SMTP_URL (smtp://user:password@host:port).',
+      });
+    }
+
+    if (env.STORAGE_DRIVER === 'filesystem' && !env.STORAGE_PATH) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['STORAGE_PATH'],
+        message: 'STORAGE_DRIVER=filesystem requires STORAGE_PATH (a directory).',
       });
     }
 

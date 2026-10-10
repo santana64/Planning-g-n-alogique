@@ -13,11 +13,13 @@
   },
   "dependencies": {
     "bullmq": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "pg": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@types/pg": "catalog:"
   }
 }

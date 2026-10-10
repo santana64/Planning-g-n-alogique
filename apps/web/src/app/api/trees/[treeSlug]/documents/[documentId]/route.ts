@@ -18,7 +18,7 @@ import { resolveTreeAccess } from '@/server/access';
 export const runtime = 'nodejs';
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ treeSlug: string; documentId: string }> },
 ): Promise<NextResponse> {
   const { treeSlug, documentId } = await params;
@@ -44,7 +44,11 @@ export async function GET(
     return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
   }
 
-  const url = await objectStore.presignDownload(document.storageKey);
+  // A store on disk signs nothing: the bytes come from the content route,
+  // which repeats every check above.
+  const url =
+    (await objectStore.presignDownload(document.storageKey)) ??
+    new URL(`/api/trees/${treeSlug}/documents/${documentId}/content`, request.url).toString();
 
   return NextResponse.redirect(url, {
     // Never cached by a proxy: the URL expires, and a cached redirect would

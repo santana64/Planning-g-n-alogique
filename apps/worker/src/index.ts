@@ -1,7 +1,6 @@
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { Worker, type Job } from 'bullmq';
 import pino from 'pino';
 import { assertDeployable, getServerEnv, scrubErrorReport } from '@chronolignee/config/server';
 import {
@@ -11,14 +10,14 @@ import {
   scanDuplicates,
   treesAwaitingPurge,
 } from '@chronolignee/db';
-import { getObjectStore, treePrefixes } from '@chronolignee/storage';
+import { objectStoreFromEnv, treePrefixes } from '@chronolignee/storage';
 import {
   QUEUE_NAMES,
-  WORKER_RETENTION,
   assertPayload,
-  createQueue,
+  closePostgresQueues,
+  openQueue,
   duplicateScanJobId,
-  redisConnection,
+  startWorker,
   reportConnectionErrors,
 } from '@chronolignee/jobs';
 import { DUPLICATE_SCORER_VERSION } from '@chronolignee/genealogy';
@@ -89,17 +88,14 @@ sentry?.init({
 });
 
 const db = createDatabase({ url: env.DATABASE_URL });
-const objectStore = getObjectStore({
-  endpoint: env.S3_ENDPOINT,
-  region: env.S3_REGION,
-  bucket: env.S3_BUCKET,
-  accessKeyId: env.S3_ACCESS_KEY_ID,
-  secretAccessKey: env.S3_SECRET_ACCESS_KEY,
-  forcePathStyle: env.S3_FORCE_PATH_STYLE,
-  presignTtlSeconds: env.S3_PRESIGN_TTL_SECONDS,
-});
+const objectStore = objectStoreFromEnv(env);
 
-const connection = redisConnection(env.REDIS_URL);
+// Redis on a server; PostgreSQL itself in the desktop edition, which has none.
+const queueConfig = {
+  driver: env.QUEUE_DRIVER,
+  redisUrl: env.REDIS_URL,
+  databaseUrl: env.DATABASE_URL,
+} as const;
 
 /**
  * A tree just imported is the tree most likely to hold the same person
@@ -108,7 +104,7 @@ const connection = redisConnection(env.REDIS_URL);
  * otherwise waits for someone to ask for. Same job id as the button's, so a
  * scan already queued is not doubled; a finished one is cleared first.
  */
-const duplicateQueue = createQueue(QUEUE_NAMES.duplicateScan, env.REDIS_URL);
+const duplicateQueue = openQueue(QUEUE_NAMES.duplicateScan, queueConfig);
 async function queueDuplicateScan(treeId: string): Promise<boolean> {
   const jobId = duplicateScanJobId(treeId);
   const existing = await duplicateQueue.getJob(jobId);
@@ -133,9 +129,9 @@ async function queueDuplicateScan(treeId: string): Promise<boolean> {
  * which is no time to hold a request open. Progress, outcome and failure are
  * written on the import job as they happen (see gedcom-import.ts).
  */
-const gedcomWorker = new Worker(
+const gedcomWorker = startWorker(
   QUEUE_NAMES.gedcomImport,
-  async (job: Job) => {
+  async (job) => {
     const payload = assertPayload(QUEUE_NAMES.gedcomImport, job.data);
     const log = logger.child({ jobId: job.id, treeId: payload.treeId });
 
@@ -164,12 +160,11 @@ const gedcomWorker = new Worker(
     return { people: result.people, relationships: result.relationships, events: result.events };
   },
   {
-    connection,
     // One import at a time. They hold a long transaction on a tree, and two
     // running together would block each other into the timeout.
     concurrency: 1,
-    ...WORKER_RETENTION,
   },
+  queueConfig,
 );
 
 reportConnectionErrors(gedcomWorker, (error, suppressed) =>
@@ -209,9 +204,9 @@ gedcomWorker.on('failed', (job, error) => {
  * is no time to hold a request open. The job id is the tree's, so a second
  * click while one runs changes nothing.
  */
-const duplicateWorker = new Worker(
+const duplicateWorker = startWorker(
   QUEUE_NAMES.duplicateScan,
-  async (job: Job) => {
+  async (job) => {
     const payload = assertPayload(QUEUE_NAMES.duplicateScan, job.data);
     const log = logger.child({ jobId: job.id, treeId: payload.treeId });
     log.info('duplicate scan started');
@@ -222,7 +217,8 @@ const duplicateWorker = new Worker(
     );
     return result;
   },
-  { connection, concurrency: 1, ...WORKER_RETENTION },
+  { concurrency: 1 },
+  queueConfig,
 );
 
 duplicateWorker.on('failed', (job, error) => {
@@ -242,9 +238,9 @@ reportConnectionErrors(duplicateWorker, (error, suppressed) =>
  * its light versions replace it once they exist. Metadata is stripped from
  * both — a phone's EXIF holds the GPS position where it was taken.
  */
-const mediaWorker = new Worker(
+const mediaWorker = startWorker(
   QUEUE_NAMES.mediaDerivatives,
-  async (job: Job) => {
+  async (job) => {
     const payload = assertPayload(QUEUE_NAMES.mediaDerivatives, job.data);
     const log = logger.child({ jobId: job.id, treeId: payload.treeId, mediaId: payload.mediaId });
     const result = await runMediaDerivatives(
@@ -260,7 +256,8 @@ const mediaWorker = new Worker(
   },
   // Two at a time: decoding is memory-bound, and a gallery upload of fifty
   // photographs should not take the worker's whole heap.
-  { connection, concurrency: 2, ...WORKER_RETENTION },
+  { concurrency: 2 },
+  queueConfig,
 );
 
 mediaWorker.on('failed', (job, error) => {
@@ -352,6 +349,7 @@ async function shutdown(signal: string): Promise<void> {
   health?.close();
   await Promise.all(workers.map((worker) => worker.close()));
   await duplicateQueue.close();
+  await closePostgresQueues();
   await db.$disconnect();
   logger.info('stopped');
   process.exit(0);
