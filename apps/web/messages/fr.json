@@ -211,7 +211,9 @@
     "birth": "Naissance",
     "death": "Décès",
     "notes": "Notes",
-    "photos": "{count, plural, one {1 photographie} other {# photographies}}"
+    "photos": "{count, plural, one {1 photographie} other {# photographies}}",
+    "ageAtDeath": "à {age} ans",
+    "portrait": "Portrait de {name}"
   },
   "events": {
     "BIRTH": "Naissance",
@@ -1655,5 +1657,12 @@
       "copyright": "Crédit",
       "save": "Enregistrer"
     }
+  },
+  "errors": {
+    "title": "Cette page n’a pas pu s’afficher",
+    "lead": "Rien n’a été modifié dans l’arbre. Réessayer suffit le plus souvent ; si cela se reproduit, l’incident est déjà dans les journaux du serveur.",
+    "retry": "Réessayer",
+    "backToTrees": "Revenir aux arbres",
+    "reference": "Référence : {digest}"
   }
 }

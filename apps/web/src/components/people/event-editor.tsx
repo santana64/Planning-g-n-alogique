@@ -93,7 +93,9 @@ export function EventEditor({
       {events.length === 0 ? (
         <p className="text-text-faint text-sm">{t('nothingRecorded')}</p>
       ) : (
-        <ul className="flex flex-col">
+        // A life line: a thread down the left, a dot per event — filled when
+        // a source supports it, hollow when nothing does yet.
+        <ul className="before:bg-border-default relative flex flex-col pl-6 before:absolute before:top-3 before:bottom-3 before:left-[5px] before:w-px">
           {events.map((event) =>
             editing === event.eventId ? (
               <li
@@ -109,8 +111,16 @@ export function EventEditor({
             ) : (
               <li
                 key={event.eventId}
-                className="border-border-subtle flex flex-col gap-1 border-b py-2 last:border-b-0"
+                className="border-border-subtle relative flex flex-col gap-1 border-b py-2 last:border-b-0"
               >
+                <span
+                  aria-hidden="true"
+                  className={`absolute top-[0.85rem] -left-6 h-[11px] w-[11px] rounded-full border-2 ${
+                    event.citations.length > 0
+                      ? 'border-accent bg-accent'
+                      : 'border-border-strong bg-surface-0'
+                  } ${VITAL.has(event.type) ? 'scale-125' : ''}`}
+                />
                 <span className="flex items-baseline justify-between gap-4">
                   <span className="text-text-primary text-sm">{event.label}</span>
                   <span className="text-text-muted flex items-baseline gap-2 text-sm">

@@ -114,3 +114,18 @@ export async function settled(page: Page): Promise<void> {
     document.getAnimations().every((animation) => animation.playState !== 'running'),
   );
 }
+
+/**
+ * Open the command palette with its shortcut.
+ *
+ * The listener is attached when the page hydrates; a shortcut pressed a few
+ * milliseconds earlier goes nowhere. Pressing again until the box appears is
+ * what a person does, and says exactly what the step needs.
+ */
+export async function openPalette(page: Page): Promise<void> {
+  const box = page.getByRole('combobox', { name: /Chercher une personne|Search for a person/ });
+  await expect(async () => {
+    if (!(await box.isVisible())) await page.keyboard.press('ControlOrMeta+k');
+    await expect(box).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
+}

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { settled, signUp } from './helpers';
+import { openPalette, settled, signUp } from './helpers';
 
 /**
  * The flows that must never break.
@@ -212,7 +212,7 @@ test.describe('the command palette', () => {
   test('finds a person by a spelling nobody in the tree uses', async ({ page }) => {
     await page.goto(TREE);
 
-    await page.keyboard.press('ControlOrMeta+k');
+    await openPalette(page);
     const search = page.getByRole('combobox', { name: /Chercher une personne/ });
     await expect(search).toBeFocused();
 
@@ -227,7 +227,7 @@ test.describe('the command palette', () => {
 
   test('opens the record from the keyboard alone', async ({ page }) => {
     await page.goto(TREE);
-    await page.keyboard.press('ControlOrMeta+k');
+    await openPalette(page);
     await page.getByRole('combobox', { name: /Chercher une personne/ }).fill('hippolyte');
     await expect(page.getByRole('option').first()).toBeVisible();
     await page.keyboard.press('Enter');
@@ -241,7 +241,7 @@ test.describe('the command palette', () => {
 
   test('never offers a living person to a stranger', async ({ page }) => {
     await page.goto(TREE);
-    await page.keyboard.press('ControlOrMeta+k');
+    await openPalette(page);
     await page.getByRole('combobox', { name: /Chercher une personne/ }).fill('bertrand');
     await expect(page.getByRole('option').first()).toBeVisible();
 
@@ -255,7 +255,7 @@ test.describe('the command palette', () => {
 
   test('closes on escape and gives the focus back', async ({ page }) => {
     await page.goto(TREE);
-    await page.keyboard.press('ControlOrMeta+k');
+    await openPalette(page);
     await expect(page.getByRole('dialog', { name: 'Recherche' })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Recherche' })).toHaveCount(0);
@@ -331,7 +331,7 @@ test.describe('descent', () => {
     // Reached through the palette so the journey is the real one: a name in
     // the head, a record on screen, then the study.
     await page.goto('/app/famille-chassagne-demo/personnes');
-    await page.keyboard.press('ControlOrMeta+k');
+    await openPalette(page);
     await page.getByRole('combobox', { name: /Chercher une personne/ }).fill('mathurin');
     await expect(page.getByRole('option').first()).toBeVisible();
     await page.keyboard.press('Enter');
@@ -362,7 +362,7 @@ test.describe('descent', () => {
     // A descendant study is the one view that runs into the present by
     // construction: the last two generations are mostly alive.
     await page.goto('/app/famille-chassagne-demo/personnes');
-    await page.keyboard.press('ControlOrMeta+k');
+    await openPalette(page);
     await page.getByRole('combobox', { name: /Chercher une personne/ }).fill('mathurin');
     await expect(page.getByRole('option').first()).toBeVisible();
     await page.keyboard.press('Enter');
@@ -384,7 +384,7 @@ test.describe('descent', () => {
 test.describe('the temporal fan', () => {
   test('draws an ancestry in years, and says how sure each year is', async ({ page }) => {
     await page.goto('/app/famille-chassagne-demo/personnes');
-    await page.keyboard.press('ControlOrMeta+k');
+    await openPalette(page);
     await page.getByRole('combobox', { name: /Chercher une personne/ }).fill('émile moreau');
     await expect(page.getByRole('option').first()).toBeVisible();
     await page.keyboard.press('Enter');
@@ -610,7 +610,7 @@ test.describe('the constellation', () => {
 test.describe('the story', () => {
   async function openEmile(page: Page) {
     await page.goto('/app/famille-chassagne-demo/personnes');
-    await page.keyboard.press('ControlOrMeta+k');
+    await openPalette(page);
     await page.getByRole('combobox', { name: /Chercher une personne/ }).fill('émile moreau');
     await expect(page.getByRole('option').first()).toBeVisible();
     await page.keyboard.press('Enter');

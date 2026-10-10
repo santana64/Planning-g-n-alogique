@@ -54,6 +54,8 @@ export default async function PersonPage({
   const history =
     person.redacted || access.role === null ? [] : await loadPersonHistory(access, person.personId);
   const photos = person.redacted ? [] : await loadPersonPhotos(access, person.personId);
+  const portrait = photos[0] ?? null;
+  const ageAtDeath = ageBetween(person.birthLabel, person.deathLabel);
 
   return (
     <main id="main" className="bg-surface-0 min-h-dvh px-6 py-10">
@@ -72,12 +74,39 @@ export default async function PersonPage({
           >
             ← {t('allPeople')}
           </Link>
-          <h1 className="font-editorial text-text-primary text-3xl tracking-tight">
-            {person.displayName}
-          </h1>
-          <p className="tabular text-text-muted">
-            {person.birthLabel} — {person.deathLabel}
-          </p>
+          <div className="flex items-center gap-4">
+            {portrait ? (
+              <Link
+                href={`/app/${treeSlug}/photos/${portrait.mediaId}`}
+                className="ring-border-default hover:ring-accent block h-16 w-16 shrink-0 overflow-hidden rounded-full ring-2 transition-shadow duration-[var(--duration-fast)]"
+              >
+                <img
+                  src={`/api/trees/${treeSlug}/media/${portrait.mediaId}?variant=thumbnail`}
+                  alt={t('portrait', { name: person.displayName })}
+                  className="h-full w-full object-cover"
+                />
+              </Link>
+            ) : null}
+            <div className="flex flex-col gap-0.5">
+              <h1 className="font-editorial text-text-primary flex items-center gap-3 text-3xl tracking-tight">
+                {/* The colour of their life on the timeline, as a mark. */}
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-7 w-1.5 rounded-full"
+                  style={{ background: SEX_ACCENT[person.recordedSex] ?? 'var(--sex-unknown)' }}
+                />
+                {person.displayName}
+              </h1>
+              <p className="tabular text-text-muted">
+                {person.birthLabel} — {person.deathLabel}
+                {ageAtDeath !== null ? (
+                  <span className="text-text-faint ml-3 text-sm">
+                    {t('ageAtDeath', { age: ageAtDeath })}
+                  </span>
+                ) : null}
+              </p>
+            </div>
+          </div>
           {person.privacy && person.privacy !== 'INHERIT' ? (
             <p className="text-source text-xs">{t(`privacy.${person.privacy}`)}</p>
           ) : null}
@@ -267,6 +296,28 @@ export default async function PersonPage({
       </div>
     </main>
   );
+}
+
+const SEX_ACCENT: Record<string, string> = {
+  FEMALE: 'var(--sex-female)',
+  MALE: 'var(--sex-male)',
+  INTERSEX: 'var(--sex-other)',
+  UNKNOWN: 'var(--sex-unknown)',
+};
+
+/**
+ * The age at death, only when both ends carry a four-digit year and nothing
+ * else could make it ambiguous ("vers", "avant", a range). A number shown
+ * beside a name is read as a fact, so it is shown only when it is one, to
+ * within a year.
+ */
+function ageBetween(birth: string, death: string): number | null {
+  const plain = /^(?:\d{1,2}(?:er)?\s+\S+\s+)?(\d{4})$/u;
+  const b = plain.exec(birth.trim());
+  const d = plain.exec(death.trim());
+  if (!b?.[1] || !d?.[1]) return null;
+  const age = Number(d[1]) - Number(b[1]);
+  return age >= 0 && age < 125 ? age : null;
 }
 
 async function ReadOnlyPerson({

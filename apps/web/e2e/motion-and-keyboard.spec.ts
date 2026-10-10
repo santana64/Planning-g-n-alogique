@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { EDITING_STATE_PATH } from './global-setup';
-import { createTree } from './helpers';
+import { createTree, openPalette } from './helpers';
 
 /**
  * Two promises made to the readers who depend on them most: someone who asked
@@ -68,7 +68,7 @@ test.describe('less motion', () => {
   test('the story changes year without running the clock', async ({ page }) => {
     async function openTheStory(): Promise<{ player: Locator; markers: string[] }> {
       await page.goto('/app/famille-chassagne-demo/personnes');
-      await page.keyboard.press('ControlOrMeta+k');
+      await openPalette(page);
       await page.getByRole('combobox', { name: /Chercher une personne/ }).fill('émile moreau');
       await expect(page.getByRole('option').first()).toBeVisible();
       await page.keyboard.press('Enter');

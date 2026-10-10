@@ -211,7 +211,9 @@
     "birth": "Birth",
     "death": "Death",
     "notes": "Notes",
-    "photos": "{count, plural, one {1 photograph} other {# photographs}}"
+    "photos": "{count, plural, one {1 photograph} other {# photographs}}",
+    "ageAtDeath": "aged {age}",
+    "portrait": "Portrait of {name}"
   },
   "events": {
     "BIRTH": "Birth",
@@ -1655,5 +1657,12 @@
       "copyright": "Credit",
       "save": "Save"
     }
+  },
+  "errors": {
+    "title": "This page could not be shown",
+    "lead": "Nothing in the tree was changed. Trying again is usually enough; if it happens again, the incident is already in the server’s logs.",
+    "retry": "Try again",
+    "backToTrees": "Back to the trees",
+    "reference": "Reference: {digest}"
   }
 }

@@ -309,6 +309,42 @@
   }
 }
 
+/* A screen of a tree arrives: fade and a short rise (template.tsx). */
+.page-enter {
+  animation: page-in 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * No loading.tsx under a tree, deliberately: a Suspense boundary starts the
+ * response before the page has decided whether the tree exists, so a private
+ * or missing tree answered 200 instead of 404 — the difference this product
+ * refuses to leak. Found by the end-to-end suite.
+ */
+
+/* A life on the people list, drawn on the tree's own time axis. */
+.life-track {
+  transform-origin: left center;
+  animation: reveal-x 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter,
+  .life-track {
+    animation: none;
+  }
+}
+
 /* A scan that is still on its way breathes, rather than spinning. */
 .viewer-loading {
   animation: breathe 1.4s ease-in-out infinite;

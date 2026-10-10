@@ -5,6 +5,7 @@ import { redirect } from '@/i18n/navigation';
 import { getSession } from '@/lib/session';
 import { resolveTreeAccess } from '@/server/access';
 import { ImportReview } from '@/components/import/import-review';
+import { TreeNav } from '@/components/people/tree-nav';
 
 /**
  * Dynamic, because it reads the database on every request.
@@ -36,6 +37,14 @@ export default async function ImportPage({
 
   return (
     <main id="main" className="bg-surface-0 min-h-dvh">
+      <div className="mx-auto max-w-[var(--content-max)] px-6 pt-4">
+        <TreeNav
+          treeSlug={treeSlug}
+          treeName={access.treeName}
+          role={access.role}
+          current="import"
+        />
+      </div>
       <ImportReview treeSlug={treeSlug} />
     </main>
   );

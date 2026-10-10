@@ -124,6 +124,28 @@ coupées et contenu affiché d'emblée, scène du récit sans transition, année
 récit changée d'un coup, caméra de la constellation sans amortissement ni
 trajet. Vérifié en E2E en comparant la même page avec et sans la préférence.
 
+### Ce que chaque écran fait en arrivant
+
+- **Entrée de page** (`template.tsx` sous un arbre) : fondu et montée de
+  8 px, 260 ms, rejouée à chaque navigation.
+- **Listes** : les lignes arrivent l'une après l'autre (`.research-row`),
+  les barres de graphique poussent depuis leur ligne de base (`.stat-column`,
+  `.stat-bar`), les vies de la liste des personnes se dessinent sur l'axe
+  commun (`.life-track`).
+- **Frise** : les vies poussent en cascade, les liens de la personne choisie
+  se tracent du parent vers l'enfant, un anneau pulse deux fois.
+- Tout cela disparaît sous « réduire les animations ». Les vérifications
+  d'accessibilité des tests attendent la fin des animations (`settled`).
+- **Pas de `loading.tsx` sous un arbre** : une frontière Suspense commence la
+  réponse avant que la page sache si l'arbre existe, et un arbre privé
+  répondait 200 au lieu de 404.
+
+### Couleurs femmes / hommes
+
+`--sex-female`, `--sex-male`, `--sex-other`, `--sex-unknown`, validées au
+script de palette dans les deux thèmes (bande de luminosité, séparation pour
+les daltonismes). Jamais seul porteur du sens : symbole ♀ ♂, légende, texte.
+
 ## Focus et clavier
 
 `:focus-visible` : contour de 2 px à la couleur d'accent, décalé de 2 px — **jamais

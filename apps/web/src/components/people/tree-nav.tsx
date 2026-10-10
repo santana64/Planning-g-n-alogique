@@ -114,7 +114,9 @@ export async function TreeNav({
         ];
 
   return (
-    <header className="border-border-subtle flex flex-wrap items-baseline justify-between gap-4 border-b pb-4">
+    // Sticky, so moving between views never means scrolling back up; the
+    // translucent ground keeps the page legible as it slides underneath.
+    <header className="border-border-subtle bg-surface-0/85 supports-[backdrop-filter]:bg-surface-0/70 sticky top-0 z-30 -mx-6 -mt-4 flex flex-wrap items-baseline justify-between gap-4 border-b px-6 pt-4 pb-4 backdrop-blur-md">
       {/* Everything wraps: on a phone eleven links in one row pushed the
           whole page sideways, on every screen of a tree. */}
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-2">
@@ -133,7 +135,7 @@ export async function TreeNav({
               className={
                 tab.key === current
                   ? 'text-text-primary border-accent border-b-2 pb-1 text-sm'
-                  : 'text-text-muted hover:text-text-primary pb-1 text-sm'
+                  : 'text-text-muted hover:text-text-primary hover:border-border-strong border-b-2 border-transparent pb-1 text-sm transition-colors duration-[var(--duration-fast)]'
               }
             >
               {tab.label}

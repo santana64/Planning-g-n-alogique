@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { EDITING_STATE_PATH } from './global-setup';
-import { addPerson, createTree, fillStable } from './helpers';
+import { addPerson, createTree, fillStable, settled } from './helpers';
 
 /**
  * The screens that run a tree — sharing, history, settings, one's account,
@@ -13,6 +13,8 @@ test.describe.configure({ timeout: 120_000 });
 test.use({ storageState: EDITING_STATE_PATH });
 
 async function accessible(page: Page, label: string): Promise<void> {
+  // Measured once the page has arrived, not halfway through its fade-in.
+  await settled(page);
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze();

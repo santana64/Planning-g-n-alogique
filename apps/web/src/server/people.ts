@@ -43,6 +43,11 @@ export interface PersonSummary {
   readonly lifespanLabel: string;
   readonly isLiving: boolean;
   readonly redacted: boolean;
+  /** The life's years for the list's time bar; null when hidden or undated. */
+  readonly startYear: number | null;
+  readonly endYear: number | null;
+  /** The end was inferred by the maximum-lifespan rule, not recorded. */
+  readonly endInferred: boolean;
 }
 
 export interface PeopleListing {
@@ -141,6 +146,10 @@ export async function listPeople(
         : lifespanLabelOf(row.lifespanEarliestJdn, row.lifespanLatestJdn, isLiving),
       isLiving: hidden ? false : isLiving,
       redacted: hidden,
+      startYear:
+        hidden || row.lifespanEarliestJdn === null ? null : jdnYear(row.lifespanEarliestJdn),
+      endYear: hidden || row.lifespanLatestJdn === null ? null : jdnYear(row.lifespanLatestJdn),
+      endInferred: hidden ? false : row.lifespanLatestInferred,
     };
   });
 
