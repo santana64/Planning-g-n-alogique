@@ -13,6 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # The desktop edition's Electron runtime is not needed to test the app.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
   # The AI provider is always the deterministic stub in CI. A test suite that
   # can call a paid API will eventually call it by accident, on a branch, in a
   # loop (ADR 0004).

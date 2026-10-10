@@ -16,6 +16,10 @@ export default tseslint.config(
       '**/*.d.ts',
       // Copied from maplibre-gl at build time (apps/web/scripts/copy-maplibre-worker.mjs).
       'apps/web/public/maplibre/**',
+      // Desktop edition build output.
+      'apps/desktop/stage/**',
+      'apps/desktop/release/**',
+      'apps/desktop/dist/**',
     ],
   },
 

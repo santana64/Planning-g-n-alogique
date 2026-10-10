@@ -21,11 +21,13 @@
     "bullmq": "catalog:",
     "pino": "catalog:",
     "sharp": "catalog:",
-    "tsx": "catalog:"
+    "tsx": "catalog:",
+    "pg": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "pino-pretty": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "@types/pg": "catalog:"
   }
 }

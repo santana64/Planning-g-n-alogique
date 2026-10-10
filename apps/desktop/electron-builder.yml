@@ -1,0 +1,31 @@
+# Windows installer for the desktop edition.
+# Built by `pnpm --filter @chronolignee/desktop dist` after `stage`.
+appId: fr.chronolignee.desktop
+productName: Chronolignée
+copyright: Chronolignée
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**
+  - package.json
+# The servers (stage/web, stage/worker, stage/pgsql) are not listed as extra
+# resources: electron-builder leaves out every node_modules folder there,
+# whatever the filter. scripts/package.mjs copies them into the unpacked app
+# and builds the installer from that (--prepackaged).
+asar: true
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: Chronolignee-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Chronolignée
+  # The family's data lives in the user's profile, not in the program folder:
+  # uninstalling the program never deletes a family archive.
+  deleteAppDataOnUninstall: false

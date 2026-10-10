@@ -21,6 +21,7 @@ FROM base AS manifests
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/web/package.json ./apps/web/
 COPY apps/worker/package.json ./apps/worker/
+COPY apps/desktop/package.json ./apps/desktop/
 COPY packages/ai/package.json ./packages/ai/
 COPY packages/config/package.json ./packages/config/
 COPY packages/domain/package.json ./packages/domain/
@@ -37,6 +38,8 @@ COPY packages/ui/package.json ./packages/ui/
 # Build dependencies — everything, including what only the build needs
 # ---------------------------------------------------------------------------
 FROM manifests AS deps
+# The desktop edition's Electron runtime has no place in a server image.
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 

@@ -22,6 +22,10 @@ allowBuilds:
   # surfaced during Windows development and only appeared in the container
   # build — which is exactly what the container build is for.
   msgpackr-extract: true
+  # Desktop edition: Electron downloads its runtime at install time.
+  electron: true
+  # Squirrel installer, pulled in by electron-builder; the desktop build uses NSIS.
+  electron-winstaller: false
 
 # Single source of truth for every third-party version in the monorepo.
 # Packages reference these with `"dep": "catalog:"` so a version can never
@@ -31,6 +35,10 @@ catalog:
   typescript: 5.9.3
   '@types/node': 22.20.2
   tsx: 4.23.13
+
+  # --- Desktop ------------------------------------------------------------
+  electron: 44.5.1
+  electron-builder: 26.16.1
 
   # --- Web ----------------------------------------------------------------
   next: 16.3.5

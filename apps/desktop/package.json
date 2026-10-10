@@ -1,0 +1,22 @@
+{
+  "name": "@chronolignee/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chronolignée for Windows: the whole application on one computer.",
+  "author": "Chronolignée",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "stage": "node scripts/stage.mjs",
+    "start": "pnpm run build && electron .",
+    "dist": "pnpm run build && node scripts/stage.mjs && node scripts/package.mjs",
+    "package": "pnpm run build && node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "electron": "catalog:",
+    "electron-builder": "catalog:",
+    "typescript": "catalog:"
+  }
+}

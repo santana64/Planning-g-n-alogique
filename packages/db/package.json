@@ -37,5 +37,11 @@
     "typescript": "catalog:",
     "vitest": "catalog:",
     "@types/pg": "catalog:"
-  }
+  },
+  "files": [
+    "src",
+    "generated",
+    "prisma",
+    "prisma.config.ts"
+  ]
 }

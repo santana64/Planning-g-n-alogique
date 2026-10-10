@@ -144,3 +144,7 @@ Les dépendances pointent **vers l'intérieur**, et ESLint l'impose :
 ## Licence
 
 Privée, non publiée.
+
+## Édition de bureau (Windows)
+
+Un installeur `.exe` qui embarque tout (PostgreSQL + PostGIS, worker, web) : voir [docs/DESKTOP.md](docs/DESKTOP.md).

@@ -57,3 +57,8 @@ backups/
 
 # Copied from maplibre-gl at build time (scripts/copy-maplibre-worker.mjs).
 apps/web/public/maplibre/
+
+# Desktop edition build output.
+apps/desktop/stage/
+apps/desktop/release/
+apps/desktop/dist/
