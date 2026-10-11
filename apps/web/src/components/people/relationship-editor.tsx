@@ -144,6 +144,7 @@ export function RelationshipEditor({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <PersonPicker
+              allowCreate
               key={stance}
               name={stance === 'CHILD_OF' ? 'sourceId' : 'targetId'}
               label={stance === 'CHILD_OF' ? t('theParent') : t('theOtherPerson')}

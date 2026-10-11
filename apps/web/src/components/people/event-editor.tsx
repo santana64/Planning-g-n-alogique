@@ -267,6 +267,7 @@ export function EventEditor({
             {PAIRED.has(type) ? (
               <div className="flex flex-col gap-2">
                 <PersonPicker
+                  allowCreate
                   key={type}
                   name="secondId"
                   label={t('with')}

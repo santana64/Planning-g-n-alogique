@@ -352,9 +352,27 @@ async function ensureRuntime(): Promise<void> {
     });
   }
   writeFileSync(marker, new Date().toISOString());
-  for (const entry of readdirSync(runtimeRoot)) {
-    if (entry !== app.getVersion()) {
-      rmSync(join(runtimeRoot, entry), { recursive: true, force: true });
+}
+
+/**
+ * Remove older versions' servers, best effort and after start-up: a file
+ * still held by an older copy of the app (or by Windows Defender) is simply
+ * left for next time. Tidying up must never stop the app from opening.
+ */
+function removeOldRuntimes(): void {
+  if (!app.isPackaged) return;
+  let entries: string[] = [];
+  try {
+    entries = readdirSync(runtimeRoot);
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (entry === app.getVersion()) continue;
+    try {
+      rmSync(join(runtimeRoot, entry), { recursive: true, force: true, maxRetries: 2 });
+    } catch {
+      // In use; tried again on the next launch.
     }
   }
 }
@@ -432,10 +450,20 @@ function openMain(port: number): void {
     }
   });
   mainWindow.once('ready-to-show', () => {
+    const window = mainWindow;
+    if (!window) return;
+    // Windows does not let an app take the foreground on its own once the
+    // user has clicked elsewhere: the window opened behind Explorer and the
+    // app looked as if it had stopped after its splash. Shown on top for a
+    // moment, then an ordinary window again.
+    window.show();
+    window.setAlwaysOnTop(true);
+    window.moveTop();
+    window.focus();
+    app.focus({ steal: true });
     splash?.close();
     splash = null;
-    mainWindow?.show();
-    mainWindow?.focus();
+    setTimeout(() => window.setAlwaysOnTop(false), 1500);
   });
   void mainWindow.loadURL(`${origin}/app`);
 }
@@ -506,6 +534,7 @@ async function start(): Promise<void> {
   );
   await waitForWeb(config.webPort);
   openMain(config.webPort);
+  setTimeout(removeOldRuntimes, 30_000);
 }
 
 function shutdown(): void {

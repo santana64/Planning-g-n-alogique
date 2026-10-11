@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { searchPeopleAction } from '@/server/person-actions';
+import { quickCreatePersonAction, searchPeopleAction } from '@/server/person-actions';
 import type { PersonSummary } from '@/server/people';
 
 /**
@@ -24,11 +24,14 @@ export function PersonPicker({
   label,
   treeSlug,
   excludeId,
+  allowCreate = false,
 }: {
   name: string;
   label: string;
   treeSlug: string;
   excludeId: string;
+  /** Offer to create the person when nobody matches — editing forms only. */
+  allowCreate?: boolean;
 }) {
   const t = useTranslations('editing.picker');
   const inputId = useId();
@@ -38,6 +41,8 @@ export function PersonPicker({
   const [chosen, setChosen] = useState<PersonSummary | null>(null);
   const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const requestRef = useRef(0);
 
   // Whether the query is even worth asking about. Derived rather than stored:
@@ -106,7 +111,30 @@ export function PersonPicker({
           {t('change')}
         </button>
       ) : active && !searching && visible.length === 0 ? (
-        <p className="text-text-faint text-xs">{t('noMatch')}</p>
+        <div className="flex flex-col items-start gap-1">
+          <p className="text-text-faint text-xs">{t('noMatch')}</p>
+          {/* Nobody by that name yet: create them here rather than send the
+              user away to another form and back. */}
+          {allowCreate ? (
+            <button
+              type="button"
+              disabled={creating}
+              onClick={() => {
+                setCreating(true);
+                setCreateError(null);
+                void quickCreatePersonAction(treeSlug, query).then((result) => {
+                  setCreating(false);
+                  if ('error' in result) setCreateError(result.error);
+                  else setChosen(result);
+                });
+              }}
+              className="text-accent hover:text-accent-hover text-xs font-medium disabled:opacity-50"
+            >
+              {creating ? t('creating') : t('create', { name: query.trim() })}
+            </button>
+          ) : null}
+          {createError ? <p className="text-danger text-xs">{createError}</p> : null}
+        </div>
       ) : null}
 
       {open && visible.length > 0 ? (

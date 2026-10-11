@@ -477,7 +477,9 @@
     "picker": {
       "placeholder": "Type a name…",
       "change": "Change",
-      "noMatch": "Nobody of that name in this tree."
+      "noMatch": "Nobody of that name in this tree.",
+      "create": "Create “{name}” in the tree and choose them",
+      "creating": "Creating…"
     },
     "saving": "Saving…",
     "delete": {

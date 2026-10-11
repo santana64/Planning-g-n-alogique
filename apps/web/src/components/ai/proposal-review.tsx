@@ -146,6 +146,7 @@ function ProposalItem({
           // The record names someone the tree could not match without
           // guessing. The reviewer says who, or rejects.
           <PersonPicker
+            allowCreate
             name="personId"
             label={t('whoIs', { name: row.subjectName })}
             treeSlug={treeSlug}

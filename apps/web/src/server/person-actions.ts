@@ -124,6 +124,45 @@ export async function searchPeopleAction(
   return listing.people.slice(0, 20);
 }
 
+/**
+ * Create someone from a name alone, while linking: "Salomé Piessé" typed in a
+ * picker that found nobody. The last word is the surname, the rest the given
+ * names — a guess the record shows at once and that the user corrects on the
+ * new person's page. Nothing else is assumed: sex and living status unknown.
+ */
+export async function quickCreatePersonAction(
+  treeSlug: string,
+  fullName: string,
+): Promise<PersonSummary | { readonly error: string }> {
+  const t = await getTranslations('actions');
+  const authorised = await authoriseWrite(treeSlug);
+  if ('error' in authorised) return { error: authorised.error.message ?? '' };
+
+  const words = fullName.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return { error: t('person.nameRequired') };
+  const given = words.length > 1 ? words.slice(0, -1).join(' ') : (words[0] ?? '');
+  const surname = words.length > 1 ? (words.at(-1) ?? '') : '';
+
+  try {
+    const created = await createPerson(
+      db,
+      {
+        recordedSex: 'UNKNOWN',
+        livingStatus: 'UNKNOWN',
+        names: [{ type: 'BIRTH', given, surname, isPreferred: true, confidence: 'MEDIUM' }],
+      },
+      authorised.context,
+    );
+    revalidateTree(treeSlug);
+    const listing = await listPeople(treeSlug, created.displayName);
+    const summary = listing?.people.find((person) => person.personId === created.personId);
+    return summary ?? { error: t('person.nameRequired') };
+  } catch (error) {
+    const failed = await failure(error);
+    return { error: failed.message ?? '' };
+  }
+}
+
 export async function createPersonAction(
   _previous: ActionState,
   form: FormData,

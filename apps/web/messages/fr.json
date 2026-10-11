@@ -477,7 +477,9 @@
     "picker": {
       "placeholder": "Taper un nom…",
       "change": "Changer",
-      "noMatch": "Aucune personne de ce nom dans cet arbre."
+      "noMatch": "Personne de ce nom dans l’arbre pour l’instant.",
+      "create": "Créer « {name} » dans l’arbre et la choisir",
+      "creating": "Création…"
     },
     "saving": "Enregistrement…",
     "delete": {

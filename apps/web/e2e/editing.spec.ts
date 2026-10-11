@@ -503,3 +503,25 @@ test.describe('manual editing', () => {
     await stranger.close();
   });
 });
+
+test.describe('linking someone not yet in the tree', () => {
+  test.use({ storageState: EDITING_STATE_PATH });
+
+  test('creates them from the picker and links them in one go', async ({ page }) => {
+    await page.goto('/app');
+    await createTree(page, `Lien direct ${Date.now()}`);
+    await addPerson(page, { given: 'Frédéric', surname: 'Piessé', birth: '1967' });
+
+    await page.getByLabel('Sens du lien').selectOption('PARENT_OF');
+    await fillStable(page, 'L’autre personne', 'Salomé Piessé');
+    await expect(page.getByText('Personne de ce nom dans l’arbre pour l’instant.')).toBeVisible();
+    await page
+      .getByRole('button', { name: 'Créer « Salomé Piessé » dans l’arbre et la choisir' })
+      .click();
+    await expect(page.getByLabel('L’autre personne')).toHaveValue('Salomé PIESSÉ');
+    await page.getByRole('button', { name: 'Créer le lien' }).click();
+
+    await expect(page.getByText('Le lien a été créé.')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Salomé PIESSÉ' }).first()).toBeVisible();
+  });
+});
