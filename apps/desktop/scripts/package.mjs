@@ -2,12 +2,14 @@
  * Builds the Windows installer.
  *
  *   1. electron-builder --dir: the Electron app, unpacked;
- *   2. the staged servers copied into its resources folder, node_modules
- *      included (electron-builder will not copy those itself);
+ *   2. the staged servers added to its resources folder as three tar
+ *      archives — not as ninety thousand files, which an installer writes
+ *      and Windows Defender scans one by one for many minutes. The app
+ *      unpacks them once, on first launch;
  *   3. electron-builder --prepackaged: the NSIS installer from that folder.
  */
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,8 +31,13 @@ for (const part of ['web', 'worker', 'pgsql']) {
     throw new Error(`stage/${part} is missing: run the stage script`);
 }
 
+// A previous build's folders would otherwise ride along.
+rmSync(join(desktop, 'release'), { recursive: true, force: true });
 builder(['--win', '--dir', '--config', 'electron-builder.yml']);
+const tar = join(process.env.SystemRoot ?? 'C:/Windows', 'System32', 'tar.exe');
 for (const part of ['web', 'worker', 'pgsql']) {
-  cpSync(join(stage, part), join(unpacked, 'resources', part), { recursive: true });
+  const archive = join(unpacked, 'resources', `${part}.tar`);
+  const result = spawnSync(tar, ['-cf', archive, '-C', stage, part], { stdio: 'inherit' });
+  if (result.status !== 0) throw new Error(`archiving ${part} failed`);
 }
 builder(['--win', 'nsis', '--prepackaged', unpacked, '--config', 'electron-builder.yml']);

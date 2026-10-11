@@ -7,6 +7,7 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -38,11 +39,23 @@ interface DesktopConfig {
 // Before any path is read: the profile folder is named after the app.
 app.setName('Chronolignée');
 
-const resources = app.isPackaged ? process.resourcesPath : join(__dirname, '..', 'stage');
+/**
+ * Where the servers live. Packaged, they ship as three archives (an
+ * installer that writes ninety thousand small files is one Windows Defender
+ * scans one by one, for many minutes) and are unpacked once per version into
+ * the local profile on first launch. In development they are used from
+ * apps/desktop/stage as they are.
+ */
+const PARTS = ['pgsql', 'worker', 'web'] as const;
+const localAppData = process.env['LOCALAPPDATA'] ?? join(app.getPath('appData'), '..', 'Local');
+const runtimeRoot = join(localAppData, 'Chronolignée', 'runtime');
+const runtime = app.isPackaged
+  ? join(runtimeRoot, app.getVersion())
+  : join(__dirname, '..', 'stage');
 const paths = {
-  pgBin: join(resources, 'pgsql', 'bin'),
-  worker: join(resources, 'worker'),
-  web: join(resources, 'web'),
+  pgBin: join(runtime, 'pgsql', 'bin'),
+  worker: join(runtime, 'worker'),
+  web: join(runtime, 'web'),
   data: join(app.getPath('userData'), 'data'),
   logs: join(app.getPath('userData'), 'logs'),
 };
@@ -180,25 +193,62 @@ function runNode(
   });
 }
 
-function pgTool(tool: string, args: string[], env: NodeJS.ProcessEnv = process.env) {
-  return spawnSync(join(paths.pgBin, `${tool}.exe`), args, {
-    env,
-    windowsHide: true,
-    encoding: 'utf8',
-    // pg_ctl leaves the server running; ignoring its output keeps it from
-    // holding this call open on the server's handles.
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: 120_000,
+interface ToolResult {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+}
+
+/**
+ * A PostgreSQL tool, without blocking the main process: a synchronous call
+ * here froze the window — Windows then labels it "not responding" — for as
+ * long as initdb or a server start took.
+ */
+function pgTool(
+  tool: string,
+  args: string[],
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<ToolResult> {
+  return new Promise((resolve) => {
+    const child = spawn(join(paths.pgBin, `${tool}.exe`), args, {
+      env,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString('utf8')));
+    child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString('utf8')));
+    const timer = setTimeout(() => child.kill(), 120_000);
+    // pg_ctl leaves the server running, holding the pipes it inherited: the
+    // tool is done when it exits, not when its output closes.
+    child.once('exit', (status) => {
+      clearTimeout(timer);
+      resolve({ status, stdout, stderr });
+    });
+    child.once('error', (error) => {
+      clearTimeout(timer);
+      resolve({ status: -1, stdout, stderr: String(error) });
+    });
   });
 }
 
-function startPostgres(config: DesktopConfig): void {
+/** Stop the server, synchronously: used while the process is exiting. */
+function pgToolSync(tool: string, args: string[]): void {
+  spawnSync(join(paths.pgBin, `${tool}.exe`), args, {
+    windowsHide: true,
+    stdio: 'ignore',
+    timeout: 60_000,
+  });
+}
+
+async function startPostgres(config: DesktopConfig): Promise<void> {
   const pgEnv = { ...process.env, PGPASSWORD: config.dbPassword };
   if (!existsSync(join(pgData, 'PG_VERSION'))) {
     mkdirSync(paths.data, { recursive: true });
     const pwfile = join(paths.data, '.pw');
     writeFileSync(pwfile, config.dbPassword, { mode: 0o600 });
-    const init = pgTool('initdb', [
+    const init = await pgTool('initdb', [
       '-D',
       pgData,
       '-U',
@@ -216,8 +266,8 @@ function startPostgres(config: DesktopConfig): void {
     if (init.status !== 0) throw new Error(`initdb : ${init.stderr || init.stdout}`);
   }
 
-  const status = pgTool('pg_ctl', ['-D', pgData, 'status']);
-  if (status.status === 0) {
+  const running = await pgTool('pg_ctl', ['-D', pgData, 'status']);
+  if (running.status === 0) {
     // Still running from a session that did not close cleanly: use it, on
     // the port it actually listens on (line 4 of postmaster.pid).
     const port = Number(readFileSync(join(pgData, 'postmaster.pid'), 'utf8').split(/\r?\n/)[3]);
@@ -226,7 +276,7 @@ function startPostgres(config: DesktopConfig): void {
       saveConfig(config);
     }
   } else {
-    const started = pgTool('pg_ctl', [
+    const started = await pgTool('pg_ctl', [
       '-D',
       pgData,
       '-l',
@@ -241,7 +291,7 @@ function startPostgres(config: DesktopConfig): void {
     if (started.status !== 0) throw new Error(`PostgreSQL : ${started.stderr || started.stdout}`);
   }
 
-  const exists = pgTool(
+  const exists = await pgTool(
     'psql',
     [
       '-h',
@@ -259,7 +309,7 @@ function startPostgres(config: DesktopConfig): void {
   );
   if (exists.status !== 0) throw new Error(`PostgreSQL : ${exists.stderr}`);
   if (exists.stdout.trim() !== '1') {
-    const created = pgTool(
+    const created = await pgTool(
       'createdb',
       ['-h', '127.0.0.1', '-p', String(config.pgPort), '-U', 'chronolignee', 'chronolignee'],
       pgEnv,
@@ -270,7 +320,42 @@ function startPostgres(config: DesktopConfig): void {
 
 function stopPostgres(): void {
   if (existsSync(join(pgData, 'postmaster.pid'))) {
-    pgTool('pg_ctl', ['-D', pgData, '-m', 'fast', '-w', 'stop']);
+    pgToolSync('pg_ctl', ['-D', pgData, '-m', 'fast', '-w', 'stop']);
+  }
+}
+
+/**
+ * Unpack the servers for this version, once. Windows' own tar does it; a
+ * half-unpacked folder (the app closed mid-way) has no marker and is redone.
+ * Older versions' folders are removed afterwards.
+ */
+async function ensureRuntime(): Promise<void> {
+  if (!app.isPackaged) return;
+  const marker = join(runtime, '.complete');
+  if (existsSync(marker)) return;
+  rmSync(runtime, { recursive: true, force: true });
+  mkdirSync(runtime, { recursive: true });
+  const tar = join(process.env['SystemRoot'] ?? 'C:\\Windows', 'System32', 'tar.exe');
+  for (const [index, part] of PARTS.entries()) {
+    status(`Première ouverture : installation des composants (${index + 1}/${PARTS.length})…`);
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(tar, ['-xf', join(process.resourcesPath, `${part}.tar`), '-C', runtime], {
+        windowsHide: true,
+        stdio: 'ignore',
+      });
+      child.once('error', reject);
+      child.once('exit', (code) =>
+        code === 0
+          ? resolve()
+          : reject(new Error(`décompression de ${part} : code ${code ?? '?'}`)),
+      );
+    });
+  }
+  writeFileSync(marker, new Date().toISOString());
+  for (const entry of readdirSync(runtimeRoot)) {
+    if (entry !== app.getVersion()) {
+      rmSync(join(runtimeRoot, entry), { recursive: true, force: true });
+    }
   }
 }
 
@@ -298,8 +383,15 @@ function showSplash(): void {
     resizable: false,
     backgroundColor: '#0b1020',
     show: true,
+    center: true,
+    // In front of the folder it was opened from: a splash hidden behind
+    // Explorer reads as "nothing happened".
+    alwaysOnTop: true,
+    skipTaskbar: false,
+    title: 'Chronolignée',
     webPreferences: { sandbox: true, contextIsolation: true },
   });
+  splash.focus();
   const html = `<!doctype html><meta charset="utf-8"><body style="margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0b1020;color:#e9e4d8;font-family:Georgia,serif">
   <div style="font-size:28px;letter-spacing:-0.5px">Chronolignée</div>
   <div id="m" style="margin-top:14px;font:13px system-ui;color:#a9b0c0">Ouverture des archives…</div>
@@ -343,6 +435,7 @@ function openMain(port: number): void {
     splash?.close();
     splash = null;
     mainWindow?.show();
+    mainWindow?.focus();
   });
   void mainWindow.loadURL(`${origin}/app`);
 }
@@ -372,12 +465,17 @@ async function fail(message: string): Promise<void> {
 
 async function start(): Promise<void> {
   mkdirSync(paths.logs, { recursive: true });
+  appendFileSync(
+    join(paths.logs, 'startup.log'),
+    `${new Date().toISOString()} lancement ${app.getVersion()} (${process.execPath})\n`,
+  );
   showSplash();
+  await ensureRuntime();
   const config = await loadConfig();
   const tsx = join(paths.worker, 'node_modules', 'tsx', 'dist', 'cli.mjs');
 
   status('Démarrage de la base de données…');
-  startPostgres(config);
+  await startPostgres(config);
   // After the database is up: its port may be the one a previous session left.
   const env = childEnv(config);
 
@@ -420,10 +518,14 @@ function shutdown(): void {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
+  // A second click while the app is open — or still starting — brings its
+  // window forward instead of doing nothing.
   app.on('second-instance', () => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
+    const window = mainWindow ?? splash;
+    if (window) {
+      if (window.isMinimized()) window.restore();
+      window.show();
+      window.focus();
     }
   });
   Menu.setApplicationMenu(null);

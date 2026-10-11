@@ -26,13 +26,27 @@ Les migrations sont appliquées sans le CLI Prisma
 avec les mêmes sommes de contrôle : une base créée par l'édition de bureau
 est la même qu'une base migrée par Prisma.
 
+## Installation et premier lancement
+
+L'installeur ne contient que l'app et trois archives (`web.tar`, `worker.tar`,
+`pgsql.tar`) : il s'installe en une quinzaine de secondes. Au premier
+lancement, l'app les décompresse une fois (≈ 1 minute, avec un message dans
+l'écran de démarrage) dans `%LOCALAPPDATA%\Chronolignée
+untime\<version>` ;
+les lancements suivants prennent quelques secondes. Une nouvelle version
+décompresse les siennes et supprime celles de la précédente.
+
+Écrire ces ~90 000 fichiers depuis l'installeur prenait des dizaines de
+minutes (Windows Defender les analyse un par un) et laissait la fenêtre
+« ne répond pas ».
+
 ## Où sont les données
 
 `%APPDATA%\Chronolignée\` :
 
 - `data\postgres\` — la base ;
 - `data\archive\` — photos, documents, fichiers importés ;
-- `logs\` — journaux (base, web, worker, démarrage) ;
+- `logs\` — journaux (base, web, worker, démarrage — chaque lancement y est noté) ;
 - `desktop.json` — ports et secrets locaux.
 
 Désinstaller le programme **ne supprime pas** ce dossier : une archive de

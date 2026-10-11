@@ -82,6 +82,10 @@ for (const entry of readdirSync(hoisted)) {
   }
 }
 
+// With every package now at the top level, the .pnpm store is a second copy
+// of all of them — tens of thousands of files for the installer to write.
+rmSync(join(webModules, '.pnpm'), { recursive: true, force: true });
+
 // --- Worker ------------------------------------------------------------------
 console.log('› deploying the worker');
 run(
