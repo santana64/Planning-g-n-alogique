@@ -361,7 +361,7 @@ async function ensureRuntime(): Promise<void> {
  */
 function removeOldRuntimes(): void {
   if (!app.isPackaged) return;
-  let entries: string[] = [];
+  let entries: string[];
   try {
     entries = readdirSync(runtimeRoot);
   } catch {

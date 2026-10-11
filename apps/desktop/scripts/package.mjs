@@ -31,8 +31,9 @@ for (const part of ['web', 'worker', 'pgsql']) {
     throw new Error(`stage/${part} is missing: run the stage script`);
 }
 
-// A previous build's folders would otherwise ride along.
-rmSync(join(desktop, 'release'), { recursive: true, force: true });
+// A previous build's unpacked folder would otherwise ride along. (The
+// release folder itself may be some shell's working directory: kept.)
+rmSync(unpacked, { recursive: true, force: true });
 builder(['--win', '--dir', '--config', 'electron-builder.yml']);
 const tar = join(process.env.SystemRoot ?? 'C:/Windows', 'System32', 'tar.exe');
 for (const part of ['web', 'worker', 'pgsql']) {
